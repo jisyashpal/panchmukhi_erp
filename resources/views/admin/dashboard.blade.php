@@ -1,0 +1,104 @@
+@extends('layouts.admin')
+@section('title', 'Dashboard')
+@section('content')
+<x-admin-page-header title="Dashboard" subtitle="System overview — master data & operations oversight">
+    <form method="GET" class="d-flex align-items-center gap-2">
+        <select name="site_id" onchange="this.form.submit()" class="form-select form-select-sm" style="min-width: 180px;">
+            <option value="">All sites</option>
+            @foreach($sites as $site)
+                <option value="{{ $site->id }}" @selected($siteId == $site->id)>{{ $site->name }}</option>
+            @endforeach
+        </select>
+    </form>
+</x-admin-page-header>
+
+<div class="admin-stat-grid">
+    <div class="admin-stat-card stat-accent-blue">
+        <div class="stat-icon stat-icon-blue"><i class="bi bi-building"></i></div>
+        <div class="stat-label">Active Sites</div>
+        <div class="stat-value">{{ $activeSites }}</div>
+    </div>
+    <div class="admin-stat-card stat-accent-violet">
+        <div class="stat-icon stat-icon-violet"><i class="bi bi-people"></i></div>
+        <div class="stat-label">Active Users</div>
+        <div class="stat-value">{{ $usersCount }}</div>
+    </div>
+    <div class="admin-stat-card stat-accent-emerald">
+        <div class="stat-icon stat-icon-emerald"><i class="bi bi-box"></i></div>
+        <div class="stat-label">Products</div>
+        <div class="stat-value">{{ $productsCount }}</div>
+    </div>
+    <div class="admin-stat-card stat-accent-amber">
+        <div class="stat-icon stat-icon-amber"><i class="bi bi-boxes"></i></div>
+        <div class="stat-label">Stock Lines</div>
+        <div class="stat-value">{{ $totalStockLines }}</div>
+    </div>
+    <div class="admin-stat-card stat-accent-blue">
+        <div class="stat-icon stat-icon-blue"><i class="bi bi-cart"></i></div>
+        <div class="stat-label">Pending Orders</div>
+        <div class="stat-value">{{ $pendingOrders }}</div>
+    </div>
+    <div class="admin-stat-card stat-accent-emerald">
+        <div class="stat-icon stat-icon-emerald"><i class="bi bi-check2-circle"></i></div>
+        <div class="stat-label">Delivered Purchases</div>
+        <div class="stat-value">{{ $deliveredPurchases }}</div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-4">
+        <div class="admin-card admin-card-body h-100">
+            <h2 class="h6">Operations Overview</h2>
+            <p class="small text-muted">Access HO operations (stock, PO, reports) with full Super Admin visibility.</p>
+            <div class="d-grid gap-2">
+                <a href="{{ route('ho.dashboard') }}" class="btn btn-admin-outline btn-sm">HO Dashboard</a>
+                <a href="{{ route('ho.product-requests.index') }}" class="btn btn-admin-outline btn-sm">Product Requests</a>
+                <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Stocks</a>
+                <a href="{{ route('ho.reports.index') }}" class="btn btn-admin-outline btn-sm">Reports</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="admin-card admin-table-card h-100">
+            <div class="admin-card-header"><h2>Low Stock</h2></div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead><tr><th>Site</th><th>Product</th><th class="text-end">Qty</th></tr></thead>
+                    <tbody>
+                        @forelse($lowStock as $row)
+                        <tr>
+                            <td>{{ $row->site->name }}</td>
+                            <td>{{ $row->product->name }}</td>
+                            <td class="text-end text-danger fw-semibold">{{ $row->quantity }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="3"><div class="admin-empty">No low stock</div></td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="admin-card admin-table-card h-100">
+            <div class="admin-card-header"><h2>Recent Purchases</h2></div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead><tr><th>Ref</th><th>Site</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @forelse($recentPurchases as $purchase)
+                        <tr>
+                            <td><a href="{{ route('ho.purchases.show', $purchase) }}">{{ $purchase->reference_no }}</a></td>
+                            <td>{{ $purchase->site->name }}</td>
+                            <td><x-status-badge :status="$purchase->status" /></td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="3"><div class="admin-empty">No purchases</div></td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
