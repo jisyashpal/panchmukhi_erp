@@ -17,6 +17,7 @@ class Product extends Model
         'brand_id',
         'unit_id',
         'name',
+        'size',
         'sku',
         'reorder_level',
         'is_active',

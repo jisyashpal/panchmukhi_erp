@@ -12,7 +12,7 @@
     </div>
 
     <nav class="sidebar-nav flex-grow-1 overflow-auto py-2 px-2">
-        @include('partials.ho-sidebar-menu')
+        <x-portal-sidebar-menu portal="ho" />
     </nav>
 
     <div class="sidebar-footer border-top border-secondary p-3 mt-auto">

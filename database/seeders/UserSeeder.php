@@ -53,13 +53,6 @@ class UserSeeder extends Seeder
                 'approval_status' => UserApprovalStatus::Approved,
             ],
             [
-                'email' => 'purchaser2@gmail.com',
-                'name' => 'Branch Purchaser',
-                'role' => Role::SLUG_PURCHASER,
-                'site_id' => $branchSite->id,
-                'approval_status' => UserApprovalStatus::Approved,
-            ],
-            [
                 'email' => 'pending@gmail.com',
                 'name' => 'Pending Approval User',
                 'role' => Role::SLUG_SITE_IN_CHARGE,
@@ -86,6 +79,7 @@ class UserSeeder extends Seeder
                     'site_id' => $user['site_id'],
                     'is_active' => true,
                     'approval_status' => $user['approval_status'],
+                    'email_verified_at' => now(),
                     'rejection_reason' => $user['rejection_reason'] ?? null,
                 ]
             );

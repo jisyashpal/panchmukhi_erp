@@ -3,17 +3,18 @@
 use App\Http\Controllers\Api\StockCheckController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Site\DashboardController;
-use App\Http\Controllers\Site\DispatchController;
-use App\Http\Controllers\Site\NotificationController;
-use App\Http\Controllers\Site\ProductRequestController;
-use App\Http\Controllers\Site\PurchaseController;
-use App\Http\Controllers\Site\PurchaseRequestController;
-use App\Http\Controllers\Site\SupplierController;
-use App\Models\Role;
+use App\Http\Controllers\Site\Operation\DashboardController;
+use App\Http\Controllers\Site\Notifications\NotificationController;
+use App\Http\Controllers\Site\RequestPo\DispatchController;
+use App\Http\Controllers\Site\RequestPo\ProductRequestController;
+use App\Http\Controllers\Site\RequestPo\PurchaseController;
+use App\Http\Controllers\Site\RequestPo\PurchaseRequestController;
+use App\Http\Controllers\Site\RequestPo\SupplierController;
+use App\Http\Controllers\Site\Inventory\StockController;
+use App\Support\PermissionSlug;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'site_user'])
+Route::middleware(['auth', 'site_portal'])
     ->prefix('site')
     ->name('site.')
     ->group(function () {
@@ -32,36 +33,67 @@ Route::middleware(['auth', 'site_user'])
         Route::get('api/sites/{site}/products/{product}/stock', StockCheckController::class)
             ->name('api.stock.check');
 
-        Route::middleware('site_role:'.Role::SLUG_SITE_IN_CHARGE)->group(function () {
-            Route::get('product-requests', [ProductRequestController::class, 'index'])->name('product-requests.index');
+        Route::middleware('permission:'.PermissionSlug::SITE_CREATE_PRODUCT_REQUESTS)->group(function () {
             Route::get('product-requests/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
             Route::post('product-requests', [ProductRequestController::class, 'store'])->name('product-requests.store');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::SITE_MANAGE_STOCKS)->group(function () {
+            Route::get('stocks', [StockController::class, 'index'])->name('stocks.index');
+            Route::get('purchases/{purchase}/receive', [PurchaseController::class, 'receiveForm'])->name('purchases.receive');
+            Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->name('purchases.receive.store');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::SITE_VIEW_PRODUCT_REQUESTS)->group(function () {
+            Route::get('product-requests', [ProductRequestController::class, 'index'])->name('product-requests.index');
             Route::get('product-requests/{product_request}', [ProductRequestController::class, 'show'])->name('product-requests.show');
         });
 
-        Route::middleware('site_role:'.Role::SLUG_SITE_IN_CHARGE.','.Role::SLUG_PURCHASER)->group(function () {
-            Route::get('purchase-requests', [PurchaseRequestController::class, 'index'])->name('purchase-requests.index');
-            Route::get('purchase-requests/{purchase_request}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
+        Route::middleware('permission:'.PermissionSlug::SITE_VIEW_PURCHASES.','.PermissionSlug::SITE_MANAGE_PURCHASES)->group(function () {
+            Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
         });
 
-        Route::middleware('site_role:'.Role::SLUG_PURCHASER)->group(function () {
-            Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-            Route::get('suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
-            Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
-            Route::get('suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
-            Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        Route::middleware('permission:'.PermissionSlug::SITE_MANAGE_PURCHASES)->group(function () {
+            Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
+            Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+            Route::post('product-requests/{product_request}/convert', [ProductRequestController::class, 'convertToPurchaseRequest'])->name('product-requests.convert');
+        });
 
+        Route::middleware('permission:'.PermissionSlug::SITE_VIEW_PURCHASES.','.PermissionSlug::SITE_MANAGE_PURCHASES)->group(function () {
+            Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+            Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
+            Route::get('purchases/{purchase}/share-links', [PurchaseController::class, 'shareLinks'])->name('purchases.share-links');
+            Route::post('purchases/{purchase}/email', [PurchaseController::class, 'email'])->name('purchases.email');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::SITE_DISPATCH_ORDERS)->group(function () {
+            Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
+            Route::put('purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS)->group(function () {
+            Route::get('product-requests/{product_request}/edit', [ProductRequestController::class, 'edit'])->name('product-requests.edit');
+            Route::put('product-requests/{product_request}', [ProductRequestController::class, 'update'])->name('product-requests.update');
+
+            Route::get('purchase-requests', [PurchaseRequestController::class, 'index'])->name('purchase-requests.index');
+            Route::get('purchase-requests/{purchase_request}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
             Route::get('purchase-requests/create', [PurchaseRequestController::class, 'create'])->name('purchase-requests.create');
             Route::post('purchase-requests', [PurchaseRequestController::class, 'store'])->name('purchase-requests.store');
             Route::get('purchase-requests/{purchase_request}/edit', [PurchaseRequestController::class, 'edit'])->name('purchase-requests.edit');
             Route::put('purchase-requests/{purchase_request}', [PurchaseRequestController::class, 'update'])->name('purchase-requests.update');
             Route::post('purchase-requests/{purchase_request}/status', [PurchaseRequestController::class, 'updateStatus'])->name('purchase-requests.status');
+        });
 
+        Route::middleware('permission:'.PermissionSlug::SITE_MANAGE_SUPPLIERS)->group(function () {
+            Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+            Route::get('suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
+            Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
+            Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::SITE_DISPATCH_ORDERS)->group(function () {
             Route::get('dispatch', [DispatchController::class, 'index'])->name('dispatch.index');
             Route::post('dispatch/{purchase}', [DispatchController::class, 'dispatch'])->name('dispatch.store');
-
-            Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
-            Route::get('purchases/{purchase}/receive', [PurchaseController::class, 'receiveForm'])->name('purchases.receive');
-            Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->name('purchases.receive.store');
         });
     });

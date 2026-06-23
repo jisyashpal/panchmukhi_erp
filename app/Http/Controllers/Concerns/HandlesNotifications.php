@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Support\RelativeUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,7 +23,7 @@ trait HandlesNotifications
         $notification = $request->user()->notifications()->where('id', $id)->firstOrFail();
         $notification->markAsRead();
 
-        $url = $notification->data['url'] ?? null;
+        $url = RelativeUrl::normalize($notification->data['url'] ?? null);
 
         return $url ? redirect($url) : back();
     }

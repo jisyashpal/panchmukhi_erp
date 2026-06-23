@@ -1,41 +1,26 @@
 <?php
 
-use App\Http\Controllers\Admin\BrandController;
-use App\Http\Controllers\Admin\CategoryController;
-use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\ProductController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Admin\SiteController;
-use App\Http\Controllers\Admin\SubCategoryController;
-use App\Http\Controllers\Admin\SupplierController;
-use App\Http\Controllers\Admin\UnitController;
-use App\Http\Controllers\Admin\NotificationController;
-use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\Operation\DashboardController;
+use App\Http\Controllers\Admin\Notifications\NotificationController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Api\StockCheckController;
 use App\Http\Controllers\ProfileController;
+use App\Support\PermissionSlug;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'super_admin'])
+Route::middleware(['auth', 'permission:'.PermissionSlug::ADMIN_ACCESS])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
-        Route::resource('sites', SiteController::class)->except(['show']);
-        Route::resource('suppliers', SupplierController::class)->except(['show']);
-        Route::resource('roles', RoleController::class)->except(['show']);
-        Route::resource('users', UserController::class)->except(['show']);
+        require __DIR__.'/admin/master.php';
+        require __DIR__.'/admin/access-control.php';
+        require __DIR__.'/admin/product.php';
 
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
         Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
-
-        Route::resource('categories', CategoryController::class)->except(['show']);
-        Route::resource('sub-categories', SubCategoryController::class)->except(['show']);
-        Route::resource('brands', BrandController::class)->except(['show']);
-        Route::resource('units', UnitController::class)->except(['show']);
-        Route::resource('products', ProductController::class)->except(['show']);
 
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');

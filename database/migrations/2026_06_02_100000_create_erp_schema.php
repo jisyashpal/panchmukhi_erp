@@ -74,6 +74,7 @@ return new class extends Migration
             $table->foreignId('brand_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('unit_id')->constrained();
             $table->string('name');
+            $table->string('size', 50)->nullable();
             $table->string('sku')->unique();
             $table->unsignedInteger('reorder_level')->default(0);
             $table->boolean('is_active')->default(true);

@@ -5,17 +5,17 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function (Request $request) {
     $user = $request->user();
-    if (! $user) {
+    if (!$user) {
         return redirect()->route('login');
     }
-    $user->loadMissing('role');
+    $user->loadMissing('role.permissions');
 
     return redirect()->route($user->defaultDashboardRoute());
 });
 
 Route::get('/dashboard', function (Request $request) {
     $user = $request->user();
-    $user?->loadMissing('role');
+    $user?->loadMissing('role.permissions');
 
     return redirect()->route($user?->defaultDashboardRoute() ?? 'login');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -23,14 +23,15 @@ Route::get('/dashboard', function (Request $request) {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', function (Request $request) {
         $user = $request->user();
-        $user->loadMissing('role');
-        if ($user->isSuperAdmin()) {
+        $user->loadMissing('role.permissions');
+
+        if ($user->canAccessAdmin()) {
             return redirect()->route('admin.profile.edit');
         }
-        if ($user->isHoDataOperator()) {
+        if ($user->canAccessHo()) {
             return redirect()->route('ho.profile.edit');
         }
-        if ($user->hasSiteRole()) {
+        if ($user->canAccessSite()) {
             return redirect()->route('site.profile.edit');
         }
 
@@ -38,5 +39,6 @@ Route::middleware('auth')->group(function () {
     })->name('profile.edit');
 });
 
-require __DIR__.'/auth.php';
-require __DIR__.'/admin.php';
+require __DIR__ . '/auth.php';
+require __DIR__ . '/admin.php';
+require __DIR__ . '/shared-purchases.php';

@@ -36,6 +36,7 @@ class WorkflowSeeder extends Seeder
         $purchaser = User::where('email', 'purchaser@gmail.com')->firstOrFail();
 
         $localSupplier = Supplier::where('email', 'supplier@demo.test')->firstOrFail();
+        $ultratechSupplier = Supplier::where('email', 'ultratech@demo.test')->firstOrFail();
         $interstateSupplier = Supplier::where('email', 'tata@demo.test')->firstOrFail();
 
         $cement = Product::where('sku', 'CEM-OPC-50')->firstOrFail();
@@ -46,9 +47,9 @@ class WorkflowSeeder extends Seeder
 
         $mixer = Machine::where('site_id', $site->id)->where('code', 'MX-A')->firstOrFail();
 
-        $this->seedProductRequests($site, $siteUser, $hoUser, $cement, $steel12, $sand, $localSupplier);
-        $this->seedPurchaseRequests($site, $siteUser, $hoUser, $steel16, $paint, $localSupplier);
-        $this->seedPurchases($site, $purchaser, $siteUser, $hoUser, $localSupplier, $interstateSupplier, $cement, $steel12, $sand, $paint);
+        $this->seedProductRequests($site, $siteUser, $hoUser, $cement, $steel12, $sand, $localSupplier, $ultratechSupplier);
+        $this->seedPurchaseRequests($site, $siteUser, $hoUser, $steel16, $paint, $sand, $cement, $localSupplier, $ultratechSupplier);
+        $this->seedPurchases($site, $purchaser, $siteUser, $hoUser, $localSupplier, $ultratechSupplier, $interstateSupplier, $cement, $steel12, $sand, $paint);
 
         $stockService = app(StockService::class);
 
@@ -62,7 +63,8 @@ class WorkflowSeeder extends Seeder
         Product $cement,
         Product $steel,
         Product $sand,
-        Supplier $supplier
+        Supplier $localSupplier,
+        Supplier $ultratechSupplier
     ): void {
         $submitted = ProductRequest::firstOrCreate(
             ['site_id' => $site->id, 'remarks' => '[demo] Product request — submitted'],
@@ -86,7 +88,8 @@ class WorkflowSeeder extends Seeder
             ]
         );
         $this->seedProductRequestItems($inProgress, [
-            ['product_id' => $steel->id, 'quantity' => 150, 'unit_price' => 68, 'gst_rate' => 18, 'supplier_id' => $supplier->id],
+            ['product_id' => $steel->id, 'quantity' => 150, 'unit_price' => 68, 'gst_rate' => 18, 'supplier_id' => $localSupplier->id],
+            ['product_id' => $cement->id, 'quantity' => 80, 'unit_price' => 385, 'gst_rate' => 28, 'supplier_id' => $ultratechSupplier->id],
         ]);
 
         $completed = ProductRequest::firstOrCreate(
@@ -99,18 +102,23 @@ class WorkflowSeeder extends Seeder
             ]
         );
         $this->seedProductRequestItems($completed, [
-            ['product_id' => $cement->id, 'quantity' => 50, 'unit_price' => 380, 'gst_rate' => 28, 'supplier_id' => $supplier->id],
+            ['product_id' => $cement->id, 'quantity' => 50, 'unit_price' => 380, 'gst_rate' => 28, 'supplier_id' => $localSupplier->id],
+            ['product_id' => $sand->id, 'quantity' => 6, 'unit_price' => 1180, 'gst_rate' => 5, 'supplier_id' => $ultratechSupplier->id],
         ]);
 
-        PurchaseRequest::firstOrCreate(
+        $completedPr = PurchaseRequest::firstOrCreate(
             ['site_id' => $site->id, 'product_request_id' => $completed->id],
             [
                 'requested_by' => $siteUser->id,
                 'site_status' => RequestStatus::Submitted,
                 'status' => RequestStatus::Submitted,
-                'remarks' => '[demo] Purchase request from completed product request',
+                'remarks' => '[demo] Purchase request from completed product request (multi-supplier, no PO yet)',
             ]
         );
+        $this->seedPurchaseRequestItems($completedPr, [
+            ['product_id' => $cement->id, 'quantity' => 50, 'unit_price' => 380, 'supplier_id' => $localSupplier->id],
+            ['product_id' => $sand->id, 'quantity' => 6, 'unit_price' => 1180, 'supplier_id' => $ultratechSupplier->id],
+        ]);
 
         ProductRequest::firstOrCreate(
             ['site_id' => $site->id, 'remarks' => '[demo] Product request — cancelled'],
@@ -151,7 +159,10 @@ class WorkflowSeeder extends Seeder
         User $hoUser,
         Product $steel,
         Product $paint,
-        Supplier $supplier
+        Product $sand,
+        Product $cement,
+        Supplier $localSupplier,
+        Supplier $ultratechSupplier
     ): void {
         $submitted = PurchaseRequest::firstOrCreate(
             ['site_id' => $site->id, 'remarks' => '[demo] Purchase request — submitted'],
@@ -162,7 +173,7 @@ class WorkflowSeeder extends Seeder
             ]
         );
         $this->seedPurchaseRequestItems($submitted, [
-            ['product_id' => $steel->id, 'quantity' => 200, 'unit_price' => 70, 'supplier_id' => $supplier->id],
+            ['product_id' => $steel->id, 'quantity' => 200, 'unit_price' => 70, 'supplier_id' => $localSupplier->id],
         ]);
 
         PurchaseRequest::firstOrCreate(
@@ -180,7 +191,7 @@ class WorkflowSeeder extends Seeder
         $inProgressPr = PurchaseRequest::where('remarks', '[demo] Purchase request — in progress')->first();
         if ($inProgressPr) {
             $this->seedPurchaseRequestItems($inProgressPr, [
-                ['product_id' => $steel->id, 'quantity' => 100, 'unit_price' => 72, 'supplier_id' => $supplier->id],
+                ['product_id' => $steel->id, 'quantity' => 100, 'unit_price' => 72, 'supplier_id' => $localSupplier->id],
             ]);
         }
 
@@ -193,7 +204,23 @@ class WorkflowSeeder extends Seeder
             ]
         );
         $this->seedPurchaseRequestItems($readyForPo, [
-            ['product_id' => $paint->id, 'quantity' => 8, 'unit_price' => 3200, 'supplier_id' => $supplier->id],
+            ['product_id' => $paint->id, 'quantity' => 8, 'unit_price' => 3200, 'supplier_id' => $localSupplier->id],
+            ['product_id' => $sand->id, 'quantity' => 12, 'unit_price' => 1150, 'supplier_id' => $ultratechSupplier->id],
+        ]);
+
+        $multiSupplierPr = PurchaseRequest::firstOrCreate(
+            ['site_id' => $site->id, 'remarks' => '[demo] Multi-supplier — POs created'],
+            [
+                'requested_by' => $siteUser->id,
+                'site_status' => RequestStatus::Completed,
+                'status' => RequestStatus::Completed,
+                'reviewed_by' => $hoUser->id,
+                'reviewed_at' => now()->subDays(7),
+            ]
+        );
+        $this->seedPurchaseRequestItems($multiSupplierPr, [
+            ['product_id' => $cement->id, 'quantity' => 60, 'unit_price' => 378, 'supplier_id' => $ultratechSupplier->id],
+            ['product_id' => $steel->id, 'quantity' => 120, 'unit_price' => 66, 'supplier_id' => $localSupplier->id],
         ]);
 
         PurchaseRequest::firstOrCreate(
@@ -235,6 +262,7 @@ class WorkflowSeeder extends Seeder
         User $siteUser,
         User $hoUser,
         Supplier $localSupplier,
+        Supplier $ultratechSupplier,
         Supplier $interstateSupplier,
         Product $cement,
         Product $steel,
@@ -242,6 +270,8 @@ class WorkflowSeeder extends Seeder
         Product $paint
     ): void {
         $pricing = app(PurchasePricingService::class);
+
+        $multiSupplierPr = PurchaseRequest::where('remarks', '[demo] Multi-supplier — POs created')->first();
 
         $this->createPurchase(
             'PO-DEMO-PENDING-DISPATCH',
@@ -316,6 +346,42 @@ class WorkflowSeeder extends Seeder
                 'dispatched_by' => $purchaser->id,
             ]
         );
+
+        if ($multiSupplierPr) {
+            $this->createPurchase(
+                'PO-DEMO-MULTI-CEM',
+                $site,
+                $ultratechSupplier,
+                $multiSupplierPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $cement->id, 'quantity' => 60, 'unit_price' => 378, 'gst_rate' => 28],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(8),
+                    'notes' => '[demo] Multi-supplier PR — cement PO (Ultratech)',
+                ]
+            );
+
+            $this->createPurchase(
+                'PO-DEMO-MULTI-STL',
+                $site,
+                $localSupplier,
+                $multiSupplierPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $steel->id, 'quantity' => 120, 'unit_price' => 66, 'gst_rate' => 18],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(8),
+                    'notes' => '[demo] Multi-supplier PR — steel PO (local supplier)',
+                ]
+            );
+        }
     }
 
     /**

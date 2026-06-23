@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\UserApprovalStatus;
+use App\Support\PermissionSlug;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -60,14 +62,34 @@ class User extends Authenticatable
         return $this->belongsTo(Site::class);
     }
 
+    public function roleSlug(): ?string
+    {
+        return $this->role?->slug;
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role?->isSuperAdmin() ?? false;
     }
 
+    /**
+     * Compatibility helpers.
+     * Older codebase (controllers/blades) uses role-style methods.
+     * We re-map them to permission/module capabilities.
+     */
     public function isHoDataOperator(): bool
     {
-        return $this->roleSlug() === Role::SLUG_HO_DATA_OPERATOR;
+        return $this->canAccessHo();
+    }
+
+    public function isSiteInCharge(): bool
+    {
+        return $this->canCreateProductRequests();
+    }
+
+    public function isPurchaser(): bool
+    {
+        return $this->canManagePurchaseRequests();
     }
 
     public function hasSiteRole(): bool
@@ -75,50 +97,102 @@ class User extends Authenticatable
         return $this->role?->requires_site ?? false;
     }
 
-    public function roleSlug(): ?string
+    public function hasPermission(string $slug): bool
     {
-        return $this->role?->slug;
+        $this->loadMissing('role.permissions');
+
+        return $this->role?->hasPermission($slug) ?? false;
     }
 
-    public function isSiteInCharge(): bool
+    public function canAccessAdmin(): bool
     {
-        return $this->roleSlug() === Role::SLUG_SITE_IN_CHARGE;
+        return $this->hasPermission(PermissionSlug::ADMIN_ACCESS);
     }
 
-    public function isPurchaser(): bool
+    public function canAccessHo(): bool
     {
-        return $this->roleSlug() === Role::SLUG_PURCHASER;
+        return $this->hasPermission(PermissionSlug::HO_ACCESS);
+    }
+
+    public function canViewHoPurchases(): bool
+    {
+        return $this->hasPermission(PermissionSlug::HO_VIEW_PURCHASES);
+    }
+
+    public function canManageHoProducts(): bool
+    {
+        return $this->hasPermission(PermissionSlug::HO_MANAGE_PRODUCTS);
+    }
+
+    public function canAccessSite(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_ACCESS) && $this->site_id !== null;
     }
 
     public function canCreateProductRequests(): bool
     {
-        return $this->isSiteInCharge();
+        return $this->hasPermission(PermissionSlug::SITE_CREATE_PRODUCT_REQUESTS);
+    }
+
+    public function canViewProductRequests(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_VIEW_PRODUCT_REQUESTS);
     }
 
     public function canManagePurchaseRequests(): bool
     {
-        return $this->isPurchaser() || $this->isSiteInCharge();
+        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
     }
 
     public function canManageSiteStocks(): bool
     {
-        return $this->isPurchaser();
+        return $this->hasPermission(PermissionSlug::SITE_MANAGE_STOCKS);
     }
 
     public function canManageSuppliers(): bool
     {
-        return $this->isPurchaser();
+        return $this->hasPermission(PermissionSlug::SITE_MANAGE_SUPPLIERS);
+    }
+
+    public function canManageSitePurchases(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASES);
+    }
+
+    public function canViewSitePurchases(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_VIEW_PURCHASES);
+    }
+
+    public function canDispatchOrders(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_DISPATCH_ORDERS);
+    }
+
+    public function canEditProductRequests(): bool
+    {
+        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
+    }
+
+    public function scopeWithPermission(Builder $query, string $permission): Builder
+    {
+        return $query->whereHas('role.permissions', fn (Builder $q) => $q->where('slug', $permission));
     }
 
     public function defaultDashboardRoute(): string
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->canAccessAdmin()) {
             return 'admin.dashboard';
         }
-        if ($this->isHoDataOperator()) {
+
+        if ($this->canAccessHo()) {
             return 'ho.dashboard';
         }
 
-        return 'site.dashboard';
+        if ($this->canAccessSite()) {
+            return 'site.dashboard';
+        }
+
+        return 'login';
     }
 }

@@ -1,7 +1,7 @@
 @extends('layouts.site')
 @section('title', 'Notifications')
 @section('content')
-<x-admin-page-header title="Notifications" subtitle="Alerts for requests and approvals">
+<x-admin-page-header title="Notifications" subtitle="Alerts for requests, purchases and stock updates">
     @if(auth()->user()->unreadNotifications()->count())
     <form method="POST" action="{{ route('site.notifications.read-all') }}">@csrf<button class="btn btn-admin-outline btn-sm">Mark all read</button></form>
     @endif

@@ -21,4 +21,18 @@ trait BelongsToUserSite
             abort(404);
         }
     }
+
+    protected function purchaserSeesAllSites(): bool
+    {
+        return auth()->user()?->isPurchaser() ?? false;
+    }
+
+    protected function authorizeSiteAccess(Model $model, string $column = 'site_id'): void
+    {
+        if ($this->purchaserSeesAllSites()) {
+            return;
+        }
+
+        $this->authorizeSite($model, $column);
+    }
 }

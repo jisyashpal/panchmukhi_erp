@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             MachineSeeder::class,
             SupplierSeeder::class,
             ProductCatalogSeeder::class,
+            PermissionSeeder::class,
             UserSeeder::class,
             WorkflowSeeder::class,
         ]);

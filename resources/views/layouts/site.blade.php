@@ -15,7 +15,6 @@
 <body class="admin-body site-portal bg-light">
     <div class="admin-wrapper d-flex min-vh-100">
         @include('partials.site-sidebar')
-
         <div class="admin-content flex-grow-1 d-flex flex-column min-vh-100">
             @include('partials.site-topbar', [
             'pageTitle' => trim($__env->yieldContent('title')) ?: 'Site',
@@ -43,7 +42,7 @@
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column">
             <nav class="sidebar-nav flex-grow-1 overflow-auto p-2">
-                @include('partials.site-sidebar-menu')
+                <x-portal-sidebar-menu portal="site" />
             </nav>
             <div class="sidebar-footer p-3 border-top border-secondary border-opacity-25">
                 <div class="d-flex align-items-center gap-2 mb-2">

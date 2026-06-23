@@ -43,7 +43,7 @@
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column">
             <nav class="sidebar-nav flex-grow-1 overflow-auto p-2">
-                @include('partials.ho-sidebar-menu', ['menuIdSuffix' => 'Mobile'])
+                <x-portal-sidebar-menu portal="ho" menuIdSuffix="Mobile" />
             </nav>
             <div class="sidebar-footer p-3 border-top border-secondary border-opacity-25">
                 <div class="d-flex align-items-center gap-2 mb-2">

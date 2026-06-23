@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Purchase extends Model
 {
@@ -83,5 +84,15 @@ class Purchase extends Model
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseItem::class);
+    }
+
+    public function hoComments(): HasMany
+    {
+        return $this->hasMany(PurchaseComment::class)->latest();
+    }
+
+    public function latestHoComment(): HasOne
+    {
+        return $this->hasOne(PurchaseComment::class)->latestOfMany();
     }
 }

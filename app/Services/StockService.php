@@ -16,6 +16,9 @@ use Illuminate\Validation\ValidationException;
 
 class StockService
 {
+    public function __construct(
+        protected NotificationService $notifications
+    ) {}
     public function getBalance(int $siteId, int $productId): float
     {
         return (float) StockBalance::query()
@@ -165,6 +168,19 @@ class StockService
         );
 
         $delta = $type === StockMovementType::In ? $quantity : -$quantity;
-        $balance->update(['quantity' => (float) $balance->quantity + $delta]);
+        $newBalance = (float) $balance->quantity + $delta;
+        $balance->update(['quantity' => $newBalance]);
+
+        if (! ($meta['skip_notification'] ?? false)) {
+            $this->notifications->notifySiteStockUpdated(
+                $siteId,
+                $productId,
+                $type,
+                $quantity,
+                $newBalance,
+                $performedBy,
+                $notes
+            );
+        }
     }
 }

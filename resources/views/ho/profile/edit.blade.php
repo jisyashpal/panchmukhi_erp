@@ -4,7 +4,7 @@
 @php
     $profileUpdateRoute = route('ho.profile.update');
     $passwordUpdateRoute = route('ho.password.update');
-    $destroyRoute = null;
+    $destroyRoute = route('ho.profile.destroy');
 @endphp
 
 <x-admin-page-header title="My Profile" subtitle="Manage your account settings and security">
