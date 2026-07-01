@@ -1,8 +1,8 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Edit Purchase Request')
 @section('content')
 <x-admin-page-header title="Edit Purchase Request #{{ $purchaseRequest->id }}" />
-<form method="POST" action="{{ route('site.purchase-requests.update', $purchaseRequest) }}">
+<form method="POST" action="{{ route('plant.purchase-requests.update', $purchaseRequest) }}">
     @csrf @method('PUT')
     <div class="admin-card admin-table-card mb-4">
         <div class="table-responsive">

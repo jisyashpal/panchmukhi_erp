@@ -1,14 +1,14 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Profile')
 @section('content')
 @php
-    $profileUpdateRoute = route('site.profile.update');
-    $passwordUpdateRoute = route('site.password.update');
-    $destroyRoute = route('site.profile.destroy');
+    $profileUpdateRoute = route('plant.profile.update');
+    $passwordUpdateRoute = route('plant.password.update');
+    $destroyRoute = route('plant.profile.destroy');
 @endphp
 
 <x-admin-page-header title="My Profile" subtitle="Manage your account">
-    <a href="{{ route('site.dashboard') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    <a href="{{ route('plant.dashboard') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
 </x-admin-page-header>
 
 <div class="admin-card mb-4">
@@ -20,8 +20,8 @@
             <h2 class="h5 mb-1">{{ $user->name }}</h2>
             <p class="text-muted small mb-1">{{ $user->email }}</p>
             <span class="badge bg-success-subtle text-success">{{ $user->role?->name }}</span>
-            @if($user->site)
-                <span class="badge bg-light text-dark border ms-1">{{ $user->site->name }}</span>
+            @if($user->plant)
+                <span class="badge bg-light text-dark border ms-1">{{ $user->plant->name }}</span>
             @endif
         </div>
     </div>

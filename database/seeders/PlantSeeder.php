@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Models\Site;
+use App\Models\Plant;
 use Illuminate\Database\Seeder;
 
-class SiteSeeder extends Seeder
+class PlantSeeder extends Seeder
 {
     public function run(): void
     {
-        Site::firstOrCreate(
+        Plant::firstOrCreate(
             ['code' => 'PLT-001'],
             [
                 'name' => 'Main Plant',
@@ -19,11 +19,11 @@ class SiteSeeder extends Seeder
             ]
         );
 
-        Site::firstOrCreate(
+        Plant::firstOrCreate(
             ['code' => 'PLT-002'],
             [
-                'name' => 'Branch Site North',
-                'type' => 'site',
+                'name' => 'Branch Plant North',
+                'type' => 'plant',
                 'address' => 'Sector 5, MIDC, Nashik, Maharashtra',
                 'is_active' => true,
             ]

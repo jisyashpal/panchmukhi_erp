@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\PurchaseRequest;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\User;
 use App\Notifications\ErpDatabaseNotification;
 use App\Support\RelativeUrl;
@@ -18,30 +18,30 @@ class NotificationService
 {
     public function notifyProductRequestSubmitted(ProductRequest $productRequest): void
     {
-        $productRequest->loadMissing(['site', 'requester']);
-        $siteId = $productRequest->site_id;
-        $siteName = $productRequest->site->name;
-        $requesterName = $productRequest->requester?->name ?? 'Site In-charge';
+        $productRequest->loadMissing(['plant', 'requester']);
+        $plantId = $productRequest->plant_id;
+        $plantName = $productRequest->plant->name;
+        $requesterName = $productRequest->requester?->name ?? 'Plant In-charge';
 
         $this->notifyHoDataOperators(new ErpDatabaseNotification(
             type: 'product_request_new',
             title: 'New product request',
-            body: "Product request #{$productRequest->id} from {$siteName} ({$requesterName}).",
+            body: "Product request #{$productRequest->id} from {$plantName} ({$requesterName}).",
             url: RelativeUrl::route('ho.product-requests.show', $productRequest),
-            siteId: $siteId,
+            plantId: $plantId,
             requestId: $productRequest->id,
         ));
 
-        $this->notifySitePurchasers($siteId, new ErpDatabaseNotification(
+        $this->notifyPlantPurchasers($plantId, new ErpDatabaseNotification(
             type: 'product_request_new',
             title: 'New product request',
-            body: "Product request #{$productRequest->id} from {$siteName} ({$requesterName}).",
-            url: RelativeUrl::route('site.product-requests.show', $productRequest),
-            siteId: $siteId,
+            body: "Product request #{$productRequest->id} from {$plantName} ({$requesterName}).",
+            url: RelativeUrl::route('plant.product-requests.show', $productRequest),
+            plantId: $plantId,
             requestId: $productRequest->id,
         ));
     }
-    public function notifySitePurchasers(int $siteId, Notification $notification): void
+    public function notifyPlantPurchasers(int $plantId, Notification $notification): void
     {
         $this->notifyUsers(
             User::query()
@@ -59,27 +59,27 @@ class NotificationService
         }
     }
 
-    public function notifySiteInCharge(int $siteId, Notification $notification): void
+    public function notifyPlantInCharge(int $plantId, Notification $notification): void
     {
         $this->notifyUsers(
             User::query()
-                ->where('site_id', $siteId)
+                ->where('plant_id', $plantId)
                 ->where('is_active', true)
                 ->where('approval_status', 'approved')
-                ->whereHas('role', fn ($q) => $q->where('slug', Role::SLUG_SITE_IN_CHARGE))
+                ->whereHas('role', fn ($q) => $q->where('slug', Role::SLUG_PLANT_IN_CHARGE))
                 ->get(),
             $notification
         );
     }
 
-    public function notifySiteStaff(int $siteId, Notification $notification, ?int $excludeUserId = null): void
+    public function notifyPlantStaff(int $plantId, Notification $notification, ?int $excludeUserId = null): void
     {
         $users = User::query()
-            ->where('site_id', $siteId)
+            ->where('plant_id', $plantId)
             ->where('is_active', true)
             ->where('approval_status', 'approved')
             ->whereHas('role', fn ($q) => $q->whereIn('slug', [
-                Role::SLUG_SITE_IN_CHARGE,
+                Role::SLUG_PLANT_IN_CHARGE,
                 Role::SLUG_PURCHASER,
             ]))
             ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
@@ -88,8 +88,8 @@ class NotificationService
         $this->notifyUsers($users, $notification);
     }
 
-    public function notifySiteStockUpdated(
-        int $siteId,
+    public function notifyPlantStockUpdated(
+        int $plantId,
         int $productId,
         StockMovementType $type,
         float $quantity,
@@ -97,11 +97,11 @@ class NotificationService
         int $performedBy,
         ?string $notes = null,
     ): void {
-        $site = Site::find($siteId);
+        $plant = Plant::find($plantId);
         $product = Product::with('unit')->find($productId);
         $performer = User::find($performedBy);
 
-        if (! $site || ! $product) {
+        if (! $plant || ! $product) {
             return;
         }
 
@@ -119,12 +119,12 @@ class NotificationService
             $body .= " · {$notes}";
         }
 
-        $this->notifySiteStaff($siteId, new ErpDatabaseNotification(
+        $this->notifyPlantStaff($plantId, new ErpDatabaseNotification(
             type: 'stock_updated',
-            title: "Stock {$direction} at {$site->name}",
+            title: "Stock {$direction} at {$plant->name}",
             body: $body,
-            url: RelativeUrl::route('site.stocks.index', ['product_id' => $productId]),
-            siteId: $siteId,
+            url: RelativeUrl::route('plant.stocks.index', ['product_id' => $productId]),
+            plantId: $plantId,
         ), excludeUserId: $performedBy);
     }
 
@@ -157,17 +157,17 @@ class NotificationService
 
     public function notifyPurchaseRequestSubmitted(PurchaseRequest $purchaseRequest): void
     {
-        $purchaseRequest->loadMissing(['site', 'requester']);
-        $siteId = $purchaseRequest->site_id;
-        $siteName = $purchaseRequest->site->name;
+        $purchaseRequest->loadMissing(['plant', 'requester']);
+        $plantId = $purchaseRequest->plant_id;
+        $plantName = $purchaseRequest->plant->name;
         $requesterName = $purchaseRequest->requester?->name ?? 'Purchaser';
 
         $this->notifyHoDataOperators(new ErpDatabaseNotification(
             type: 'purchase_request_new',
             title: 'New purchase request',
-            body: "Purchase request #{$purchaseRequest->id} from {$siteName} ({$requesterName}).",
+            body: "Purchase request #{$purchaseRequest->id} from {$plantName} ({$requesterName}).",
             url: RelativeUrl::route('ho.purchase-list.index'),
-            siteId: $siteId,
+            plantId: $plantId,
             requestId: $purchaseRequest->id,
         ));
     }

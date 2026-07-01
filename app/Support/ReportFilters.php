@@ -7,23 +7,27 @@ use Illuminate\Http\Request;
 class ReportFilters
 {
     public function __construct(
-        public ?int $siteId = null,
+        public ?int $plantId = null,
         public ?string $dateFrom = null,
         public ?string $dateTo = null,
         public ?int $categoryId = null,
         public ?int $productId = null,
         public ?string $search = null,
+        public ?string $financialYear = null,
     ) {}
 
     public static function fromRequest(Request $request): self
     {
+        $range = app(FinancialYearResolver::class)->resolve($request);
+
         return new self(
-            siteId: $request->integer('site_id') ?: null,
-            dateFrom: $request->filled('date_from') ? $request->string('date_from')->toString() : null,
-            dateTo: $request->filled('date_to') ? $request->string('date_to')->toString() : null,
+            plantId: $request->integer('plant_id') ?: null,
+            dateFrom: $request->filled('date_from') ? $request->string('date_from')->toString() : $range->dateFrom,
+            dateTo: $request->filled('date_to') ? $request->string('date_to')->toString() : $range->dateTo,
             categoryId: $request->integer('category_id') ?: null,
             productId: $request->integer('product_id') ?: null,
             search: $request->filled('search') ? trim($request->string('search')->toString()) : null,
+            financialYear: $range->label,
         );
     }
 
@@ -31,7 +35,8 @@ class ReportFilters
     public function toQueryArray(): array
     {
         return array_filter([
-            'site_id' => $this->siteId,
+            'plant_id' => $this->plantId,
+            'fy' => $this->financialYear !== 'custom' ? $this->financialYear : null,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
             'category_id' => $this->categoryId,

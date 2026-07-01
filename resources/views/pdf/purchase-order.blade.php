@@ -195,7 +195,7 @@
 
     <div class="section-gap">&nbsp;</div>
 
-    {{-- Supplier / Site --}}
+    {{-- Supplier / Plant --}}
     <table class="box">
         <tr>
             <td style="width: 50%;">
@@ -212,13 +212,13 @@
                 @endif
             </td>
             <td style="width: 50%;">
-                <div class="box-label">Ship To / Site</div>
-                <div class="box-name">{{ $purchase->site->name }}</div>
-                @if($purchase->site->code)
-                    <div class="small">Code: {{ $purchase->site->code }}</div>
+                <div class="box-label">Ship To / Plant</div>
+                <div class="box-name">{{ $purchase->plant->name }}</div>
+                @if($purchase->plant->code)
+                    <div class="small">Code: {{ $purchase->plant->code }}</div>
                 @endif
-                @if($purchase->site->address)
-                    <div class="small" style="margin-top: 3pt;">{{ $purchase->site->address }}</div>
+                @if($purchase->plant->address)
+                    <div class="small" style="margin-top: 3pt;">{{ $purchase->plant->address }}</div>
                 @endif
             </td>
         </tr>
@@ -273,7 +273,7 @@
                         <div class="product-sub">SKU: {{ $item->product->sku }}</div>
                     @endif
                     @if($item->product->size)
-                        <div class="product-sub">Size: {{ $item->product->size }}</div>
+                        <div class="product-sub">Size/Part: {{ $item->product->size }}</div>
                     @endif
                 </td>
                 <td class="num">{{ number_format((float) $item->quantity, 2) }}</td>

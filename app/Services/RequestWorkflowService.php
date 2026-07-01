@@ -22,11 +22,11 @@ class RequestWorkflowService
     {
         $request->update([
             'status' => $status,
-            'site_status' => $status,
+            'plant_status' => $status,
             'reviewed_by' => $userId,
             'reviewed_at' => now(),
-            'site_reviewed_by' => $userId,
-            'site_reviewed_at' => now(),
+            'plant_reviewed_by' => $userId,
+            'plant_reviewed_at' => now(),
         ]);
     }
 
@@ -44,7 +44,7 @@ class RequestWorkflowService
     {
         $request->update([
             'status' => RequestStatus::Cancelled,
-            'site_status' => RequestStatus::Cancelled,
+            'plant_status' => RequestStatus::Cancelled,
             'reviewed_by' => $userId,
             'reviewed_at' => now(),
             'decline_reason' => $reason,

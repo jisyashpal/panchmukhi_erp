@@ -14,7 +14,7 @@ class ProductRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'site_id',
+        'plant_id',
         'requested_by',
         'status',
         'remarks',
@@ -31,9 +31,9 @@ class ProductRequest extends Model
         ];
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function requester(): BelongsTo

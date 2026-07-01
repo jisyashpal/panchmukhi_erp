@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Ho\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Machine;
+use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\ProductUseEntry;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\StockService;
+use App\Support\FinancialYearResolver;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,41 +23,65 @@ class ProductLifeController extends Controller
 
     public function index(Request $request): View
     {
-        $entries = ProductUseEntry::with(['site', 'product', 'machine', 'recorder'])
-            ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
-            ->when($request->filled('product_id'), fn ($q) => $q->where('product_id', $request->integer('product_id')))
-            ->latest('used_at')
+        $query = ProductUseEntry::with(['plant', 'product', 'subCategory', 'recorder'])
+            ->when($request->filled('plant_id'), fn ($q) => $q->where('plant_id', $request->integer('plant_id')))
+            ->when($request->filled('product_id'), fn ($q) => $q->where('product_id', $request->integer('product_id')));
+
+        app(FinancialYearResolver::class)->applyToQuery($query, 'used_at', $request);
+
+        $entries = $query->latest('used_at')
             ->paginate(20)
             ->withQueryString();
 
         return view('ho.inventory.product-life.index', [
-            'entries' => $entries,
-            'sites' => Site::orderBy('name')->get(),
-            'products' => Product::orderBy('name')->get(),
+            'entries'  => $entries,
+            'plants'   => Plant::orderBy('name')->get(),
+            'products' => Product::with('category')->orderBy('name')->get(),
         ]);
     }
 
     public function create(Request $request): View
     {
-        $siteId = $request->integer('site_id') ?: null;
+        $plantId = $request->integer('plant_id') ?: null;
 
         return view('ho.inventory.product-life.create', [
-            'sites' => Site::orderBy('name')->get(),
-            'products' => Product::where('is_active', true)->orderBy('name')->get(),
-            'machines' => Machine::when($siteId, fn ($q) => $q->where('site_id', $siteId))
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(),
-            'siteId' => $siteId,
+            'plants'        => Plant::orderBy('name')->get(),
+            'products'      => Product::with('category')->where('is_active', true)->orderBy('name')->get(),
+            'subCategories' => SubCategory::where('is_active', true)->orderBy('name')->get(),
+            'plantId'       => $plantId,
+        ]);
+    }
+
+    /** Return the last ProductUseEntry for a given product (used by JS on create form). */
+    public function lastEntry(Request $request): JsonResponse
+    {
+        $productId = $request->integer('product_id');
+        $entry = ProductUseEntry::where('product_id', $productId)
+            ->with(['subCategory'])
+            ->latest('used_at')
+            ->first();
+
+        if (! $entry) {
+            return response()->json(null);
+        }
+
+        return response()->json([
+            'used_at'         => $entry->used_at->format('d M Y'),
+            'quantity'        => $entry->quantity,
+            'life_hours'      => $entry->life_hours,
+            'usage_count'     => $entry->usage_count,
+            'sub_category_id' => $entry->sub_category_id,
+            'sub_category'    => $entry->subCategory?->name,
+            'notes'           => $entry->notes,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'site_id' => ['required', 'exists:sites,id'],
+            'plant_id' => ['required', 'exists:plants,id'],
             'product_id' => ['required', 'exists:products,id'],
-            'machine_id' => ['nullable', 'exists:machines,id'],
+            'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'life_hours' => ['nullable', 'numeric', 'min:0'],
             'usage_count' => ['nullable', 'integer', 'min:1'],
@@ -65,9 +91,9 @@ class ProductLifeController extends Controller
 
         DB::transaction(function () use ($data) {
             $entry = ProductUseEntry::create([
-                'site_id' => $data['site_id'],
+                'plant_id' => $data['plant_id'],
                 'product_id' => $data['product_id'],
-                'machine_id' => $data['machine_id'] ?? null,
+                'sub_category_id' => $data['sub_category_id'] ?? null,
                 'quantity' => $data['quantity'],
                 'life_hours' => $data['life_hours'] ?? 0,
                 'usage_count' => $data['usage_count'] ?? 1,

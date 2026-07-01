@@ -8,7 +8,7 @@ use App\Enums\StockReferenceType;
 use App\Models\Product;
 use App\Models\ProductUseEntry;
 use App\Models\Purchase;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\StockBalance;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
@@ -19,19 +19,19 @@ class StockService
     public function __construct(
         protected NotificationService $notifications
     ) {}
-    public function getBalance(int $siteId, int $productId): float
+    public function getBalance(int $plantId, int $productId): float
     {
         return (float) StockBalance::query()
-            ->where('site_id', $siteId)
+            ->where('plant_id', $plantId)
             ->where('product_id', $productId)
             ->value('quantity') ?? 0;
     }
 
-    public function assertAvailable(int $siteId, int $productId, float $quantity): void
+    public function assertAvailable(int $plantId, int $productId, float $quantity): void
     {
-        if ($this->getBalance($siteId, $productId) < $quantity) {
+        if ($this->getBalance($plantId, $productId) < $quantity) {
             throw ValidationException::withMessages([
-                'quantity' => 'Insufficient stock for this product at the selected site.',
+                'quantity' => 'Insufficient stock for this product at the selected plant.',
             ]);
         }
     }
@@ -49,7 +49,7 @@ class StockService
                 }
 
                 $this->applyMovement(
-                    $purchase->site_id,
+                    $purchase->plant_id,
                     (int) $line['product_id'],
                     StockMovementType::In,
                     $qty,
@@ -71,7 +71,7 @@ class StockService
     }
 
     public function recordIn(
-        int $siteId,
+        int $plantId,
         int $productId,
         float $quantity,
         int $performedBy,
@@ -79,9 +79,9 @@ class StockService
         ?int $referenceId = null,
         array $meta = []
     ): void {
-        DB::transaction(function () use ($siteId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $meta) {
+        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $meta) {
             $this->applyMovement(
-                $siteId,
+                $plantId,
                 $productId,
                 StockMovementType::In,
                 $quantity,
@@ -95,7 +95,7 @@ class StockService
     }
 
     public function recordOut(
-        int $siteId,
+        int $plantId,
         int $productId,
         float $quantity,
         StockReferenceType $referenceType,
@@ -104,11 +104,11 @@ class StockService
         ?string $notes = null,
         array $meta = []
     ): void {
-        DB::transaction(function () use ($siteId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $notes, $meta) {
-            $this->assertAvailable($siteId, $productId, $quantity);
+        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $notes, $meta) {
+            $this->assertAvailable($plantId, $productId, $quantity);
 
             $this->applyMovement(
-                $siteId,
+                $plantId,
                 $productId,
                 StockMovementType::Out,
                 $quantity,
@@ -124,19 +124,19 @@ class StockService
     public function recordProductUse(ProductUseEntry $entry): void
     {
         $this->recordOut(
-            $entry->site_id,
+            $entry->plant_id,
             $entry->product_id,
             (float) $entry->quantity,
             StockReferenceType::ProductUse,
             $entry->id,
             $entry->recorded_by,
             $entry->notes,
-            ['machine_id' => $entry->machine_id]
+            ['sub_category_id' => $entry->sub_category_id]
         );
     }
 
     protected function applyMovement(
-        int $siteId,
+        int $plantId,
         int $productId,
         StockMovementType $type,
         float $quantity,
@@ -147,9 +147,9 @@ class StockService
         array $meta = []
     ): void {
         StockMovement::create([
-            'site_id' => $siteId,
+            'plant_id' => $plantId,
             'product_id' => $productId,
-            'machine_id' => $meta['machine_id'] ?? null,
+            'sub_category_id' => $meta['sub_category_id'] ?? null,
             'type' => $type,
             'quantity' => $quantity,
             'reference_type' => $referenceType,
@@ -163,7 +163,7 @@ class StockService
         ]);
 
         $balance = StockBalance::firstOrCreate(
-            ['site_id' => $siteId, 'product_id' => $productId],
+            ['plant_id' => $plantId, 'product_id' => $productId],
             ['quantity' => 0]
         );
 
@@ -172,8 +172,8 @@ class StockService
         $balance->update(['quantity' => $newBalance]);
 
         if (! ($meta['skip_notification'] ?? false)) {
-            $this->notifications->notifySiteStockUpdated(
-                $siteId,
+            $this->notifications->notifyPlantStockUpdated(
+                $plantId,
                 $productId,
                 $type,
                 $quantity,

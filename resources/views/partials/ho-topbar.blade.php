@@ -24,6 +24,19 @@
     </div>
 
     <div class="admin-topbar-end">
+        @isset($financialYear)
+            <div class="d-none d-lg-flex align-items-center gap-2 me-2">
+                <!-- <span class="badge text-bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                    <i class="bi bi-calendar-range me-1"></i>{{ $financialYear->displayLabel() }}
+                </span> -->
+                <x-financial-year-select
+                    compact
+                    :form-action="route('ho.financial-year.set')"
+                    style="min-width: 8rem;"
+                />
+            </div>
+        @endisset
+
         <span class="admin-topbar-date d-none d-xl-inline-flex">
             <i class="bi bi-calendar3"></i>
             {{ now()->format('l, d M Y') }}

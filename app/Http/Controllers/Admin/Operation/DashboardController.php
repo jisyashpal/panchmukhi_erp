@@ -6,7 +6,7 @@ use App\Enums\PurchaseStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Purchase;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\StockBalance;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -16,24 +16,24 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): View
     {
-        $siteId = $request->integer('site_id') ?: null;
+        $plantId = $request->integer('plant_id') ?: null;
 
-        $sitesQuery = Site::query()->where('is_active', true);
-        $activeSites = (clone $sitesQuery)->count();
+        $plantsQuery = Plant::query()->where('is_active', true);
+        $activePlants = (clone $plantsQuery)->count();
         $usersCount = User::where('is_active', true)->count();
         $productsCount = Product::where('is_active', true)->count();
 
-        $purchasesQuery = Purchase::query()->with(['site', 'supplier']);
+        $purchasesQuery = Purchase::query()->with(['plant', 'supplier']);
         $stockQuery = StockBalance::query();
 
-        if ($siteId) {
-            $purchasesQuery->where('site_id', $siteId);
-            $stockQuery->where('site_id', $siteId);
+        if ($plantId) {
+            $purchasesQuery->where('plant_id', $plantId);
+            $stockQuery->where('plant_id', $plantId);
         }
 
         $lowStock = StockBalance::query()
-            ->with(['site', 'product'])
-            ->when($siteId, fn ($q) => $q->where('stock_balances.site_id', $siteId))
+            ->with(['plant', 'product'])
+            ->when($plantId, fn ($q) => $q->where('stock_balances.plant_id', $plantId))
             ->join('products', 'products.id', '=', 'stock_balances.product_id')
             ->whereColumn('stock_balances.quantity', '<=', 'products.reorder_level')
             ->select('stock_balances.*')
@@ -41,9 +41,9 @@ class DashboardController extends Controller
             ->get();
 
         return view('admin.operation.dashboard', [
-            'sites' => Site::orderBy('name')->get(),
-            'siteId' => $siteId,
-            'activeSites' => $activeSites,
+            'plants' => Plant::orderBy('name')->get(),
+            'plantId' => $plantId,
+            'activePlants' => $activePlants,
             'usersCount' => $usersCount,
             'productsCount' => $productsCount,
             'totalStockLines' => (clone $stockQuery)->count(),

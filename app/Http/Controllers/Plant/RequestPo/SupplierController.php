@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Site\RequestPo;
+namespace App\Http\Controllers\Plant\RequestPo;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
@@ -12,14 +12,14 @@ class SupplierController extends Controller
 {
     public function index(): View
     {
-        return view('site.request-po.suppliers.index', [
+        return view('plant.request-po.suppliers.index', [
             'suppliers' => Supplier::orderBy('name')->paginate(20),
         ]);
     }
 
     public function create(): View
     {
-        return view('site.request-po.suppliers.create');
+        return view('plant.request-po.suppliers.create');
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,12 +35,12 @@ class SupplierController extends Controller
 
         Supplier::create(array_merge($data, ['is_active' => true]));
 
-        return redirect()->route('site.suppliers.index')->with('success', 'Supplier added.');
+        return redirect()->route('plant.suppliers.index')->with('success', 'Supplier added.');
     }
 
     public function edit(Supplier $supplier): View
     {
-        return view('site.request-po.suppliers.edit', compact('supplier'));
+        return view('plant.request-po.suppliers.edit', compact('supplier'));
     }
 
     public function update(Request $request, Supplier $supplier): RedirectResponse
@@ -57,6 +57,6 @@ class SupplierController extends Controller
 
         $supplier->update($data);
 
-        return redirect()->route('site.suppliers.index')->with('success', 'Supplier updated.');
+        return redirect()->route('plant.suppliers.index')->with('success', 'Supplier updated.');
     }
 }

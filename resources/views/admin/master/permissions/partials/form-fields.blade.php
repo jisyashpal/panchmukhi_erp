@@ -22,7 +22,7 @@
     @if($permission?->is_system)
         <div class="form-text">System permission slug cannot be changed.</div>
     @else
-        <div class="form-text">Use module.action format, e.g. site.manage_stocks</div>
+        <div class="form-text">Use module.action format, e.g. plant.manage_stocks</div>
     @endif
 </x-admin-form-group>
 

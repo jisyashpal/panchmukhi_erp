@@ -4,35 +4,35 @@ namespace App\Http\Controllers\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 
-trait BelongsToUserSite
+trait BelongsToUserPlant
 {
-    protected function siteId(): int
+    protected function plantId(): int
     {
-        $siteId = auth()->user()?->site_id;
+        $plantId = auth()->user()?->plant_id;
 
-        abort_unless($siteId, 403, 'No plant assigned to your account.');
+        abort_unless($plantId, 403, 'No plant assigned to your account.');
 
-        return (int) $siteId;
+        return (int) $plantId;
     }
 
-    protected function authorizeSite(Model $model, string $column = 'site_id'): void
+    protected function authorizePlant(Model $model, string $column = 'plant_id'): void
     {
-        if ((int) $model->getAttribute($column) !== $this->siteId()) {
+        if ((int) $model->getAttribute($column) !== $this->plantId()) {
             abort(404);
         }
     }
 
-    protected function purchaserSeesAllSites(): bool
+    protected function purchaserSeesAllPlants(): bool
     {
         return auth()->user()?->isPurchaser() ?? false;
     }
 
-    protected function authorizeSiteAccess(Model $model, string $column = 'site_id'): void
+    protected function authorizePlantAccess(Model $model, string $column = 'plant_id'): void
     {
-        if ($this->purchaserSeesAllSites()) {
+        if ($this->purchaserSeesAllPlants()) {
             return;
         }
 
-        $this->authorizeSite($model, $column);
+        $this->authorizePlant($model, $column);
     }
 }

@@ -1,13 +1,13 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Edit Purchase Details')
 @section('content')
 <x-admin-page-header title="Edit Purchase Details" subtitle="PO: {{ $purchase->reference_no }}">
-    <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline btn-sm">
+    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
 </x-admin-page-header>
 
-<form method="POST" action="{{ route('site.purchases.update', $purchase) }}">
+<form method="POST" action="{{ route('plant.purchases.update', $purchase) }}">
     @csrf
     @method('PUT')
     
@@ -105,7 +105,7 @@
                 <button type="submit" class="btn btn-admin-primary">
                     <i class="bi bi-check2-circle me-1"></i>Save Details
                 </button>
-                <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline">Cancel</a>
+                <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline">Cancel</a>
             </div>
         </div>
 
@@ -147,7 +147,7 @@
                     <button type="submit" class="btn btn-admin-primary w-100 mb-2">
                         <i class="bi bi-check2-circle me-1"></i>Save Details
                     </button>
-                    <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline w-100">Cancel</a>
+                    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline w-100">Cancel</a>
                 </div>
             </div>
         </div>

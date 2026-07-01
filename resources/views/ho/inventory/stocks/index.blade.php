@@ -1,7 +1,7 @@
 @extends('layouts.ho')
 @section('title', 'Stocks')
 @section('content')
-<x-admin-page-header title="Stocks" subtitle="Current stock balances by site and product">
+<x-admin-page-header title="Stocks" subtitle="Current balances and {{ $financialYearRange->displayLabel() }} movement summary">
     <a href="{{ route('ho.stocks.stock-in') }}" class="btn btn-success btn-sm me-1">
         <i class="bi bi-box-arrow-in-down me-1"></i>Stock In
     </a>
@@ -13,23 +13,23 @@
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         <div class="col-12 col-md-3">
-            <label class="form-label small">Site</label>
-            <select name="site_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">All sites</option>
-                @foreach($sites as $s)
-                    <option value="{{ $s->id }}" @selected(request('site_id') == $s->id)>{{ $s->name }}</option>
+            <label class="form-label small">Plant</label>
+            <select name="plant_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All plants</option>
+                @foreach($plants as $s)
+                    <option value="{{ $s->id }}" @selected(request('plant_id') == $s->id)>{{ $s->name }}</option>
                 @endforeach
             </select>
         </div>
         <div class="col-12 col-md-3 position-relative">
-            <label class="form-label small">Search Product / SKU</label>
-            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter product name or SKU..." autocomplete="off">
+            <label class="form-label small">Search Item Name / SKU</label>
+            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter item name or SKU..." autocomplete="off">
             <div id="autocomplete-suggestions" class="autocomplete-suggestions d-none shadow border rounded-bottom bg-white"></div>
         </div>
         <div class="col-12 col-md-3">
-            <label class="form-label small">Filter by Product</label>
+            <label class="form-label small">Filter by Item Name</label>
             <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">All products</option>
+                <option value="">All items</option>
                 @foreach($products as $p)
                     <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
                 @endforeach
@@ -37,7 +37,7 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['site_id', 'product_id', 'search']))
+            @if(request()->anyFilled(['plant_id', 'product_id', 'search']))
                 <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
@@ -49,22 +49,33 @@
         <table class="table mb-0">
             <thead>
                 <tr>
-                    <th>Site</th>
-                    <th>Product</th>
-                    <th class="text-end">Quantity</th>
+                    <th>Plant</th>
+                    <th>Item Name</th>
+                    <th class="text-end">Current Qty</th>
+                    <th class="text-end">FY Stock In</th>
+                    <th class="text-end">FY Stock Out</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($balances as $b)
                 <tr>
-                    <td>{{ $b->site->name }}</td>
+                    <td>{{ $b->plant->name }}</td>
                     <td class="fw-semibold">{{ $b->product->name }}</td>
                     <td class="text-end">{{ $b->quantity }} {{ $b->product->unit->abbreviation ?? '' }}</td>
+                    <td class="text-end text-success">{{ $b->fy_stock_in }} {{ $b->product->unit->abbreviation ?? '' }}</td>
+                    <td class="text-end text-danger">{{ $b->fy_stock_out }} {{ $b->product->unit->abbreviation ?? '' }}</td>
+                    <td class="text-end text-nowrap">
+                        <a href="{{ route('ho.stocks.show', ['plant_id' => $b->plant_id, 'product_id' => $b->product_id]) }}"
+                            class="btn btn-sm btn-admin-outline" title="View movements">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="3">
-                        <div class="admin-empty"><i class="bi bi-boxes d-block"></i>No stock records found</div>
+                    <td colspan="6">
+                        <div class="admin-empty"><i class="bi bi-boxes d-block"></i>No stock activity found for {{ $financialYearRange->displayLabel() }}</div>
                     </td>
                 </tr>
                 @endforelse

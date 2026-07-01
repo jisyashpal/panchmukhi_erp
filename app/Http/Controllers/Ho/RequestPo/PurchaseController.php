@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Ho\RequestPo;
 use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
 use App\Models\Purchase;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\NotificationService;
 use App\Services\PurchasePricingService;
+use App\Support\FinancialYearResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,8 +26,8 @@ class PurchaseController extends Controller
 
     public function index(Request $request): View
     {
-        $purchases = Purchase::with(['site', 'supplier', 'purchaseRequest', 'latestHoComment.user'])
-            ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
+        $query = Purchase::with(['plant', 'supplier', 'purchaseRequest', 'latestHoComment.user'])
+            ->when($request->filled('plant_id'), fn ($q) => $q->where('plant_id', $request->integer('plant_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('purchase_request_id'), fn ($q) => $q->where('purchase_request_id', $request->integer('purchase_request_id')))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -35,22 +36,23 @@ class PurchaseController extends Controller
                     $q->where('reference_no', 'like', '%'.$search.'%')
                         ->orWhereHas('supplier', fn ($sq) => $sq->where('name', 'like', '%'.$search.'%'));
                 });
-            })
-            ->when($request->filled('from_date'), fn ($q) => $q->whereDate('ordered_at', '>=', $request->date('from_date')))
-            ->when($request->filled('to_date'), fn ($q) => $q->whereDate('ordered_at', '<=', $request->date('to_date')))
-            ->latest('ordered_at')
+            });
+
+        app(FinancialYearResolver::class)->applyToQuery($query, 'ordered_at', $request);
+
+        $purchases = $query->latest('ordered_at')
             ->paginate(20)
             ->withQueryString();
 
         return view('ho.request-po.purchases.index', [
             'purchases' => $purchases,
-            'sites' => Site::orderBy('name')->get(),
+            'plants' => Plant::orderBy('name')->get(),
         ]);
     }
 
     public function show(Purchase $purchase): View
     {
-        $purchase->load(['site', 'supplier', 'items.product', 'purchaseRequest', 'receiver', 'dispatcher', 'hoComments.user']);
+        $purchase->load(['plant', 'supplier', 'items.product', 'purchaseRequest', 'receiver', 'dispatcher', 'hoComments.user']);
 
         return view('ho.request-po.purchases.show', [
             'purchase' => $purchase,

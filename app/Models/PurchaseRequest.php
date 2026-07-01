@@ -13,13 +13,13 @@ class PurchaseRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'site_id',
+        'plant_id',
         'product_request_id',
         'requested_by',
-        'site_status',
-        'site_reviewed_by',
-        'site_reviewed_at',
-        'site_decline_reason',
+        'plant_status',
+        'plant_reviewed_by',
+        'plant_reviewed_at',
+        'plant_decline_reason',
         'status',
         'remarks',
         'decline_reason',
@@ -30,26 +30,26 @@ class PurchaseRequest extends Model
     protected function casts(): array
     {
         return [
-            'site_status' => RequestStatus::class,
-            'site_reviewed_at' => 'datetime',
+            'plant_status' => RequestStatus::class,
+            'plant_reviewed_at' => 'datetime',
             'status' => RequestStatus::class,
             'reviewed_at' => 'datetime',
         ];
     }
 
-    public function siteReviewer(): BelongsTo
+    public function plantReviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'site_reviewed_by');
+        return $this->belongsTo(User::class, 'plant_reviewed_by');
     }
 
-    public function scopeSiteApproved($query)
+    public function scopePlantApproved($query)
     {
-        return $query->whereNot('site_status', RequestStatus::Cancelled);
+        return $query->whereNot('plant_status', RequestStatus::Cancelled);
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function productRequest(): BelongsTo

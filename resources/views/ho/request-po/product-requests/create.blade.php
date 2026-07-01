@@ -11,11 +11,11 @@
             @csrf
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Site</label>
-                    <select name="site_id" required class="form-select">
-                        <option value="">Select site</option>
-                        @foreach($sites as $s)
-                            <option value="{{ $s->id }}" @selected(old('site_id') == $s->id)>{{ $s->name }}</option>
+                    <label class="form-label fw-semibold">Plant</label>
+                    <select name="plant_id" required class="form-select">
+                        <option value="">Select plant</option>
+                        @foreach($plants as $s)
+                            <option value="{{ $s->id }}" @selected(old('plant_id') == $s->id)>{{ $s->name }}</option>
                         @endforeach
                     </select>
                 </div>

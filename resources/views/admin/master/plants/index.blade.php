@@ -1,9 +1,9 @@
 @extends('layouts.admin')
-@section('title', 'Sites')
+@section('title', 'Plants')
 @section('content')
-<x-admin-page-header title="Sites / Plants" subtitle="Manage all sites and plants">
-    <a href="{{ route('admin.sites.create') }}" class="btn btn-admin-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Add Site
+<x-admin-page-header title="Plants & Mines" subtitle="Manage all plants and mines">
+    <a href="{{ route('admin.plants.create') }}" class="btn btn-admin-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Add Plant
     </a>
 </x-admin-page-header>
 
@@ -33,22 +33,22 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($sites as $site)
+                @forelse($plants as $plant)
                 <tr>
-                    <td class="fw-semibold">{{ $site->name }}</td>
-                    <td><code class="small">{{ $site->code }}</code></td>
-                    <td><span class="badge bg-light text-dark border">{{ ucfirst($site->type) }}</span></td>
-                    <td>{{ $site->address }}</td>
+                    <td class="fw-semibold">{{ $plant->name }}</td>
+                    <td><code class="small">{{ $plant->code }}</code></td>
+                    <td><span class="badge bg-light text-dark border">{{ ucfirst($plant->type) }}</span></td>
+                    <td>{{ $plant->address }}</td>
                     <td>
-                        @if($site->is_active)
+                        @if($plant->is_active)
                             <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
                         @else
                             <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
                         @endif
                     </td>
                     <td class="text-end">
-                        <x-admin-action-edit :href="route('admin.sites.edit', $site)" />
-                        <x-admin-action-delete :action="route('admin.sites.destroy', $site)" confirm="Delete this site?" />
+                        <x-admin-action-edit :href="route('admin.plants.edit', $plant)" />
+                        <x-admin-action-delete :action="route('admin.plants.destroy', $plant)" confirm="Delete this plant?" />
                     </td>
                 </tr>
                 @empty
@@ -56,7 +56,7 @@
                     <td colspan="5">
                         <div class="admin-empty">
                             <i class="bi bi-geo-alt d-block"></i>
-                            No sites found
+                            No plants found
                         </div>
                     </td>
                 </tr>
@@ -65,5 +65,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $sites->links() }}</div>
+<div class="mt-3">{{ $plants->links() }}</div>
 @endsection

@@ -18,15 +18,15 @@
                 <x-admin-form-group label="Role" name="role_id" required>
                     <select name="role_id" id="role_id" class="form-select" required>
                         @foreach($roles as $r)
-                            <option value="{{ $r->id }}" data-requires-site="{{ $r->requires_site ? '1' : '0' }}" @selected(old('role_id', $user->role_id) == $r->id)>{{ $r->name }}</option>
+                            <option value="{{ $r->id }}" data-requires-plant="{{ $r->requires_plant ? '1' : '0' }}" @selected(old('role_id', $user->role_id) == $r->id)>{{ $r->name }}</option>
                         @endforeach
                     </select>
                 </x-admin-form-group>
-                <x-admin-form-group label="Site / Plant" name="site_id" id="site-field">
-                    <select name="site_id" id="site_id" class="form-select">
+                <x-admin-form-group label="Plant" name="plant_id" id="plant-field">
+                    <select name="plant_id" id="plant_id" class="form-select">
                         <option value="">—</option>
-                        @foreach($sites as $s)
-                            <option value="{{ $s->id }}" @selected(old('site_id', $user->site_id) == $s->id)>{{ $s->name }}</option>
+                        @foreach($plants as $s)
+                            <option value="{{ $s->id }}" @selected(old('plant_id', $user->plant_id) == $s->id)>{{ $s->name }}</option>
                         @endforeach
                     </select>
                 </x-admin-form-group>
@@ -46,13 +46,13 @@
 </div>
 @push('scripts')
 <script>
-    function toggleSiteField() {
+    function togglePlantField() {
         var select = document.getElementById('role_id');
         var opt = select.options[select.selectedIndex];
-        document.getElementById('site-field').style.display = opt && opt.dataset.requiresSite === '1' ? 'block' : 'none';
+        document.getElementById('plant-field').style.display = opt && opt.dataset.requiresPlant === '1' ? 'block' : 'none';
     }
-    document.getElementById('role_id').addEventListener('change', toggleSiteField);
-    toggleSiteField();
+    document.getElementById('role_id').addEventListener('change', togglePlantField);
+    togglePlantField();
 </script>
 @endpush
 @endsection

@@ -1,9 +1,9 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Purchase Requests')
 @section('content')
 <x-admin-page-header title="Purchase Requests" subtitle="Track requests sent to Head Office">
     @if(auth()->user()->canManagePurchaseRequests())
-        <a href="{{ route('site.purchase-requests.create') }}" class="btn btn-admin-primary btn-sm">
+        <a href="{{ route('plant.purchase-requests.create') }}" class="btn btn-admin-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>New Request
         </a>
     @endif
@@ -11,7 +11,7 @@
 
 <div class="admin-filters mb-0">
     @include('partials.status-tabs', [
-        'route' => 'site.purchase-requests.index',
+        'route' => 'plant.purchase-requests.index',
         'param' => 'status',
         'tabs' => [
             ['label' => 'All', 'key' => null],
@@ -61,11 +61,11 @@
                             $editablePo = $pr->purchases->first(fn ($po) => in_array($po->status->value, ['ordered', 'partial']));
                         @endphp
                         @if($editablePo && auth()->user()->isPurchaser())
-                            <a href="{{ route('site.purchases.edit', $editablePo) }}" class="btn btn-sm btn-success text-white me-1" title="Edit PO & Add Amount">
+                            <a href="{{ route('plant.purchases.edit', $editablePo) }}" class="btn btn-sm btn-success text-white me-1" title="Edit PO & Add Amount">
                                 <i class="bi bi-pencil-square me-1"></i>Edit PO
                             </a>
                         @endif
-                        <a href="{{ route('site.purchase-requests.show', $pr) }}" class="btn btn-sm btn-admin-outline">View</a>
+                        <a href="{{ route('plant.purchase-requests.show', $pr) }}" class="btn btn-sm btn-admin-outline">View</a>
                     </td>
                 </tr>
                 @empty

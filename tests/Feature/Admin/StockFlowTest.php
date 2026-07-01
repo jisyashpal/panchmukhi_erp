@@ -6,7 +6,7 @@ use App\Enums\PurchaseStatus;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\StockBalance;
 use App\Models\Supplier;
 use App\Models\User;
@@ -22,12 +22,12 @@ class StockFlowTest extends TestCase
     public function test_purchase_delivery_increases_stock_balance(): void
     {
         $admin = User::factory()->superAdmin()->create();
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $supplier = Supplier::factory()->create();
         $product = Product::factory()->create();
 
         $purchase = Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-TEST-001',
             'status' => PurchaseStatus::Ordered,
@@ -47,7 +47,7 @@ class StockFlowTest extends TestCase
         ], $admin->id);
 
         $this->assertDatabaseHas('stock_balances', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'product_id' => $product->id,
             'quantity' => 25,
         ]);
@@ -56,11 +56,11 @@ class StockFlowTest extends TestCase
     public function test_stock_out_cannot_exceed_balance(): void
     {
         $admin = User::factory()->superAdmin()->create();
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $product = Product::factory()->create();
 
         StockBalance::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'product_id' => $product->id,
             'quantity' => 5,
         ]);
@@ -69,7 +69,7 @@ class StockFlowTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $service->recordOut(
-            $site->id,
+            $plant->id,
             $product->id,
             10,
             \App\Enums\StockReferenceType::StockOut,

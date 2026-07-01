@@ -5,7 +5,7 @@
 @php
     $pendingTotal = $selectedPurchase->items->sum(fn ($item) => max(0, (float) $item->quantity - (float) $item->received_quantity));
 @endphp
-<x-admin-page-header title="Stock In — {{ $selectedPurchase->reference_no }}" subtitle="{{ $selectedPurchase->site->name }} · {{ $selectedPurchase->supplier->name }}">
+<x-admin-page-header title="Stock In — {{ $selectedPurchase->reference_no }}" subtitle="{{ $selectedPurchase->plant->name }} · {{ $selectedPurchase->supplier->name }}">
     <a href="{{ route('ho.stocks.stock-in') }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
@@ -375,7 +375,7 @@
             <thead>
                 <tr>
                     <th>PO Ref</th>
-                    <th>Site</th>
+                    <th>Plant</th>
                     <th>Supplier</th>
                     <th class="text-end">Items</th>
                     <th class="text-end">Pending qty</th>
@@ -390,7 +390,7 @@
                 @endphp
                 <tr>
                     <td><code class="small">{{ $po->reference_no }}</code></td>
-                    <td>{{ $po->site->name }}</td>
+                    <td>{{ $po->plant->name }}</td>
                     <td>{{ $po->supplier->name }}</td>
                     <td class="text-end">{{ $po->items->count() }}</td>
                     <td class="text-end fw-semibold">{{ number_format($pendingQty, 2) }}</td>
@@ -427,10 +427,10 @@
     @csrf
     <div class="row g-3">
         <div class="col-md-4">
-            <label class="form-label">Site</label>
-            <select name="site_id" class="form-select" required>
-                @foreach($sites as $s)
-                <option value="{{ $s->id }}" @selected(old('site_id')==$s->id)>{{ $s->name }}</option>
+            <label class="form-label">Plant</label>
+            <select name="plant_id" class="form-select" required>
+                @foreach($plants as $s)
+                <option value="{{ $s->id }}" @selected(old('plant_id')==$s->id)>{{ $s->name }}</option>
                 @endforeach
             </select>
         </div>

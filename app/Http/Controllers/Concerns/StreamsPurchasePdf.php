@@ -17,8 +17,8 @@ trait StreamsPurchasePdf
     protected function purchasePdfDefaults(Purchase $purchase): array
     {
         return [
-            'company_name' => config('company.name') ?: $purchase->site->name,
-            'company_address' => config('company.address') ?: ($purchase->site->address ?? ''),
+            'company_name' => config('company.name') ?: $purchase->plant->name,
+            'company_address' => config('company.address') ?: ($purchase->plant->address ?? ''),
             'company_gstin' => config('company.gstin', ''),
         ];
     }
@@ -42,7 +42,7 @@ trait StreamsPurchasePdf
     {
         $data = $this->validatePurchasePdfHeader($request);
 
-        $purchase->load(['site', 'supplier', 'items.product.unit']);
+        $purchase->load(['plant', 'supplier', 'items.product.unit']);
 
         $header = [
             'name' => $data['company_name'],

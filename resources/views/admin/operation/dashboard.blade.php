@@ -3,10 +3,10 @@
 @section('content')
 <x-admin-page-header title="Dashboard" subtitle="System overview — master data & operations oversight">
     <form method="GET" class="d-flex align-items-center gap-2">
-        <select name="site_id" onchange="this.form.submit()" class="form-select form-select-sm" style="min-width: 180px;">
-            <option value="">All sites</option>
-            @foreach($sites as $site)
-                <option value="{{ $site->id }}" @selected($siteId == $site->id)>{{ $site->name }}</option>
+        <select name="plant_id" onchange="this.form.submit()" class="form-select form-select-sm" style="min-width: 180px;">
+            <option value="">All plants</option>
+            @foreach($plants as $plant)
+                <option value="{{ $plant->id }}" @selected($plantId == $plant->id)>{{ $plant->name }}</option>
             @endforeach
         </select>
     </form>
@@ -15,8 +15,8 @@
 <div class="admin-stat-grid">
     <div class="admin-stat-card stat-accent-blue">
         <div class="stat-icon stat-icon-blue"><i class="bi bi-building"></i></div>
-        <div class="stat-label">Active Sites</div>
-        <div class="stat-value">{{ $activeSites }}</div>
+        <div class="stat-label">Active Plants</div>
+        <div class="stat-value">{{ $activePlants }}</div>
     </div>
     <div class="admin-stat-card stat-accent-violet">
         <div class="stat-icon stat-icon-violet"><i class="bi bi-people"></i></div>
@@ -63,11 +63,11 @@
             <div class="admin-card-header"><h2>Low Stock</h2></div>
             <div class="table-responsive">
                 <table class="table mb-0">
-                    <thead><tr><th>Site</th><th>Product</th><th class="text-end">Qty</th></tr></thead>
+                    <thead><tr><th>Plant</th><th>Product</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
                         @forelse($lowStock as $row)
                         <tr>
-                            <td>{{ $row->site->name }}</td>
+                            <td>{{ $row->plant->name }}</td>
                             <td>{{ $row->product->name }}</td>
                             <td class="text-end text-danger fw-semibold">{{ $row->quantity }}</td>
                         </tr>
@@ -84,12 +84,12 @@
             <div class="admin-card-header"><h2>Recent Purchases</h2></div>
             <div class="table-responsive">
                 <table class="table mb-0">
-                    <thead><tr><th>Ref</th><th>Site</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Ref</th><th>Plant</th><th>Status</th></tr></thead>
                     <tbody>
                         @forelse($recentPurchases as $purchase)
                         <tr>
                             <td><a href="{{ route('ho.purchases.show', $purchase) }}">{{ $purchase->reference_no }}</a></td>
-                            <td>{{ $purchase->site->name }}</td>
+                            <td>{{ $purchase->plant->name }}</td>
                             <td><x-status-badge :status="$purchase->status" /></td>
                         </tr>
                         @empty

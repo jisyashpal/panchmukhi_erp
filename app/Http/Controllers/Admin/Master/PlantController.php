@@ -3,17 +3,16 @@
 namespace App\Http\Controllers\Admin\Master;
 
 use App\Http\Controllers\Controller;
-use App\Models\Site;
+use App\Models\Plant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
-class SiteController extends Controller
+class PlantController extends Controller
 {
     public function index(Request $request): View
     {
-        $sites = Site::query()
+        $plants = Plant::query()
             ->when($request->filled('search'), fn ($q) => $q->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%'.$request->search.'%')
                     ->orWhere('code', 'like', '%'.$request->search.'%');
@@ -22,53 +21,53 @@ class SiteController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.master.sites.index', compact('sites'));
+        return view('admin.master.plants.index', compact('plants'));
     }
 
     public function create(): View
     {
-        return view('admin.master.sites.create');
+        return view('admin.master.plants.create');
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', 'unique:sites,code'],
-            'type' => ['required', 'in:site,plant'],
+            'code' => ['required', 'string', 'max:50', 'unique:plants,code'],
+            'type' => ['required', 'in:plant,mine'],
             'address' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
-        Site::create($data);
+        Plant::create($data);
 
-        return redirect()->route('admin.sites.index')->with('success', 'Site created successfully.');
+        return redirect()->route('admin.plants.index')->with('success', 'Plant created successfully.');
     }
 
-    public function edit(Site $site): View
+    public function edit(Plant $plant): View
     {
-        return view('admin.master.sites.edit', compact('site'));
+        return view('admin.master.plants.edit', compact('plant'));
     }
 
-    public function update(Request $request, Site $site): RedirectResponse
+    public function update(Request $request, Plant $plant): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', 'unique:sites,code,'.$site->id],
-            'type' => ['required', 'in:site,plant'],
+            'code' => ['required', 'string', 'max:50', 'unique:plants,code,'.$plant->id],
+            'type' => ['required', 'in:plant,mine'],
             'address' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
-        $site->update($data);
+        $plant->update($data);
 
-        return redirect()->route('admin.sites.index')->with('success', 'Site updated successfully.');
+        return redirect()->route('admin.plants.index')->with('success', 'Plant updated successfully.');
     }
 
-    public function destroy(Site $site): RedirectResponse
+    public function destroy(Plant $plant): RedirectResponse
     {
-        $site->delete();
+        $plant->delete();
 
-        return redirect()->route('admin.sites.index')->with('success', 'Site deleted.');
+        return redirect()->route('admin.plants.index')->with('success', 'Plant deleted.');
     }
 }

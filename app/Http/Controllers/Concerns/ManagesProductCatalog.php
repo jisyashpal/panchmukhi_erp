@@ -37,12 +37,12 @@ trait ManagesProductCatalog
         $cleanSubCategory = preg_replace('/[^A-Za-z0-9]/', '', $subCategoryName);
         $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $request->size ?? '');
 
-        $productPart = strtoupper(substr($cleanProduct, 0, 3));
         $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
+        $productPart = strtoupper(substr($cleanProduct, 0, 3));
         $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
-        $sizePart = strtoupper($cleanSize);
+        $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
 
-        $sku = $productPart.'_'.$categoryPart;
+        $sku = $categoryPart.'_'.$productPart;
         if ($subCategoryPart !== '') {
             $sku .= '_'.$subCategoryPart;
         }
@@ -62,6 +62,9 @@ trait ManagesProductCatalog
             'sku' => ['required', 'string', 'max:100', 'unique:products,sku,'.($product?->id ?? 'NULL')],
             'reorder_level' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
+        ], [], [
+            'name' => 'item name',
+            'size' => 'size/part',
         ]);
     }
 }

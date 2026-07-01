@@ -28,7 +28,7 @@ trait ManagesProducts
                     ->orWhereHas('brand', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
             }))
             ->orderBy('name')
-            ->paginate(20)
+            ->paginate(15)
             ->withQueryString();
 
         return view($this->catalogView('products.index'), [

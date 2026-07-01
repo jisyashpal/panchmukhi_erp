@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Users')
 @section('content')
-<x-admin-page-header title="Users" subtitle="Add and manage users — assign roles and sites/plants">
+<x-admin-page-header title="Users" subtitle="Add and manage users — assign roles and plants">
     <a href="{{ route('admin.users.create') }}" class="btn btn-admin-primary btn-sm">
         <i class="bi bi-plus-lg me-1"></i>Add User
     </a>
@@ -13,11 +13,11 @@
     </div>
     <form method="GET" class="row g-3 align-items-end">
         <div class="col-md-3">
-            <label class="form-label" for="filter_site_id">Site / Plant</label>
-            <select name="site_id" id="filter_site_id" class="form-select form-select-sm">
-                <option value="">All sites &amp; plants</option>
-                @foreach($sites as $site)
-                    <option value="{{ $site->id }}" @selected(request('site_id') == $site->id)>{{ $site->name }} ({{ $site->code }})</option>
+            <label class="form-label" for="filter_plant_id">Plant</label>
+            <select name="plant_id" id="filter_plant_id" class="form-select form-select-sm">
+                <option value="">All plants &amp; mines</option>
+                @foreach($plants as $plant)
+                    <option value="{{ $plant->id }}" @selected(request('plant_id') == $plant->id)>{{ $plant->name }} ({{ $plant->code }})</option>
                 @endforeach
             </select>
         </div>
@@ -47,7 +47,7 @@
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
         </div>
-        @if(request()->hasAny(['site_id', 'role_id', 'search', 'is_active']))
+        @if(request()->hasAny(['plant_id', 'role_id', 'search', 'is_active']))
             <div class="col-md-3">
                 <a href="{{ route('admin.users.index') }}" class="btn btn-link btn-sm text-danger w-100">Clear filters</a>
             </div>
@@ -63,7 +63,7 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Site / Plant</th>
+                    <th>Plant</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -77,9 +77,9 @@
                         <span class="badge bg-light text-dark border">{{ $u->role?->name ?? '—' }}</span>
                     </td>
                     <td>
-                        @if($u->site)
-                            <span>{{ $u->site->name }}</span>
-                            <code class="small text-muted ms-1">{{ $u->site->code }}</code>
+                        @if($u->plant)
+                            <span>{{ $u->plant->name }}</span>
+                            <code class="small text-muted ms-1">{{ $u->plant->code }}</code>
                         @else
                             <span class="text-muted">Head Office</span>
                         @endif

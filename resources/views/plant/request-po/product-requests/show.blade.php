@@ -1,15 +1,15 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Product Request #'.$productRequest->id)
 @section('content')
-<x-admin-page-header title="Product Request #{{ $productRequest->id }}" subtitle="{{ $productRequest->site->name }} · {{ $productRequest->requester?->name ?? 'N/A' }}">
+<x-admin-page-header title="Product Request #{{ $productRequest->id }}" subtitle="{{ $productRequest->plant->name }} · {{ $productRequest->requester?->name ?? 'N/A' }}">
     <div class="d-flex align-items-center gap-2">
         <x-status-badge :status="$productRequest->status" />
         @if(auth()->user()->isPurchaser() && in_array($productRequest->status->value, ['submitted', 'in_progress']))
-            <a href="{{ route('site.product-requests.edit', $productRequest) }}" class="btn btn-primary btn-sm">
+            <a href="{{ route('plant.product-requests.edit', $productRequest) }}" class="btn btn-primary btn-sm">
                 <i class="bi bi-pencil me-1"></i>Edit
             </a>
         @endif
-        <a href="{{ route('site.product-requests.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
+        <a href="{{ route('plant.product-requests.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
     </div>
 </x-admin-page-header>
 
@@ -43,7 +43,7 @@
                         <td class="text-end">{{ $item->gst_rate }}%</td>
                     @endif
                     <td class="text-end">{{ $item->quantity }}</td>
-                    <td class="text-end"><span class="stock-check" data-url="{{ route('site.api.stock.check', ['site' => $productRequest->site_id, 'product' => $item->product_id]) }}">…</span></td>
+                    <td class="text-end"><span class="stock-check" data-url="{{ route('plant.api.stock.check', ['plant' => $productRequest->plant_id, 'product' => $item->product_id]) }}">…</span></td>
                 </tr>
                 @endforeach
             </tbody>
@@ -64,16 +64,16 @@
                     @if($productRequest->purchaseRequest->purchases->isNotEmpty())
                         @if($productRequest->purchaseRequest->purchases->count() === 1)
                             @php $po = $productRequest->purchaseRequest->purchases->first(); @endphp
-                            <a href="{{ route('site.purchases.show', $po) }}" class="btn btn-admin-outline btn-sm">
+                            <a href="{{ route('plant.purchases.show', $po) }}" class="btn btn-admin-outline btn-sm">
                                 View PO: <code>{{ $po->reference_no }}</code>
                             </a>
                         @else
-                            <a href="{{ route('site.purchases.index', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}" class="btn btn-admin-outline btn-sm">
+                            <a href="{{ route('plant.purchases.index', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}" class="btn btn-admin-outline btn-sm">
                                 View {{ $productRequest->purchaseRequest->purchases->count() }} POs
                             </a>
                         @endif
                     @else
-                        <a href="{{ route('site.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}" class="btn btn-warning btn-sm">
+                        <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}" class="btn btn-warning btn-sm">
                             <i class="bi bi-cart-plus me-1"></i>Create Purchase Order
                         </a>
                     @endif
@@ -89,7 +89,7 @@
                     <h5 class="mb-1">Create Purchase Order</h5>
                     <p class="mb-0 text-muted small">Convert this product request and generate a purchase order.</p>
                 </div>
-                <form method="POST" action="{{ route('site.product-requests.convert', $productRequest) }}">
+                <form method="POST" action="{{ route('plant.product-requests.convert', $productRequest) }}">
                     @csrf
                     <button type="submit" class="btn btn-warning btn-sm">
                         <i class="bi bi-cart-plus me-1"></i>Create PO
@@ -100,7 +100,7 @@
     </div>
     @endif
 @elseif($productRequest->purchaseRequest)
-    <a href="{{ route('site.purchase-requests.show', $productRequest->purchaseRequest) }}" class="btn btn-admin-outline btn-sm">View Purchase Request</a>
+    <a href="{{ route('plant.purchase-requests.show', $productRequest->purchaseRequest) }}" class="btn btn-admin-outline btn-sm">View Purchase Request</a>
 @endif
 
 @push('scripts')

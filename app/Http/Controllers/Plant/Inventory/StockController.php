@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Http\Controllers\Site\Inventory;
+namespace App\Http\Controllers\Plant\Inventory;
 
-use App\Http\Controllers\Concerns\BelongsToUserSite;
+use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockBalance;
@@ -11,15 +11,15 @@ use Illuminate\View\View;
 
 class StockController extends Controller
 {
-    use BelongsToUserSite;
+    use BelongsToUserPlant;
 
     public function index(Request $request): View
     {
-        $siteId = $this->siteId();
+        $plantId = $this->plantId();
         $selectedProductId = $request->filled('product_id') ? $request->integer('product_id') : null;
 
         $balances = StockBalance::with(['product.unit'])
-            ->where('site_id', $siteId)
+            ->where('plant_id', $plantId)
             ->when($selectedProductId, fn ($q) => $q->where('product_id', $selectedProductId))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->string('search');
@@ -36,7 +36,7 @@ class StockController extends Controller
             ? Product::with('unit')->find($selectedProductId)
             : null;
 
-        return view('site.inventory.stocks.index', [
+        return view('plant.inventory.stocks.index', [
             'balances' => $balances,
             'products' => Product::orderBy('name')->get(),
             'selectedProduct' => $selectedProduct,

@@ -6,7 +6,7 @@ use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
 use App\Enums\StockMovementType;
 use App\Enums\StockReferenceType;
-use App\Models\Machine;
+use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\ProductRequestItem;
@@ -15,7 +15,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
@@ -28,10 +28,10 @@ class WorkflowSeeder extends Seeder
 {
     public function run(): void
     {
-        $site = Site::where('code', 'PLT-001')->firstOrFail();
-        $branchSite = Site::where('code', 'PLT-002')->firstOrFail();
+        $plant = Plant::where('code', 'PLT-001')->firstOrFail();
+        $branchPlant = Plant::where('code', 'PLT-002')->firstOrFail();
 
-        $siteUser = User::where('email', 'site@gmail.com')->firstOrFail();
+        $plantUser = User::where('email', 'plant@gmail.com')->firstOrFail();
         $hoUser = User::where('email', 'ho@gmail.com')->firstOrFail();
         $purchaser = User::where('email', 'purchaser@gmail.com')->firstOrFail();
 
@@ -45,20 +45,20 @@ class WorkflowSeeder extends Seeder
         $sand = Product::where('sku', 'SND-RIVER')->firstOrFail();
         $paint = Product::where('sku', 'PNT-EMUL-20')->firstOrFail();
 
-        $mixer = Machine::where('site_id', $site->id)->where('code', 'MX-A')->firstOrFail();
+        $cementSub = SubCategory::where('slug', 'cement')->firstOrFail();
 
-        $this->seedProductRequests($site, $siteUser, $hoUser, $cement, $steel12, $sand, $localSupplier, $ultratechSupplier);
-        $this->seedPurchaseRequests($site, $siteUser, $hoUser, $steel16, $paint, $sand, $cement, $localSupplier, $ultratechSupplier);
-        $this->seedPurchases($site, $purchaser, $siteUser, $hoUser, $localSupplier, $ultratechSupplier, $interstateSupplier, $cement, $steel12, $sand, $paint);
+        $this->seedProductRequests($plant, $plantUser, $hoUser, $cement, $steel12, $sand, $localSupplier, $ultratechSupplier);
+        $this->seedPurchaseRequests($plant, $plantUser, $hoUser, $steel16, $paint, $sand, $cement, $localSupplier, $ultratechSupplier);
+        $this->seedPurchases($plant, $purchaser, $plantUser, $hoUser, $localSupplier, $ultratechSupplier, $interstateSupplier, $cement, $steel12, $sand, $paint);
 
         $stockService = app(StockService::class);
 
-        $this->seedStockAndUsage($site, $branchSite, $hoUser, $mixer, $cement, $steel12, $sand, $paint, $stockService);
+        $this->seedStockAndUsage($plant, $branchPlant, $hoUser, $cementSub, $cement, $steel12, $sand, $paint, $stockService);
     }
 
     private function seedProductRequests(
-        Site $site,
-        User $siteUser,
+        Plant $plant,
+        User $plantUser,
         User $hoUser,
         Product $cement,
         Product $steel,
@@ -67,9 +67,9 @@ class WorkflowSeeder extends Seeder
         Supplier $ultratechSupplier
     ): void {
         $submitted = ProductRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Product request — submitted'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — submitted'],
             [
-                'requested_by' => $siteUser->id,
+                'requested_by' => $plantUser->id,
                 'status' => RequestStatus::Submitted,
             ]
         );
@@ -79,9 +79,9 @@ class WorkflowSeeder extends Seeder
         ]);
 
         $inProgress = ProductRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Product request — in progress'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — in progress'],
             [
-                'requested_by' => $siteUser->id,
+                'requested_by' => $plantUser->id,
                 'status' => RequestStatus::InProgress,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(2),
@@ -93,9 +93,9 @@ class WorkflowSeeder extends Seeder
         ]);
 
         $completed = ProductRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Product request — completed'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — completed'],
             [
-                'requested_by' => $siteUser->id,
+                'requested_by' => $plantUser->id,
                 'status' => RequestStatus::Completed,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(5),
@@ -107,10 +107,10 @@ class WorkflowSeeder extends Seeder
         ]);
 
         $completedPr = PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'product_request_id' => $completed->id],
+            ['plant_id' => $plant->id, 'product_request_id' => $completed->id],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::Submitted,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Submitted,
                 'status' => RequestStatus::Submitted,
                 'remarks' => '[demo] Purchase request from completed product request (multi-supplier, no PO yet)',
             ]
@@ -121,15 +121,29 @@ class WorkflowSeeder extends Seeder
         ]);
 
         ProductRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Product request — cancelled'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — cancelled'],
             [
-                'requested_by' => $siteUser->id,
+                'requested_by' => $plantUser->id,
                 'status' => RequestStatus::Cancelled,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(1),
                 'decline_reason' => 'Duplicate request — already covered in PR #'.$submitted->id,
             ]
         );
+
+        // Pipeline End-to-End: Product Request
+        $pipelineProductReq = ProductRequest::firstOrCreate(
+            ['plant_id' => $plant->id, 'remarks' => '[demo] End-to-End Pipeline: Product Request'],
+            [
+                'requested_by' => $plantUser->id,
+                'status' => RequestStatus::Completed,
+                'reviewed_by' => $hoUser->id,
+                'reviewed_at' => now()->subDays(12),
+            ]
+        );
+        $this->seedProductRequestItems($pipelineProductReq, [
+            ['product_id' => $cement->id, 'quantity' => 100, 'unit_price' => 380, 'gst_rate' => 28, 'supplier_id' => $localSupplier->id],
+        ]);
     }
 
     /**
@@ -154,8 +168,8 @@ class WorkflowSeeder extends Seeder
     }
 
     private function seedPurchaseRequests(
-        Site $site,
-        User $siteUser,
+        Plant $plant,
+        User $plantUser,
         User $hoUser,
         Product $steel,
         Product $paint,
@@ -165,10 +179,10 @@ class WorkflowSeeder extends Seeder
         Supplier $ultratechSupplier
     ): void {
         $submitted = PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Purchase request — submitted'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Purchase request — submitted'],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::Submitted,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Submitted,
                 'status' => RequestStatus::Submitted,
             ]
         );
@@ -177,13 +191,13 @@ class WorkflowSeeder extends Seeder
         ]);
 
         PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Purchase request — in progress'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Purchase request — in progress'],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::InProgress,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::InProgress,
                 'status' => RequestStatus::InProgress,
-                'site_reviewed_by' => $siteUser->id,
-                'site_reviewed_at' => now()->subDays(3),
+                'plant_reviewed_by' => $plantUser->id,
+                'plant_reviewed_at' => now()->subDays(3),
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(2),
             ]
@@ -196,10 +210,10 @@ class WorkflowSeeder extends Seeder
         }
 
         $readyForPo = PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Purchase request — ready for PO'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Purchase request — ready for PO'],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::Submitted,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Submitted,
                 'status' => RequestStatus::Submitted,
             ]
         );
@@ -209,10 +223,10 @@ class WorkflowSeeder extends Seeder
         ]);
 
         $multiSupplierPr = PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Multi-supplier — POs created'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Multi-supplier — POs created'],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::Completed,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Completed,
                 'status' => RequestStatus::Completed,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(7),
@@ -224,16 +238,34 @@ class WorkflowSeeder extends Seeder
         ]);
 
         PurchaseRequest::firstOrCreate(
-            ['site_id' => $site->id, 'remarks' => '[demo] Purchase request — cancelled'],
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Purchase request — cancelled'],
             [
-                'requested_by' => $siteUser->id,
-                'site_status' => RequestStatus::Cancelled,
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Cancelled,
                 'status' => RequestStatus::Cancelled,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(4),
                 'decline_reason' => 'Budget not approved for this quarter.',
             ]
         );
+
+        // Pipeline End-to-End: Purchase Request linked to the Product Request
+        $pipelineProductReq = ProductRequest::where('remarks', '[demo] End-to-End Pipeline: Product Request')->firstOrFail();
+
+        $pipelinePurchaseReq = PurchaseRequest::firstOrCreate(
+            ['plant_id' => $plant->id, 'product_request_id' => $pipelineProductReq->id],
+            [
+                'requested_by' => $plantUser->id,
+                'plant_status' => RequestStatus::Completed,
+                'status' => RequestStatus::Completed,
+                'reviewed_by' => $hoUser->id,
+                'reviewed_at' => now()->subDays(10),
+                'remarks' => '[demo] End-to-End Pipeline: Purchase Request',
+            ]
+        );
+        $this->seedPurchaseRequestItems($pipelinePurchaseReq, [
+            ['product_id' => $cement->id, 'quantity' => 100, 'unit_price' => 380, 'supplier_id' => $localSupplier->id],
+        ]);
     }
 
     /**
@@ -257,9 +289,9 @@ class WorkflowSeeder extends Seeder
     }
 
     private function seedPurchases(
-        Site $site,
+        Plant $plant,
         User $purchaser,
-        User $siteUser,
+        User $plantUser,
         User $hoUser,
         Supplier $localSupplier,
         Supplier $ultratechSupplier,
@@ -275,7 +307,7 @@ class WorkflowSeeder extends Seeder
 
         $this->createPurchase(
             'PO-DEMO-PENDING-DISPATCH',
-            $site,
+            $plant,
             $localSupplier,
             null,
             PurchaseStatus::Ordered,
@@ -289,7 +321,7 @@ class WorkflowSeeder extends Seeder
 
         $this->createPurchase(
             'PO-DEMO-DISPATCHED',
-            $site,
+            $plant,
             $localSupplier,
             null,
             PurchaseStatus::Ordered,
@@ -307,7 +339,7 @@ class WorkflowSeeder extends Seeder
 
         $this->createPurchase(
             'PO-DEMO-DELIVERED',
-            $site,
+            $plant,
             $localSupplier,
             null,
             PurchaseStatus::Delivered,
@@ -322,7 +354,7 @@ class WorkflowSeeder extends Seeder
                 'dispatched_at' => now()->subDays(8),
                 'dispatched_by' => $purchaser->id,
                 'delivered_at' => now()->subDays(6),
-                'received_by' => $siteUser->id,
+                'received_by' => $plantUser->id,
                 'received_at' => now()->subDays(6),
                 'supplier_invoice_no' => 'INV-DEMO-001',
                 'supplier_invoice_date' => now()->subDays(7)->toDateString(),
@@ -331,7 +363,7 @@ class WorkflowSeeder extends Seeder
 
         $this->createPurchase(
             'PO-DEMO-INTERSTATE',
-            $site,
+            $plant,
             $interstateSupplier,
             null,
             PurchaseStatus::Ordered,
@@ -350,7 +382,7 @@ class WorkflowSeeder extends Seeder
         if ($multiSupplierPr) {
             $this->createPurchase(
                 'PO-DEMO-MULTI-CEM',
-                $site,
+                $plant,
                 $ultratechSupplier,
                 $multiSupplierPr,
                 PurchaseStatus::Ordered,
@@ -367,7 +399,7 @@ class WorkflowSeeder extends Seeder
 
             $this->createPurchase(
                 'PO-DEMO-MULTI-STL',
-                $site,
+                $plant,
                 $localSupplier,
                 $multiSupplierPr,
                 PurchaseStatus::Ordered,
@@ -382,6 +414,32 @@ class WorkflowSeeder extends Seeder
                 ]
             );
         }
+
+        // Pipeline End-to-End: Purchase Order linked to the Purchase Request
+        $pipelinePurchaseReq = PurchaseRequest::where('remarks', '[demo] End-to-End Pipeline: Purchase Request')->firstOrFail();
+
+        $this->createPurchase(
+            'PO-PIPELINE-DELIVERED',
+            $plant,
+            $localSupplier,
+            $pipelinePurchaseReq,
+            PurchaseStatus::Delivered,
+            false,
+            [
+                ['product_id' => $cement->id, 'quantity' => 100, 'unit_price' => 380, 'gst_rate' => 28],
+            ],
+            $pricing,
+            [
+                'ordered_at' => now()->subDays(9),
+                'dispatched_at' => now()->subDays(8),
+                'dispatched_by' => $purchaser->id,
+                'delivered_at' => now()->subDays(7),
+                'received_by' => $plantUser->id,
+                'received_at' => now()->subDays(7),
+                'supplier_invoice_no' => 'INV-PIPE-001',
+                'supplier_invoice_date' => now()->subDays(8)->toDateString(),
+            ]
+        );
     }
 
     /**
@@ -389,7 +447,7 @@ class WorkflowSeeder extends Seeder
      */
     private function createPurchase(
         string $referenceNo,
-        Site $site,
+        Plant $plant,
         Supplier $supplier,
         ?PurchaseRequest $purchaseRequest,
         PurchaseStatus $status,
@@ -417,7 +475,7 @@ class WorkflowSeeder extends Seeder
         $purchase = Purchase::firstOrCreate(
             ['reference_no' => $referenceNo],
             array_merge([
-                'site_id' => $site->id,
+                'plant_id' => $plant->id,
                 'supplier_id' => $supplier->id,
                 'purchase_request_id' => $purchaseRequest?->id,
                 'status' => $status,
@@ -458,10 +516,10 @@ class WorkflowSeeder extends Seeder
     }
 
     private function seedStockAndUsage(
-        Site $site,
-        Site $branchSite,
+        Plant $plant,
+        Plant $branchPlant,
         User $hoUser,
-        Machine $mixer,
+        SubCategory $cementSub,
         Product $cement,
         Product $steel,
         Product $sand,
@@ -489,9 +547,9 @@ class WorkflowSeeder extends Seeder
             });
         }
 
-        if ($stockService->getBalance($site->id, $steel->id) < 50) {
+        if ($stockService->getBalance($plant->id, $steel->id) < 50) {
             $stockService->recordIn(
-                $site->id,
+                $plant->id,
                 $steel->id,
                 80,
                 $hoUser->id,
@@ -501,9 +559,9 @@ class WorkflowSeeder extends Seeder
             );
         }
 
-        if ($stockService->getBalance($site->id, $sand->id) < 3) {
+        if ($stockService->getBalance($plant->id, $sand->id) < 3) {
             $stockService->recordIn(
-                $site->id,
+                $plant->id,
                 $sand->id,
                 5,
                 $hoUser->id,
@@ -513,31 +571,31 @@ class WorkflowSeeder extends Seeder
             );
         }
 
-        if (! StockMovement::where('notes', '[demo] Stock out — site consumption')->exists()) {
-            if ($stockService->getBalance($site->id, $sand->id) >= 2) {
+        if (! StockMovement::where('notes', '[demo] Stock out — plant consumption')->exists()) {
+            if ($stockService->getBalance($plant->id, $sand->id) >= 2) {
                 $stockService->recordOut(
-                    $site->id,
+                    $plant->id,
                     $sand->id,
                     2,
                     StockReferenceType::StockOut,
                     null,
                     $hoUser->id,
-                    '[demo] Stock out — site consumption',
-                    ['machine_id' => $mixer->id, 'photo_confirmed' => true, 'reason' => 'Daily production use']
+                    '[demo] Stock out — plant consumption',
+                    ['sub_category_id' => $cementSub->id, 'photo_confirmed' => true, 'reason' => 'Daily production use']
                 );
             }
         }
 
         if (! ProductUseEntry::where('notes', '[demo] Product life — mixer usage')->exists()) {
-            DB::transaction(function () use ($site, $cement, $mixer, $hoUser, $stockService) {
-                if ($stockService->getBalance($site->id, $cement->id) < 15) {
+            DB::transaction(function () use ($plant, $cement, $cementSub, $hoUser, $stockService) {
+                if ($stockService->getBalance($plant->id, $cement->id) < 15) {
                     return;
                 }
 
                 $first = ProductUseEntry::create([
-                    'site_id' => $site->id,
+                    'plant_id' => $plant->id,
                     'product_id' => $cement->id,
-                    'machine_id' => $mixer->id,
+                    'sub_category_id' => $cementSub->id,
                     'quantity' => 10,
                     'life_hours' => 48,
                     'usage_count' => 3,
@@ -548,9 +606,9 @@ class WorkflowSeeder extends Seeder
                 $stockService->recordProductUse($first);
 
                 $second = ProductUseEntry::create([
-                    'site_id' => $site->id,
+                    'plant_id' => $plant->id,
                     'product_id' => $cement->id,
-                    'machine_id' => $mixer->id,
+                    'sub_category_id' => $cementSub->id,
                     'quantity' => 5,
                     'life_hours' => 24,
                     'usage_count' => 2,
@@ -562,31 +620,96 @@ class WorkflowSeeder extends Seeder
             });
         }
 
-        if ($stockService->getBalance($branchSite->id, $paint->id) === 0.0) {
+        if ($stockService->getBalance($branchPlant->id, $paint->id) === 0.0) {
             $stockService->recordIn(
-                $branchSite->id,
+                $branchPlant->id,
                 $paint->id,
                 6,
                 $hoUser->id,
                 StockReferenceType::StockIn,
                 null,
-                ['notes' => '[demo] Branch site opening stock — paint']
+                ['notes' => '[demo] Branch plant opening stock — paint']
             );
         }
 
         if (! StockMovement::where('type', StockMovementType::In)
-            ->where('site_id', $branchSite->id)
+            ->where('plant_id', $branchPlant->id)
             ->where('product_id', $cement->id)
             ->exists()) {
             $stockService->recordIn(
-                $branchSite->id,
+                $branchPlant->id,
                 $cement->id,
                 40,
                 $hoUser->id,
                 StockReferenceType::StockIn,
                 null,
-                ['notes' => '[demo] Branch site opening stock — cement']
+                ['notes' => '[demo] Branch plant opening stock — cement']
             );
+        }
+        // -------------------------------------------------------
+        // Pipeline End-to-End: Stock In from delivered PO
+        // -------------------------------------------------------
+        $pipelinePo = Purchase::where('reference_no', 'PO-PIPELINE-DELIVERED')->first();
+
+        if ($pipelinePo && ! StockMovement::query()
+            ->where('reference_type', StockReferenceType::Purchase)
+            ->where('reference_id', $pipelinePo->id)
+            ->exists()) {
+            DB::transaction(function () use ($pipelinePo, $hoUser, $stockService) {
+                $lines = $pipelinePo->items->map(fn ($item) => [
+                    'product_id' => $item->product_id,
+                    'quantity'   => (float) $item->quantity,
+                ])->all();
+
+                $stockService->recordInFromPurchase(
+                    $pipelinePo,
+                    $lines,
+                    $hoUser->id,
+                    ['notes' => '[demo] Pipeline — Stock In from delivered PO (PO-PIPELINE-DELIVERED)']
+                );
+            });
+        }
+
+        // -------------------------------------------------------
+        // Pipeline End-to-End: Stock Out (usage) against cement
+        // -------------------------------------------------------
+        if (! StockMovement::where('notes', '[demo] Pipeline — Stock Out (plant consumption)')->exists()) {
+            if ($stockService->getBalance($plant->id, $cement->id) >= 30) {
+                $stockService->recordOut(
+                    $plant->id,
+                    $cement->id,
+                    30,
+                    StockReferenceType::StockOut,
+                    null,
+                    $hoUser->id,
+                    '[demo] Pipeline — Stock Out (plant consumption)',
+                    ['sub_category_id' => $cementSub->id, 'photo_confirmed' => true, 'reason' => 'Pipeline end-to-end consumption']
+                );
+            }
+        }
+
+        // -------------------------------------------------------
+        // Pipeline End-to-End: Product Life / Use Entry for cement
+        // -------------------------------------------------------
+        if (! ProductUseEntry::where('notes', '[demo] Pipeline — Product Life (cement use)')->exists()) {
+            DB::transaction(function () use ($plant, $cement, $cementSub, $hoUser, $stockService) {
+                if ($stockService->getBalance($plant->id, $cement->id) < 10) {
+                    return;
+                }
+
+                $entry = ProductUseEntry::create([
+                    'plant_id'       => $plant->id,
+                    'product_id'     => $cement->id,
+                    'sub_category_id'=> $cementSub->id,
+                    'quantity'       => 10,
+                    'life_hours'     => 72,
+                    'usage_count'    => 5,
+                    'used_at'        => now()->subDays(6),
+                    'recorded_by'    => $hoUser->id,
+                    'notes'          => '[demo] Pipeline — Product Life (cement use)',
+                ]);
+                $stockService->recordProductUse($entry);
+            });
         }
     }
 }

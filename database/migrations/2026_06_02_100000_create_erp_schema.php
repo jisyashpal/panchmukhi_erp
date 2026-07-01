@@ -8,20 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('sites', function (Blueprint $table) {
+        Schema::create('plants', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('code')->unique();
-            $table->string('type')->default('site');
+            $table->string('type')->default('plant');
             $table->text('address')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
 
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('site_in_charge')->after('email');
-            $table->foreignId('site_id')->nullable()->after('role')->constrained()->nullOnDelete();
-            $table->boolean('is_active')->default(true)->after('site_id');
+            $table->string('role')->default('plant_in_charge')->after('email');
+            $table->foreignId('plant_id')->nullable()->after('role')->constrained()->nullOnDelete();
+            $table->boolean('is_active')->default(true)->after('plant_id');
         });
 
         Schema::create('suppliers', function (Blueprint $table) {
@@ -83,17 +83,17 @@ return new class extends Migration
 
         Schema::create('machines', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('code');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->unique(['site_id', 'code']);
+            $table->unique(['plant_id', 'code']);
         });
 
         Schema::create('product_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('requested_by')->constrained('users')->cascadeOnDelete();
             $table->string('status')->default('submitted');
             $table->text('remarks')->nullable();
@@ -101,7 +101,7 @@ return new class extends Migration
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();
-            $table->index(['site_id', 'status']);
+            $table->index(['plant_id', 'status']);
         });
 
         Schema::create('product_request_items', function (Blueprint $table) {
@@ -119,21 +119,21 @@ return new class extends Migration
 
         Schema::create('purchase_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_request_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('requested_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('site_status')->default('submitted');
-            $table->foreignId('site_reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('site_reviewed_at')->nullable();
-            $table->text('site_decline_reason')->nullable();
+            $table->string('plant_status')->default('submitted');
+            $table->foreignId('plant_reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('plant_reviewed_at')->nullable();
+            $table->text('plant_decline_reason')->nullable();
             $table->string('status')->default('submitted');
             $table->text('remarks')->nullable();
             $table->text('decline_reason')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();
-            $table->index(['site_id', 'site_status']);
-            $table->index(['site_id', 'status']);
+            $table->index(['plant_id', 'plant_status']);
+            $table->index(['plant_id', 'status']);
         });
 
         Schema::create('purchase_request_items', function (Blueprint $table) {
@@ -148,7 +148,7 @@ return new class extends Migration
 
         Schema::create('purchases', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
             $table->foreignId('purchase_request_id')->nullable()->constrained()->nullOnDelete();
             $table->string('reference_no')->unique();
@@ -170,7 +170,7 @@ return new class extends Migration
             $table->timestamp('dispatched_at')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-            $table->index(['site_id', 'status']);
+            $table->index(['plant_id', 'status']);
         });
 
         Schema::create('purchase_items', function (Blueprint $table) {
@@ -191,16 +191,16 @@ return new class extends Migration
 
         Schema::create('stock_balances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->decimal('quantity', 12, 2)->default(0);
             $table->timestamps();
-            $table->unique(['site_id', 'product_id']);
+            $table->unique(['plant_id', 'product_id']);
         });
 
         Schema::create('stock_movements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->foreignId('machine_id')->nullable()->constrained()->nullOnDelete();
             $table->string('type');
@@ -214,12 +214,12 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamp('moved_at');
             $table->timestamps();
-            $table->index(['site_id', 'product_id']);
+            $table->index(['plant_id', 'product_id']);
         });
 
         Schema::create('product_use_entries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->foreignId('machine_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);
@@ -251,9 +251,9 @@ return new class extends Migration
         Schema::dropIfExists('categories');
         Schema::dropIfExists('suppliers');
         Schema::table('users', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('site_id');
+            $table->dropConstrainedForeignId('plant_id');
             $table->dropColumn(['role', 'is_active']);
         });
-        Schema::dropIfExists('sites');
+        Schema::dropIfExists('plants');
     }
 };

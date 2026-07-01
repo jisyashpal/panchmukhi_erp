@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Ho\RequestPo;
 
 use App\Http\Controllers\Controller;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\ReportService;
+use App\Support\ReportFilters;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -16,12 +17,12 @@ class PurchaseListController extends Controller
 
     public function index(Request $request): View
     {
-        $siteId = $request->integer('site_id') ?: null;
+        $filters = ReportFilters::fromRequest($request);
 
         return view('ho.request-po.purchase-list.index', [
-            'sites' => Site::orderBy('name')->get(),
-            'siteId' => $siteId,
-            'supplierTotals' => $this->reports->supplierWisePurchaseTotals($siteId),
+            'plants' => Plant::orderBy('name')->get(),
+            'filters' => $filters,
+            'supplierTotals' => $this->reports->supplierWisePurchaseTotals($filters),
         ]);
     }
 }

@@ -1,12 +1,12 @@
 <?php
 
 use App\Http\Controllers\Ho\RequestPo\PurchaseController as HoPurchaseController;
-use App\Http\Controllers\Site\RequestPo\PurchaseController as SitePurchaseController;
+use App\Http\Controllers\Plant\RequestPo\PurchaseController as PlantPurchaseController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('site/purchases/{purchase}/pdf/shared', [SitePurchaseController::class, 'sharedPdf'])
+Route::get('plant/purchases/{purchase}/pdf/shared', [PlantPurchaseController::class, 'sharedPdf'])
     ->middleware('signed')
-    ->name('site.purchases.shared-pdf');
+    ->name('plant.purchases.shared-pdf');
 
 Route::get('ho/purchases/{purchase}/pdf/shared', [HoPurchaseController::class, 'sharedPdf'])
     ->middleware('signed')

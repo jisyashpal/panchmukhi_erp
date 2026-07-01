@@ -7,7 +7,7 @@
     </a>
 </x-admin-page-header>
 
-<x-list-filters :sites="$sites" :products="$products" :showStatus="true" />
+<x-list-filters :plants="$plants" :products="$products" :showStatus="true" :showFinancialYear="true" :showDates="true" :clearRoute="route('ho.product-requests.index')" />
 
 <div class="admin-card admin-table-card">
     <div class="table-responsive">
@@ -15,7 +15,7 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Site</th>
+                    <th>Plant</th>
                     <th>Requested By</th>
                     <th>Status</th>
                     <th>Date</th>
@@ -26,7 +26,7 @@
                 @forelse($productRequests as $pr)
                 <tr>
                     <td>#{{ $pr->id }}</td>
-                    <td class="fw-semibold">{{ $pr->site->name }}</td>
+                    <td class="fw-semibold">{{ $pr->plant->name }}</td>
                     <td>{{ $pr->requester?->name ?? 'N/A' }}</td>
                     <td><x-status-badge :status="$pr->status" /></td>
                     <td>{{ $pr->created_at->format('d M Y') }}</td>

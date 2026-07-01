@@ -19,7 +19,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Slug</th>
-                    <th>Site required</th>
+                    <th>Plant required</th>
                     <th>Permissions</th>
                     <th>Users</th>
                     <th>Status</th>
@@ -37,7 +37,7 @@
                     </td>
                     <td><code class="small">{{ $role->slug }}</code></td>
                     <td>
-                        @if($role->requires_site)
+                        @if($role->requires_plant)
                             <span class="text-success small"><i class="bi bi-check-circle me-1"></i>Yes</span>
                         @else
                             <span class="text-muted small">No</span>

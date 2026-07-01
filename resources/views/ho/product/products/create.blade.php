@@ -10,8 +10,8 @@
         <form method="POST" action="{{ route('ho.products.store') }}">
             @csrf
             <div class="row g-3">
-                <x-admin-form-input label="Name" name="name" required />
-                <x-admin-form-input label="Size" name="size" />
+                <x-admin-form-input label="Item Name" name="name" required />
+                <x-admin-form-input label="Size/Part" name="size" />
                 <x-admin-form-input label="SKU" name="sku" readonly required />
                 @include('ho.product.products.partials.catalog-selects')
                 <x-admin-form-input label="Reorder Level" name="reorder_level" type="number" value="10" required />

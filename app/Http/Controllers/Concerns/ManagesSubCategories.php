@@ -20,7 +20,7 @@ trait ManagesSubCategories
             ->withCount('products')
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
             ->orderBy('name')
-            ->paginate(20)
+            ->paginate(15)
             ->withQueryString();
 
         return view($this->catalogView('sub-categories.index'), [

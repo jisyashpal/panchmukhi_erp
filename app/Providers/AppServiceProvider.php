@@ -32,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
 
             $module = explode('.', $ability, 2)[0];
 
-            if (! in_array($module, ['admin', 'ho', 'site'], true)) {
+            if (! in_array($module, ['admin', 'ho', 'plant'], true)) {
                 return null;
             }
 

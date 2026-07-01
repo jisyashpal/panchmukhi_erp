@@ -31,8 +31,8 @@ Route::middleware('auth')->group(function () {
         if ($user->canAccessHo()) {
             return redirect()->route('ho.profile.edit');
         }
-        if ($user->canAccessSite()) {
-            return redirect()->route('site.profile.edit');
+        if ($user->canAccessPlant()) {
+            return redirect()->route('plant.profile.edit');
         }
 
         return redirect()->route('login');

@@ -11,8 +11,8 @@
             @csrf
             @method('PUT')
             <div class="row g-3">
-                <x-admin-form-input label="Name" name="name" :value="old('name', $product->name)" required />
-                <x-admin-form-input label="Size" name="size" :value="old('size', $product->size)" />
+                <x-admin-form-input label="Item Name" name="name" :value="old('name', $product->name)" required />
+                <x-admin-form-input label="Size/Part" name="size" :value="old('size', $product->size)" />
                 <x-admin-form-input label="SKU" name="sku" :value="old('sku', $product->sku)" readonly required />
                 @include('ho.product.products.partials.catalog-selects', ['product' => $product])
                 <x-admin-form-input label="Reorder Level" name="reorder_level" type="number" :value="old('reorder_level', $product->reorder_level)" required />

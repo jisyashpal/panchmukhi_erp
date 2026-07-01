@@ -8,7 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\ProductRequestItem;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\Supplier;
 use App\Services\NotificationService;
 use App\Services\RequestWorkflowService;
@@ -27,10 +27,10 @@ class ProductRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $query = ProductRequest::with(['site', 'requester', 'items.product', 'purchaseRequest.purchases'])
+        $query = ProductRequest::with(['plant', 'requester', 'items.product', 'purchaseRequest.purchases'])
             ->latest();
 
-        $this->applySiteProductFilters($query, $request);
+        $this->applyPlantProductFilters($query, $request);
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -38,7 +38,7 @@ class ProductRequestController extends Controller
 
         return view('ho.request-po.product-requests.index', [
             'productRequests' => $query->paginate(20)->withQueryString(),
-            'sites' => Site::orderBy('name')->get(),
+            'plants' => Plant::orderBy('name')->get(),
             'products' => Product::orderBy('name')->get(),
         ]);
     }
@@ -47,14 +47,14 @@ class ProductRequestController extends Controller
     {
         return view('ho.request-po.product-requests.create', [
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
-            'sites' => Site::where('is_active', true)->orderBy('name')->get(),
+            'plants' => Plant::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'site_id' => ['required', 'exists:sites,id'],
+            'plant_id' => ['required', 'exists:plants,id'],
             'remarks' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -63,7 +63,7 @@ class ProductRequestController extends Controller
         ]);
 
         $productRequest = ProductRequest::create([
-            'site_id' => $data['site_id'],
+            'plant_id' => $data['plant_id'],
             'requested_by' => auth()->id(),
             'remarks' => $data['remarks'] ?? null,
             'status' => RequestStatus::Submitted,
@@ -86,7 +86,7 @@ class ProductRequestController extends Controller
 
     public function show(ProductRequest $productRequest): View
     {
-        $productRequest->load(['site', 'requester', 'items.product', 'items.supplier', 'purchaseRequest.purchases']);
+        $productRequest->load(['plant', 'requester', 'items.product', 'items.supplier', 'purchaseRequest.purchases']);
 
         return view('ho.request-po.product-requests.show', compact('productRequest'));
     }

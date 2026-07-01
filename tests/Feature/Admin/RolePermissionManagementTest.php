@@ -35,13 +35,13 @@ class RolePermissionManagementTest extends TestCase
     public function test_super_admin_can_create_role_with_permissions(): void
     {
         $admin = User::factory()->superAdmin()->create();
-        $permission = Permission::where('slug', 'site.manage_stocks')->first();
+        $permission = Permission::where('slug', 'plant.manage_stocks')->first();
 
         $response = $this->actingAs($admin)->post(route('admin.roles.store'), [
             'name' => 'Stock Keeper',
             'slug' => 'stock_keeper',
-            'description' => 'Manages site stock only',
-            'requires_site' => 1,
+            'description' => 'Manages plant stock only',
+            'requires_plant' => 1,
             'is_active' => 1,
             'sort_order' => 20,
             'permission_ids' => [$permission->id],
@@ -51,7 +51,7 @@ class RolePermissionManagementTest extends TestCase
 
         $role = Role::where('slug', 'stock_keeper')->first();
         $this->assertNotNull($role);
-        $this->assertTrue($role->hasPermission('site.manage_stocks'));
+        $this->assertTrue($role->hasPermission('plant.manage_stocks'));
     }
 
     public function test_super_admin_can_create_custom_permission(): void
@@ -59,9 +59,9 @@ class RolePermissionManagementTest extends TestCase
         $admin = User::factory()->superAdmin()->create();
 
         $response = $this->actingAs($admin)->post(route('admin.permissions.store'), [
-            'name' => 'View Site Reports',
-            'slug' => 'site.view_reports',
-            'module' => 'site',
+            'name' => 'View Plant Reports',
+            'slug' => 'plant.view_reports',
+            'module' => 'plant',
             'description' => 'Custom report access',
             'sort_order' => 50,
         ]);
@@ -69,8 +69,8 @@ class RolePermissionManagementTest extends TestCase
         $response->assertRedirect(route('admin.permissions.index'));
 
         $this->assertDatabaseHas('permissions', [
-            'slug' => 'site.view_reports',
-            'module' => 'site',
+            'slug' => 'plant.view_reports',
+            'module' => 'plant',
             'is_system' => false,
         ]);
     }
@@ -88,15 +88,15 @@ class RolePermissionManagementTest extends TestCase
         $this->assertDatabaseHas('roles', ['id' => $role->id]);
     }
 
-    public function test_site_in_charge_has_create_product_request_permission(): void
+    public function test_plant_in_charge_has_create_product_request_permission(): void
     {
         $user = User::factory()->create([
-            'role_id' => Role::where('slug', Role::SLUG_SITE_IN_CHARGE)->value('id'),
+            'role_id' => Role::where('slug', Role::SLUG_PLANT_IN_CHARGE)->value('id'),
         ]);
 
         $this->assertTrue($user->canCreateProductRequests());
-        $this->assertTrue($user->canViewSitePurchases());
-        $this->assertFalse($user->canManageSitePurchases());
+        $this->assertTrue($user->canViewPlantPurchases());
+        $this->assertFalse($user->canManagePlantPurchases());
         $this->assertFalse($user->canManagePurchaseRequests());
     }
 

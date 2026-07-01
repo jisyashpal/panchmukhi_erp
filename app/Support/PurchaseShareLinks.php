@@ -9,7 +9,7 @@ class PurchaseShareLinks
 {
     public static function forPurchase(Purchase $purchase, array $header, string $signedPdfRoute): array
     {
-        $purchase->loadMissing(['supplier', 'site', 'items.product']);
+        $purchase->loadMissing(['supplier', 'plant', 'items.product']);
 
         $message = self::buildMessage($purchase, $header);
         $pdfUrl = self::signedPdfUrl($purchase, $header, $signedPdfRoute);
@@ -83,7 +83,7 @@ class PurchaseShareLinks
             '',
             'PO No: '.$purchase->reference_no,
             'Date: '.($purchase->ordered_at?->format('d M Y') ?? '—'),
-            'Site: '.$purchase->site->name,
+            'Plant: '.$purchase->plant->name,
         ];
 
         if ($purchase->supplier_invoice_no) {
@@ -127,7 +127,7 @@ class PurchaseShareLinks
             '',
             'Please find our Purchase Order '.$purchase->reference_no.'.',
             'Date: '.($purchase->ordered_at?->format('d M Y') ?? '—'),
-            'Site: '.$purchase->site->name,
+            'Plant: '.$purchase->plant->name,
             'Grand Total: Rs.'.number_format((float) $purchase->grand_total, 2),
             '',
             'The PDF is attached with this message.',

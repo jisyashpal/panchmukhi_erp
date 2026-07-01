@@ -1,18 +1,18 @@
 <aside class="sidebar-admin bg-dark text-white d-none d-lg-flex flex-column flex-shrink-0">
     <div class="sidebar-brand px-3 py-3 border-bottom border-secondary">
-        <a href="{{ route('site.dashboard') }}" class="text-white text-decoration-none d-flex align-items-center gap-2">
+        <a href="{{ route('plant.dashboard') }}" class="text-white text-decoration-none d-flex align-items-center gap-2">
             <span class="sidebar-brand-icon rounded bg-success d-flex align-items-center justify-content-center">
                 <i class="bi bi-building"></i>
             </span>
             <span>
                 <strong class="d-block lh-sm">Panchmukhi</strong>
-                <small class="text-white-50">{{ auth()->user()->site?->name ?? 'Plant Portal' }}</small>
+                <small class="text-white-50">{{ auth()->user()->plant?->name ?? 'Plant Portal' }}</small>
             </span>
         </a>
     </div>
 
     <nav class="sidebar-nav flex-grow-1 overflow-auto py-2 px-2">
-        <x-portal-sidebar-menu portal="site" />
+        <x-portal-sidebar-menu portal="plant" />
     </nav>
 
     <div class="sidebar-footer border-top border-secondary p-3 mt-auto">

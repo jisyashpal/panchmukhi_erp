@@ -103,7 +103,7 @@ class RoleController extends Controller
                 Rule::unique('roles', 'slug')->ignore($role?->id),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
-            'requires_site' => ['boolean'],
+            'requires_plant' => ['boolean'],
             'is_active' => ['boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'permission_ids' => ['nullable', 'array'],

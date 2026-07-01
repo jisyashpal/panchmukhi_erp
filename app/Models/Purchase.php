@@ -14,7 +14,7 @@ class Purchase extends Model
     use HasFactory;
 
     protected $fillable = [
-        'site_id',
+        'plant_id',
         'supplier_id',
         'purchase_request_id',
         'reference_no',
@@ -66,9 +66,9 @@ class Purchase extends Model
         return $this->belongsTo(User::class, 'dispatched_by');
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function supplier(): BelongsTo

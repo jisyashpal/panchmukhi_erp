@@ -14,7 +14,7 @@ trait ManagesUnits
 
     public function index(): View
     {
-        $units = Unit::orderBy('name')->paginate(20);
+        $units = Unit::orderBy('name')->paginate(10);
 
         return view($this->catalogView('units.index'), compact('units'));
     }

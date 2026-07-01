@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Ho\Inventory;
 
 use App\Enums\StockReferenceType;
 use App\Http\Controllers\Controller;
-use App\Models\Machine;
+use App\Models\Category;
+use App\Models\SubCategory;
 use App\Models\Product;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,47 +22,62 @@ class StockOutController extends Controller
 
     public function create(Request $request): View
     {
-        $siteId = $request->integer('site_id') ?: null;
+        $plantId = $request->integer('plant_id') ?: Plant::query()->orderBy('name')->value('id');
 
         return view('ho.inventory.stocks.stock-out', [
-            'sites' => Site::orderBy('name')->get(),
-            'products' => Product::where('is_active', true)->orderBy('name')->get(),
-            'machines' => Machine::when($siteId, fn ($q) => $q->where('site_id', $siteId))
+            'plants' => Plant::orderBy('name')->get(),
+            'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'products' => Product::with('unit:id,name,abbreviation')
                 ->where('is_active', true)
                 ->orderBy('name')
+                ->get(['id', 'name', 'sku', 'category_id', 'unit_id']),
+            'subCategories' => SubCategory::where('is_active', true)
+                ->orderBy('name')
                 ->get(),
-            'siteId' => $siteId,
+            'plantId' => $plantId,
+            'selectedProductId' => $request->integer('product_id') ?: old('product_id'),
+            'selectedCategoryId' => $request->integer('category_id') ?: old('category_id'),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'site_id' => ['required', 'exists:sites,id'],
+            'plant_id' => ['required', 'exists:plants,id'],
             'product_id' => ['required', 'exists:products,id'],
-            'usage_type' => ['required', 'in:machine,other'],
-            'machine_id' => [
+            'usage_type' => ['required', 'in:subcategory,other'],
+            'sub_category_id' => [
                 'nullable',
-                'exists:machines,id',
-                Rule::exists('machines', 'id')->where(fn ($q) => $q->where('site_id', $request->integer('site_id'))),
+                'exists:sub_categories,id',
             ],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'photo_confirmed' => ['required', 'boolean'],
-            'reason' => ['nullable', 'string', 'max:1000'],
+            'reason' => [
+                Rule::requiredIf($request->input('usage_type') === 'other'),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
             'notes' => ['nullable', 'string'],
             'photo' => ['nullable', 'image', 'max:5120'],
         ]);
 
         if ($data['usage_type'] === 'other' && blank($data['reason'] ?? null)) {
             return back()->withInput()->withErrors([
-                'reason' => 'Please specify where or how the stock was used.',
+                'reason' => 'Notes / reason is required for other or plant use.',
             ]);
         }
 
-        $machineId = $data['usage_type'] === 'machine' ? ($data['machine_id'] ?? null) : null;
+        if ($data['usage_type'] === 'subcategory' && blank($data['sub_category_id'] ?? null)) {
+            return back()->withInput()->withErrors([
+                'sub_category_id' => 'Please select a subcategory.',
+            ]);
+        }
+
+        $subCategoryId = $data['usage_type'] === 'subcategory' ? ($data['sub_category_id'] ?? null) : null;
 
         $meta = [
-            'machine_id' => $machineId,
+            'sub_category_id' => $subCategoryId,
             'photo_confirmed' => $request->boolean('photo_confirmed'),
             'reason' => $data['reason'] ?? null,
         ];
@@ -71,7 +87,7 @@ class StockOutController extends Controller
         }
 
         $this->stockService->recordOut(
-            (int) $data['site_id'],
+            (int) $data['plant_id'],
             (int) $data['product_id'],
             (float) $data['quantity'],
             StockReferenceType::StockOut,
@@ -81,7 +97,7 @@ class StockOutController extends Controller
             $meta
         );
 
-        return redirect()->route('ho.stocks.index', ['site_id' => $data['site_id']])
+        return redirect()->route('ho.stocks.index', ['plant_id' => $data['plant_id']])
             ->with('success', 'Stock out recorded.');
     }
 }

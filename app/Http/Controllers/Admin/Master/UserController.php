@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin\Master;
 use App\Enums\UserApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\User;
 use App\Notifications\ErpDatabaseNotification;
 use App\Services\NotificationService;
@@ -24,8 +24,8 @@ class UserController extends Controller
     public function index(Request $request): View
     {
         $users = User::query()
-            ->with(['site', 'role'])
-            ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
+            ->with(['plant', 'role'])
+            ->when($request->filled('plant_id'), fn ($q) => $q->where('plant_id', $request->integer('plant_id')))
             ->when($request->filled('role_id'), fn ($q) => $q->where('role_id', $request->integer('role_id')))
             ->when($request->has('is_active') && $request->input('is_active') !== '', fn ($q) => $q->where('is_active', (bool) $request->integer('is_active')))
             ->when($request->filled('search'), fn ($q) => $q->where(function ($q) use ($request) {
@@ -38,7 +38,7 @@ class UserController extends Controller
 
         return view('admin.master.users.index', [
             'users' => $users,
-            'sites' => Site::where('is_active', true)->orderBy('name')->get(),
+            'plants' => Plant::where('is_active', true)->orderBy('name')->get(),
             'roles' => Role::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
         ]);
     }
@@ -46,7 +46,7 @@ class UserController extends Controller
     public function create(): View
     {
         return view('admin.master.users.create', [
-            'sites' => Site::where('is_active', true)->orderBy('name')->get(),
+            'plants' => Plant::where('is_active', true)->orderBy('name')->get(),
             'roles' => Role::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
         ]);
     }
@@ -66,8 +66,8 @@ class UserController extends Controller
     public function edit(User $user): View
     {
         return view('admin.master.users.edit', [
-            'user' => $user->load(['role', 'site']),
-            'sites' => Site::where('is_active', true)->orderBy('name')->get(),
+            'user' => $user->load(['role', 'plant']),
+            'plants' => Plant::where('is_active', true)->orderBy('name')->get(),
             'roles' => Role::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
         ]);
     }
@@ -120,14 +120,14 @@ class UserController extends Controller
             ->where('is_active', true)
             ->first();
 
-        $siteRequired = $role?->requires_site ?? false;
+        $plantRequired = $role?->requires_plant ?? false;
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:8', 'confirmed'],
             'role_id' => ['required', Rule::exists('roles', 'id')->where('is_active', true)],
-            'site_id' => [$siteRequired ? 'required' : 'nullable', 'exists:sites,id'],
+            'plant_id' => [$plantRequired ? 'required' : 'nullable', 'exists:plants,id'],
             'is_active' => ['boolean'],
         ]);
     }
@@ -136,8 +136,8 @@ class UserController extends Controller
     {
         $role = Role::find($data['role_id']);
 
-        if (! $role?->requires_site) {
-            $data['site_id'] = null;
+        if (! $role?->requires_plant) {
+            $data['plant_id'] = null;
         }
 
         return $data;

@@ -1,6 +1,6 @@
 # Panchmukhi ERP
 
-Laravel 12 ERP for construction/site inventory management (Head Office + site roles).
+Laravel 12 ERP for construction/plant inventory management (Head Office + plant roles).
 
 ## Requirements
 
@@ -23,24 +23,28 @@ The UI uses **Bootstrap 5** and **Bootstrap Icons** loaded from CDN.
 
 | Email | Role | Password |
 |-------|------|----------|
-| admin@panchmukhi.test | Super Admin | password |
-| site@panchmukhi.test | Site In-Charge | password |
-| engineer@panchmukhi.test | Site Engineer | password |
-| store@panchmukhi.test | Site Store In-Charge | password |
+| admin@gmail.com | Super Admin | 12345678 |
+| ho@gmail.com | HO Data Operator | 12345678 |
+| plant@gmail.com | Plant In-Charge | 12345678 |
+| purchaser@gmail.com | Purchaser | 12345678 |
+| plant2@gmail.com | Branch Plant In-Charge | 12345678 |
+
+Additional seeded users for approval testing: `pending@gmail.com`, `rejected@gmail.com` (same password).
 
 ## Workflow
 
-1. **Engineer** → Product Request → **Site In-Charge** approves → optional auto Purchase Request to HO
-2. **Store** → Purchase Request → **Site In-Charge** approves → **HO** approves → Purchase Order (with price + GST)
-3. **Store / In-Charge** receives PO at site → stock in
-4. **Site In-Charge** creates plant users → **HO** approves before login
+1. **Plant In-Charge** → Product Request → HO / purchaser notified
+2. **Purchaser** → Purchase Request → **Plant In-Charge** approves → **HO** approves → Purchase Order (with price + GST)
+3. **Plant In-Charge / Purchaser** receives PO at plant → stock in
+4. **Super Admin** manages plants and users; plant users require approval before login
 
 ## Portals
 
 - Super Admin: `/admin`
-- Site users: `/site`
-- Profile: `/site/profile` (site), `/admin/profile` (HO)
-- Notifications: bell in topbar + `/site/notifications` or `/admin/notifications`
+- Head Office: `/ho`
+- Plant users: `/plant`
+- Profile: `/plant/profile` (plant), `/ho/profile` (HO), `/admin/profile` (admin)
+- Notifications: bell in topbar + `/plant/notifications`, `/ho/notifications`, or `/admin/notifications`
 
 ## Tests
 

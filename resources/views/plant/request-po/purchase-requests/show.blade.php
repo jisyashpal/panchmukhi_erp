@@ -1,13 +1,13 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Purchase Request #'.$purchaseRequest->id)
 @section('content')
 <x-admin-page-header title="Purchase Request #{{ $purchaseRequest->id }}" subtitle="Track request status">
     <div class="d-flex gap-2">
         <x-status-badge :status="$purchaseRequest->status" />
         @if($canEdit)
-        <a href="{{ route('site.purchase-requests.edit', $purchaseRequest) }}" class="btn btn-primary btn-sm">Edit / Modify</a>
+        <a href="{{ route('plant.purchase-requests.edit', $purchaseRequest) }}" class="btn btn-primary btn-sm">Edit / Modify</a>
         @endif
-        <a href="{{ route('site.purchase-requests.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
+        <a href="{{ route('plant.purchase-requests.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
     </div>
 </x-admin-page-header>
 
@@ -24,7 +24,7 @@
                     <td class="text-end">{{ $item->quantity }}</td>
                     <td class="text-end">{{ $item->unit_price }}</td>
                     <td class="text-end">
-                        <span class="stock-check" data-url="{{ route('site.api.stock.check', ['site' => $purchaseRequest->site_id, 'product' => $item->product_id]) }}">…</span>
+                        <span class="stock-check" data-url="{{ route('plant.api.stock.check', ['plant' => $purchaseRequest->plant_id, 'product' => $item->product_id]) }}">…</span>
                     </td>
                 </tr>
                 @endforeach
@@ -36,13 +36,13 @@
 @if($canEdit && !in_array($purchaseRequest->status->value, ['completed', 'cancelled']))
 <div class="admin-card">
     <div class="admin-card-body d-flex flex-wrap gap-2">
-        <form method="POST" action="{{ route('site.purchase-requests.status', $purchaseRequest) }}">@csrf
+        <form method="POST" action="{{ route('plant.purchase-requests.status', $purchaseRequest) }}">@csrf
             <input type="hidden" name="status" value="in_progress"><button class="btn btn-warning btn-sm">Confirm In Progress</button>
         </form>
-        <form method="POST" action="{{ route('site.purchase-requests.status', $purchaseRequest) }}">@csrf
+        <form method="POST" action="{{ route('plant.purchase-requests.status', $purchaseRequest) }}">@csrf
             <input type="hidden" name="status" value="completed"><button class="btn btn-success btn-sm">Mark Completed</button>
         </form>
-        <form method="POST" action="{{ route('site.purchase-requests.status', $purchaseRequest) }}" class="d-flex gap-2">@csrf
+        <form method="POST" action="{{ route('plant.purchase-requests.status', $purchaseRequest) }}" class="d-flex gap-2">@csrf
             <input type="hidden" name="status" value="cancelled">
             <input type="text" name="reason" class="form-control form-control-sm" placeholder="Cancel reason">
             <button class="btn btn-outline-danger btn-sm">Cancel</button>
@@ -61,7 +61,7 @@
                     <span class="badge bg-secondary">{{ $po->status->label() }}</span>
                     <small class="text-muted">{{ $po->supplier->name }}</small>
                     @if(auth()->user()->isPurchaser() && in_array($po->status->value, ['ordered', 'partial']))
-                        <a href="{{ route('site.purchases.edit', $po) }}" class="btn btn-sm btn-success text-white">
+                        <a href="{{ route('plant.purchases.edit', $po) }}" class="btn btn-sm btn-success text-white">
                             <i class="bi bi-pencil-square me-1"></i>Edit PO
                         </a>
                     @endif

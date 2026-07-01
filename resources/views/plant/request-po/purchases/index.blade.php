@@ -1,4 +1,4 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', $canReceive ? 'Receive Stock' : 'Purchases')
 @section('content')
 <x-admin-page-header
@@ -24,7 +24,7 @@
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
             @if(request()->anyFilled(['search', 'from_date', 'to_date']))
-                <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
+                <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
     </form>
@@ -64,27 +64,27 @@
                     <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? '—' }}</td>
                     <td><span class="badge bg-secondary">{{ $purchase->status->label() }}</span></td>
                     <td class="text-end">
-                        <a href="{{ route('site.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
+                        <a href="{{ route('plant.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
                             <i class="bi bi-eye me-1"></i>View
                         </a>
                         @if($isPurchaser)
                             <button type="button"
                                 class="btn btn-sm btn-outline-secondary me-1 btn-print-purchase"
-                                data-pdf-url="{{ route('site.purchases.pdf', $purchase) }}"
+                                data-pdf-url="{{ route('plant.purchases.pdf', $purchase) }}"
                                 data-reference="{{ $purchase->reference_no }}"
-                                data-default-name="{{ $pdfDefaults['company_name'] ?: $purchase->site->name }}"
-                                data-default-address="{{ $pdfDefaults['company_address'] ?: ($purchase->site->address ?? '') }}"
+                                data-default-name="{{ $pdfDefaults['company_name'] ?: $purchase->plant->name }}"
+                                data-default-address="{{ $pdfDefaults['company_address'] ?: ($purchase->plant->address ?? '') }}"
                                 data-default-gstin="{{ $pdfDefaults['company_gstin'] }}">
                                 <i class="bi bi-printer me-1"></i>Print
                             </button>
                             @if(in_array($purchase->status->value, ['ordered', 'partial']))
-                                <a href="{{ route('site.purchases.edit', $purchase) }}" class="btn btn-sm btn-outline-primary me-1">
+                                <a href="{{ route('plant.purchases.edit', $purchase) }}" class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil me-1"></i>Edit
                                 </a>
                             @endif
                         @endif
                         @if($canReceive)
-                            <a href="{{ route('site.purchases.receive', $purchase) }}" class="btn btn-sm btn-success">Receive</a>
+                            <a href="{{ route('plant.purchases.receive', $purchase) }}" class="btn btn-sm btn-success">Receive</a>
                         @endif
                     </td>
                 </tr>

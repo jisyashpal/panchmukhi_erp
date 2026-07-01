@@ -1,8 +1,8 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Receive Stock')
 @section('content')
 <x-admin-page-header title="Receive Stock" subtitle="Purchase {{ $purchase->reference_no }}">
-    <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline btn-sm">
+    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
 </x-admin-page-header>
@@ -10,7 +10,7 @@
 <div class="admin-card">
     <div class="admin-card-body">
         <p class="small text-muted mb-3">Supplier: {{ $purchase->supplier->name }}</p>
-        <form method="POST" action="{{ route('site.purchases.receive.store', $purchase) }}">
+        <form method="POST" action="{{ route('plant.purchases.receive.store', $purchase) }}">
             @csrf
             <div class="table-responsive">
                 <table class="table mb-0">

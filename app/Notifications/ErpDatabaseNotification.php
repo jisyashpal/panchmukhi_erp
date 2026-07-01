@@ -14,7 +14,7 @@ class ErpDatabaseNotification extends Notification
         public string $title,
         public string $body,
         public ?string $url = null,
-        public ?int $siteId = null,
+        public ?int $plantId = null,
         public ?int $requestId = null,
     ) {}
 
@@ -30,7 +30,7 @@ class ErpDatabaseNotification extends Notification
             'title' => $this->title,
             'body' => $this->body,
             'url' => $this->url,
-            'site_id' => $this->siteId,
+            'plant_id' => $this->plantId,
             'request_id' => $this->requestId,
         ];
     }

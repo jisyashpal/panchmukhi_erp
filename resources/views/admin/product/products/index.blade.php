@@ -36,8 +36,8 @@
             </select>
         </div>
         <div class="col-12 col-md-3 position-relative">
-            <label class="form-label small" for="product-search">Search Product / SKU</label>
-            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter product name or SKU..." autocomplete="off">
+            <label class="form-label small" for="product-search">Search Item Name / SKU</label>
+            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter item name or SKU..." autocomplete="off">
             <div id="autocomplete-suggestions" class="autocomplete-suggestions d-none shadow border rounded-bottom bg-white"></div>
         </div>
         <div class="col-auto">
@@ -55,8 +55,8 @@
             <thead>
                 <tr>
                     <th>SKU</th>
-                    <th>Name</th>
-                    <th>Size</th>
+                    <th>Item Name</th>
+                    <th>Size/Part</th>
                     <th>Category</th>
                     <th>Sub Category</th>
                     <th>Brand</th>
@@ -99,7 +99,7 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $products->links() }}</div>
+<x-table-pagination :paginator="$products" label="products" />
 
 @push('scripts')
 <style>

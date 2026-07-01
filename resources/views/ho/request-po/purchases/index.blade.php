@@ -4,17 +4,23 @@
 <x-admin-page-header title="Purchases" subtitle="Track purchase orders — status, supplier and amounts" />
 <div class="admin-filters mb-0">
     <form method="GET" class="row g-2 align-items-end">
+        @if(isset($financialYear))
+            <div class="col-6 col-md-2">
+                <label class="form-label small">Financial Year</label>
+                <x-financial-year-select compact :selected="request('fy', $financialYear->label)" />
+            </div>
+        @endif
         <div class="col-12 col-md-3">
             <label class="form-label small">Search PO / Supplier</label>
             <input type="text" name="search" value="{{ request('search') }}" class="form-control form-control-sm"
                 placeholder="Reference no. or supplier...">
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label small">Site</label>
-            <select name="site_id" class="form-select form-select-sm">
-                <option value="">All sites</option>
-                @foreach($sites as $s)
-                    <option value="{{ $s->id }}" @selected(request('site_id') == $s->id)>{{ $s->name }}</option>
+            <label class="form-label small">Plant</label>
+            <select name="plant_id" class="form-select form-select-sm">
+                <option value="">All plants</option>
+                @foreach($plants as $s)
+                    <option value="{{ $s->id }}" @selected(request('plant_id') == $s->id)>{{ $s->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -29,15 +35,15 @@
         </div>
         <div class="col-6 col-md-2">
             <label class="form-label small">From date</label>
-            <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control form-control-sm">
+            <input type="date" name="date_from" value="{{ request('date_from', $financialYear->dateFrom ?? '') }}" class="form-control form-control-sm">
         </div>
         <div class="col-6 col-md-2">
             <label class="form-label small">To date</label>
-            <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control form-control-sm">
+            <input type="date" name="date_to" value="{{ request('date_to', $financialYear->dateTo ?? '') }}" class="form-control form-control-sm">
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['search', 'site_id', 'status', 'from_date', 'to_date', 'purchase_request_id']))
+            @if(request()->anyFilled(['search', 'plant_id', 'status', 'fy', 'date_from', 'date_to', 'purchase_request_id']))
                 <a href="{{ route('ho.purchases.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
@@ -51,7 +57,7 @@
                 <tr>
                     <th>PO Ref</th>
                     <th>PR #</th>
-                    <th>Site</th>
+                    <th>Plant</th>
                     <th>Supplier</th>
                     <th class="text-end">Grand total</th>
                     <th>GST</th>
@@ -72,7 +78,7 @@
                             <span class="text-muted">—</span>
                         @endif
                     </td>
-                    <td>{{ $p->site->name }}</td>
+                    <td>{{ $p->plant->name }}</td>
                     <td>
                         <span class="d-block">{{ $p->supplier->name }}</span>
                         @if($p->supplier->gstin)

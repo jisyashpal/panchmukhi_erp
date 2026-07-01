@@ -1,13 +1,13 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Add Supplier')
 @section('content')
 <x-admin-page-header title="Add Supplier" subtitle="Create a new supplier">
-    <a href="{{ route('site.suppliers.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <a href="{{ route('plant.suppliers.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </x-admin-page-header>
 
 <div class="admin-card">
     <div class="admin-card-body">
-        <form method="POST" action="{{ route('site.suppliers.store') }}">
+        <form method="POST" action="{{ route('plant.suppliers.store') }}">
             @csrf
             <div class="row g-3">
                 <x-admin-form-input label="Name" name="name" required />

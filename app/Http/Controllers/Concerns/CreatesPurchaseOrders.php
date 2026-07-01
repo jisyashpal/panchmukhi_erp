@@ -16,7 +16,7 @@ trait CreatesPurchaseOrders
      */
     protected function createPurchaseForSupplier(
         PurchasePricingService $pricing,
-        int $siteId,
+        int $plantId,
         int $supplierId,
         Collection $items,
         bool $isInterstate,
@@ -45,7 +45,7 @@ trait CreatesPurchaseOrders
         $referenceNo = $this->resolvePurchaseReferenceNo($referencePrefix, $supplierId, $multiSupplier);
 
         $purchase = Purchase::create([
-            'site_id' => $siteId,
+            'plant_id' => $plantId,
             'supplier_id' => $supplierId,
             'purchase_request_id' => $purchaseRequestId,
             'reference_no' => $referenceNo,

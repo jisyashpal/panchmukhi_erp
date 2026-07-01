@@ -29,5 +29,5 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::ADMIN_ACCESS])
     });
 
 Route::middleware('auth')->group(function () {
-    Route::get('api/sites/{site}/products/{product}/stock', StockCheckController::class)->name('api.stock.check');
+    Route::get('api/plants/{plant}/products/{product}/stock', StockCheckController::class)->name('api.stock.check');
 });

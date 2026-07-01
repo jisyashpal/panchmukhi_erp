@@ -5,7 +5,7 @@ return [
     'modules' => [
         'admin' => 'Administration',
         'ho' => 'Head Office',
-        'site' => 'Site Portal',
+        'plant' => 'Plant Portal',
     ],
 
     /*
@@ -15,7 +15,7 @@ return [
     'defaults' => [
         // Administration
         ['name' => 'Access Admin Portal', 'slug' => 'admin.access', 'module' => 'admin', 'sort_order' => 1, 'roles' => ['super_admin']],
-        ['name' => 'Manage Sites / Plants', 'slug' => 'admin.manage_sites', 'module' => 'admin', 'sort_order' => 2, 'roles' => ['super_admin']],
+        ['name' => 'Manage Plants & Mines', 'slug' => 'admin.manage_plants', 'module' => 'admin', 'sort_order' => 2, 'roles' => ['super_admin']],
         ['name' => 'Manage Machines', 'slug' => 'admin.manage_machines', 'module' => 'admin', 'sort_order' => 3, 'roles' => ['super_admin']],
         ['name' => 'Manage Suppliers (Master)', 'slug' => 'admin.manage_suppliers', 'module' => 'admin', 'sort_order' => 4, 'roles' => ['super_admin']],
         ['name' => 'Manage Users', 'slug' => 'admin.manage_users', 'module' => 'admin', 'sort_order' => 5, 'roles' => ['super_admin']],
@@ -32,16 +32,16 @@ return [
         ['name' => 'Manage Product Life', 'slug' => 'ho.manage_product_life', 'module' => 'ho', 'sort_order' => 6, 'roles' => ['super_admin', 'ho_data_operator']],
         ['name' => 'Manage Products', 'slug' => 'ho.manage_products', 'module' => 'ho', 'sort_order' => 7, 'roles' => ['super_admin', 'ho_data_operator']],
 
-        // Site Portal
-        ['name' => 'Access Site Portal', 'slug' => 'site.access', 'module' => 'site', 'sort_order' => 1, 'roles' => ['super_admin', 'site_in_charge', 'purchaser']],
-        ['name' => 'Create Product Requests', 'slug' => 'site.create_product_requests', 'module' => 'site', 'sort_order' => 2, 'roles' => ['super_admin', 'site_in_charge']],
-        ['name' => 'View Product Requests', 'slug' => 'site.view_product_requests', 'module' => 'site', 'sort_order' => 3, 'roles' => ['super_admin', 'site_in_charge', 'purchaser']],
-        ['name' => 'Manage Purchase Requests', 'slug' => 'site.manage_purchase_requests', 'module' => 'site', 'sort_order' => 4, 'roles' => ['super_admin', 'purchaser']],
-        ['name' => 'Manage Site Suppliers', 'slug' => 'site.manage_suppliers', 'module' => 'site', 'sort_order' => 5, 'roles' => ['super_admin', 'purchaser']],
-        ['name' => 'Manage Site Stocks', 'slug' => 'site.manage_stocks', 'module' => 'site', 'sort_order' => 6, 'roles' => ['super_admin', 'site_in_charge', 'purchaser']],
-        ['name' => 'View Site Purchases', 'slug' => 'site.view_purchases', 'module' => 'site', 'sort_order' => 7, 'roles' => ['super_admin', 'site_in_charge', 'purchaser']],
-        ['name' => 'Manage Site Purchases', 'slug' => 'site.manage_purchases', 'module' => 'site', 'sort_order' => 8, 'roles' => ['super_admin', 'purchaser']],
-        ['name' => 'Dispatch Orders', 'slug' => 'site.dispatch_orders', 'module' => 'site', 'sort_order' => 9, 'roles' => ['super_admin', 'purchaser']],
+        // Plant Portal
+        ['name' => 'Access Plant Portal', 'slug' => 'plant.access', 'module' => 'plant', 'sort_order' => 1, 'roles' => ['super_admin', 'plant_in_charge', 'purchaser']],
+        ['name' => 'Create Product Requests', 'slug' => 'plant.create_product_requests', 'module' => 'plant', 'sort_order' => 2, 'roles' => ['super_admin', 'plant_in_charge']],
+        ['name' => 'View Product Requests', 'slug' => 'plant.view_product_requests', 'module' => 'plant', 'sort_order' => 3, 'roles' => ['super_admin', 'plant_in_charge', 'purchaser']],
+        ['name' => 'Manage Purchase Requests', 'slug' => 'plant.manage_purchase_requests', 'module' => 'plant', 'sort_order' => 4, 'roles' => ['super_admin', 'purchaser']],
+        ['name' => 'Manage Plant Suppliers', 'slug' => 'plant.manage_suppliers', 'module' => 'plant', 'sort_order' => 5, 'roles' => ['super_admin', 'purchaser']],
+        ['name' => 'Manage Plant Stocks', 'slug' => 'plant.manage_stocks', 'module' => 'plant', 'sort_order' => 6, 'roles' => ['super_admin', 'plant_in_charge', 'purchaser']],
+        ['name' => 'View Plant Purchases', 'slug' => 'plant.view_purchases', 'module' => 'plant', 'sort_order' => 7, 'roles' => ['super_admin', 'plant_in_charge', 'purchaser']],
+        ['name' => 'Manage Plant Purchases', 'slug' => 'plant.manage_purchases', 'module' => 'plant', 'sort_order' => 8, 'roles' => ['super_admin', 'purchaser']],
+        ['name' => 'Dispatch Orders', 'slug' => 'plant.dispatch_orders', 'module' => 'plant', 'sort_order' => 9, 'roles' => ['super_admin', 'purchaser']],
     ],
 
 ];

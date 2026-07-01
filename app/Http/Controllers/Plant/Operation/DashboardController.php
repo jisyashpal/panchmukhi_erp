@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers\Site\Operation;
+namespace App\Http\Controllers\Plant\Operation;
 
 use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
-use App\Http\Controllers\Concerns\BelongsToUserSite;
+use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
 use App\Models\ProductRequest;
 use App\Models\Purchase;
@@ -14,17 +14,17 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    use BelongsToUserSite;
+    use BelongsToUserPlant;
 
     public function __invoke(): View
     {
-        $siteId = $this->siteId();
+        $plantId = $this->plantId();
         $user = auth()->user();
-        $user->loadMissing('site');
+        $user->loadMissing('plant');
 
         $lowStock = StockBalance::query()
             ->with(['product'])
-            ->where('site_id', $siteId)
+            ->where('plant_id', $plantId)
             ->join('products', 'products.id', '=', 'stock_balances.product_id')
             ->whereColumn('stock_balances.quantity', '<=', 'products.reorder_level')
             ->select('stock_balances.*')
@@ -32,27 +32,27 @@ class DashboardController extends Controller
             ->get();
 
         $data = [
-            'site' => $user->site,
+            'plant' => $user->plant,
             'stockLines' => StockBalance::with(['product.unit'])
-                ->where('site_id', $siteId)
+                ->where('plant_id', $plantId)
                 ->orderByDesc('quantity')
                 ->limit(8)
                 ->get(),
             'lowStock' => $lowStock,
-            'submittedProductRequests' => ProductRequest::where('site_id', $siteId)
+            'submittedProductRequests' => ProductRequest::where('plant_id', $plantId)
                 ->where('status', RequestStatus::Submitted)->count(),
-            'submittedPurchaseRequests' => PurchaseRequest::where('site_id', $siteId)
+            'submittedPurchaseRequests' => PurchaseRequest::where('plant_id', $plantId)
                 ->where('status', RequestStatus::Submitted)->count(),
-            'awaitingDispatch' => Purchase::where('site_id', $siteId)
+            'awaitingDispatch' => Purchase::where('plant_id', $plantId)
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNull('dispatched_at')
                 ->count(),
-            'awaitingDelivery' => Purchase::where('site_id', $siteId)
+            'awaitingDelivery' => Purchase::where('plant_id', $plantId)
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNotNull('dispatched_at')
                 ->count(),
         ];
 
-        return view('site.operation.dashboard', $data);
+        return view('plant.operation.dashboard', $data);
     }
 }

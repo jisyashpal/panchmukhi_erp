@@ -6,7 +6,7 @@ final class PermissionSlug
 {
     public const ADMIN_ACCESS = 'admin.access';
 
-    public const ADMIN_MANAGE_SITES = 'admin.manage_sites';
+    public const ADMIN_MANAGE_PLANTS = 'admin.manage_plants';
 
     public const ADMIN_MANAGE_MACHINES = 'admin.manage_machines';
 
@@ -34,21 +34,21 @@ final class PermissionSlug
 
     public const HO_MANAGE_PRODUCTS = 'ho.manage_products';
 
-    public const SITE_ACCESS = 'site.access';
+    public const PLANT_ACCESS = 'plant.access';
 
-    public const SITE_CREATE_PRODUCT_REQUESTS = 'site.create_product_requests';
+    public const PLANT_CREATE_PRODUCT_REQUESTS = 'plant.create_product_requests';
 
-    public const SITE_VIEW_PRODUCT_REQUESTS = 'site.view_product_requests';
+    public const PLANT_VIEW_PRODUCT_REQUESTS = 'plant.view_product_requests';
 
-    public const SITE_MANAGE_PURCHASE_REQUESTS = 'site.manage_purchase_requests';
+    public const PLANT_MANAGE_PURCHASE_REQUESTS = 'plant.manage_purchase_requests';
 
-    public const SITE_MANAGE_SUPPLIERS = 'site.manage_suppliers';
+    public const PLANT_MANAGE_SUPPLIERS = 'plant.manage_suppliers';
 
-    public const SITE_MANAGE_STOCKS = 'site.manage_stocks';
+    public const PLANT_MANAGE_STOCKS = 'plant.manage_stocks';
 
-    public const SITE_VIEW_PURCHASES = 'site.view_purchases';
+    public const PLANT_VIEW_PURCHASES = 'plant.view_purchases';
 
-    public const SITE_MANAGE_PURCHASES = 'site.manage_purchases';
+    public const PLANT_MANAGE_PURCHASES = 'plant.manage_purchases';
 
-    public const SITE_DISPATCH_ORDERS = 'site.dispatch_orders';
+    public const PLANT_DISPATCH_ORDERS = 'plant.dispatch_orders';
 }

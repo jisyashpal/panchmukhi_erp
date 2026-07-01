@@ -7,7 +7,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureSitePortal
+class EnsurePlantPortal
 {
     public function handle(Request $request, Closure $next): Response
     {
@@ -17,10 +17,10 @@ class EnsureSitePortal
         if (
             ! $user
             || ! $user->is_active
-            || ! $user->site_id
-            || ! $user->hasPermission(PermissionSlug::SITE_ACCESS)
+            || ! $user->plant_id
+            || ! $user->hasPermission(PermissionSlug::PLANT_ACCESS)
         ) {
-            abort(403, 'Site portal access required.');
+            abort(403, 'Plant portal access required.');
         }
 
         return $next($request);

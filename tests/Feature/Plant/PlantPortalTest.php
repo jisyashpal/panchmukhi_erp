@@ -1,53 +1,53 @@
 <?php
 
-namespace Tests\Feature\Site;
+namespace Tests\Feature\Plant;
 
 use App\Enums\RequestStatus;
 use App\Models\Product;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class SitePortalTest extends TestCase
+class PlantPortalTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function siteInCharge(Site $site): User
+    protected function plantInCharge(Plant $plant): User
     {
         return User::factory()->create([
-            'site_id' => $site->id,
-            'role_id' => Role::where('slug', Role::SLUG_SITE_IN_CHARGE)->value('id'),
+            'plant_id' => $plant->id,
+            'role_id' => Role::where('slug', Role::SLUG_PLANT_IN_CHARGE)->value('id'),
         ]);
     }
 
-    protected function purchaser(Site $site): User
+    protected function purchaser(Plant $plant): User
     {
         return User::factory()->create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
     }
 
-    public function test_site_user_lands_on_dashboard(): void
+    public function test_plant_user_lands_on_dashboard(): void
     {
-        $site = Site::factory()->create();
-        $user = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $user = $this->plantInCharge($plant);
 
-        $this->actingAs($user)->get(route('site.dashboard'))
+        $this->actingAs($user)->get(route('plant.dashboard'))
             ->assertOk()
-            ->assertSee('Site Dashboard');
+            ->assertSee('Plant Dashboard');
     }
 
-    public function test_site_in_charge_can_create_product_request(): void
+    public function test_plant_in_charge_can_create_product_request(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $product = Product::factory()->create();
 
         $this->actingAs($inCharge)
-            ->post(route('site.product-requests.store'), [
+            ->post(route('plant.product-requests.store'), [
                 'items' => [
                     ['product_id' => $product->id, 'quantity' => 2],
                 ],
@@ -55,7 +55,7 @@ class SitePortalTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('product_requests', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
             'status' => RequestStatus::Submitted->value,
         ]);
@@ -63,51 +63,51 @@ class SitePortalTest extends TestCase
 
     public function test_purchaser_can_access_suppliers(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
 
-        $this->actingAs($purchaser)->get(route('site.suppliers.index'))->assertOk();
+        $this->actingAs($purchaser)->get(route('plant.suppliers.index'))->assertOk();
     }
 
-    public function test_login_redirects_site_user_to_site_dashboard(): void
+    public function test_login_redirects_plant_user_to_plant_dashboard(): void
     {
-        $site = Site::factory()->create();
-        $user = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $user = $this->plantInCharge($plant);
 
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect(route('site.dashboard', absolute: false));
+        ])->assertRedirect(route('plant.dashboard', absolute: false));
     }
 
-    public function test_site_in_charge_cannot_access_purchase_requests(): void
+    public function test_plant_in_charge_cannot_access_purchase_requests(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
 
-        $this->actingAs($inCharge)->get(route('site.purchase-requests.index'))
+        $this->actingAs($inCharge)->get(route('plant.purchase-requests.index'))
             ->assertStatus(403);
     }
 
-    public function test_site_in_charge_can_access_purchases(): void
+    public function test_plant_in_charge_can_access_purchases(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
 
-        $this->actingAs($inCharge)->get(route('site.purchases.index'))
+        $this->actingAs($inCharge)->get(route('plant.purchases.index'))
             ->assertStatus(200)
             ->assertSee('Receive Stock', false)
             ->assertDontSee('Print', false);
     }
 
-    public function test_site_in_charge_can_receive_purchase(): void
+    public function test_plant_in_charge_can_receive_purchase(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $supplier = \App\Models\Supplier::factory()->create();
         $product = Product::factory()->create();
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-RECEIVE-TEST',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -126,18 +126,18 @@ class SitePortalTest extends TestCase
         ]);
 
         $this->actingAs($inCharge)
-            ->get(route('site.purchases.receive', $purchase))
+            ->get(route('plant.purchases.receive', $purchase))
             ->assertOk()
             ->assertSee('PO-RECEIVE-TEST', false);
     }
 
     public function test_purchaser_cannot_receive_purchase(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
         $supplier = \App\Models\Supplier::factory()->create();
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-PURCHASER-RECEIVE',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -147,17 +147,17 @@ class SitePortalTest extends TestCase
         ]);
 
         $this->actingAs($purchaser)
-            ->get(route('site.purchases.receive', $purchase))
+            ->get(route('plant.purchases.receive', $purchase))
             ->assertStatus(403);
     }
 
     public function test_purchaser_can_print_purchase_from_index(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
         $supplier = \App\Models\Supplier::factory()->create();
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-PRINT-TEST',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -167,22 +167,22 @@ class SitePortalTest extends TestCase
         ]);
 
         $this->actingAs($purchaser)
-            ->get(route('site.purchases.index'))
+            ->get(route('plant.purchases.index'))
             ->assertOk()
             ->assertSee('Print', false)
             ->assertSee('PO-PRINT-TEST', false)
             ->assertDontSee('Receive', false);
     }
 
-    public function test_site_in_charge_can_search_purchases(): void
+    public function test_plant_in_charge_can_search_purchases(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $supplierA = \App\Models\Supplier::factory()->create(['name' => 'Alpha Supplies']);
         $supplierB = \App\Models\Supplier::factory()->create(['name' => 'Beta Traders']);
 
         \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplierA->id,
             'reference_no' => 'PO-ALPHA-001',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -192,7 +192,7 @@ class SitePortalTest extends TestCase
         ]);
 
         \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplierB->id,
             'reference_no' => 'PO-BETA-002',
             'status' => \App\Enums\PurchaseStatus::Delivered,
@@ -202,7 +202,7 @@ class SitePortalTest extends TestCase
         ]);
 
         $response = $this->actingAs($inCharge)
-            ->get(route('site.purchases.index', ['search' => 'Alpha']))
+            ->get(route('plant.purchases.index', ['search' => 'Alpha']))
             ->assertStatus(200);
 
         $response->assertViewHas('purchases', function ($purchases) {
@@ -211,15 +211,15 @@ class SitePortalTest extends TestCase
         });
     }
 
-    public function test_site_in_charge_can_view_purchase_products(): void
+    public function test_plant_in_charge_can_view_purchase_products(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $supplier = \App\Models\Supplier::factory()->create();
         $product = Product::factory()->create(['name' => 'Hydraulic Oil 68']);
 
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-PRODUCT-VIEW',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -236,26 +236,26 @@ class SitePortalTest extends TestCase
         ]);
 
         $this->actingAs($inCharge)
-            ->get(route('site.purchases.show', $purchase))
+            ->get(route('plant.purchases.show', $purchase))
             ->assertStatus(200)
             ->assertSee('Hydraulic Oil 68', false)
             ->assertSee('PO-PRODUCT-VIEW', false);
 
         $this->actingAs($inCharge)
-            ->get(route('site.purchases.index', ['search' => 'Hydraulic']))
+            ->get(route('plant.purchases.index', ['search' => 'Hydraulic']))
             ->assertStatus(200)
             ->assertSee('Hydraulic Oil 68', false);
     }
 
-    public function test_site_in_charge_receives_notification_when_stock_updated(): void
+    public function test_plant_in_charge_receives_notification_when_stock_updated(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser($plant);
         $product = Product::factory()->create(['name' => 'Notify Test Product']);
 
         app(\App\Services\StockService::class)->recordIn(
-            $site->id,
+            $plant->id,
             $product->id,
             12,
             $purchaser->id,
@@ -269,87 +269,87 @@ class SitePortalTest extends TestCase
         $this->assertNotNull($notification);
         $this->assertSame('stock_updated', $notification->data['type'] ?? null);
         $this->assertStringContainsString('Notify Test Product', $notification->data['body'] ?? '');
-        $this->assertStringContainsString('/site/stocks?product_id='.$product->id, $notification->data['url'] ?? '');
+        $this->assertStringContainsString('/plant/stocks?product_id='.$product->id, $notification->data['url'] ?? '');
     }
 
     public function test_notification_click_redirects_to_current_host_stocks_page(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $product = Product::factory()->create(['name' => 'Redirect Test Product']);
 
         $inCharge->notify(new \App\Notifications\ErpDatabaseNotification(
             type: 'stock_updated',
             title: 'Stock updated',
             body: 'Test',
-            url: 'http://127.0.0.1:8000/site/stocks?product_id='.$product->id,
-            siteId: $site->id,
+            url: 'http://127.0.0.1:8000/plant/stocks?product_id='.$product->id,
+            plantId: $plant->id,
         ));
 
         $notification = $inCharge->fresh()->notifications->first();
 
         $this->actingAs($inCharge)
-            ->post(route('site.notifications.read', $notification->id))
-            ->assertRedirect('/site/stocks?product_id='.$product->id);
+            ->post(route('plant.notifications.read', $notification->id))
+            ->assertRedirect('/plant/stocks?product_id='.$product->id);
     }
 
     public function test_stocks_page_shows_filtered_product_by_id(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $product = Product::factory()->create(['name' => 'Filtered Stock Product']);
 
         \App\Models\StockBalance::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'product_id' => $product->id,
             'quantity' => 25,
         ]);
 
         $this->actingAs($inCharge)
-            ->get(route('site.stocks.index', ['product_id' => $product->id]))
+            ->get(route('plant.stocks.index', ['product_id' => $product->id]))
             ->assertOk()
             ->assertSee('Filtered Stock Product', false)
             ->assertSee('25', false);
     }
 
-    public function test_site_in_charge_can_access_stocks(): void
+    public function test_plant_in_charge_can_access_stocks(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
 
-        $this->actingAs($inCharge)->get(route('site.stocks.index'))
+        $this->actingAs($inCharge)->get(route('plant.stocks.index'))
             ->assertStatus(200);
     }
 
     public function test_purchaser_can_access_stocks(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
 
-        $this->actingAs($purchaser)->get(route('site.stocks.index'))
+        $this->actingAs($purchaser)->get(route('plant.stocks.index'))
             ->assertStatus(200);
     }
 
-    public function test_site_user_can_search_stocks(): void
+    public function test_plant_user_can_search_stocks(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $productA = Product::factory()->create(['name' => 'Searchable Widget']);
         $productB = Product::factory()->create(['name' => 'Unrelated Item']);
 
         \App\Models\StockBalance::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'product_id' => $productA->id,
             'quantity' => 10,
         ]);
 
         \App\Models\StockBalance::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'product_id' => $productB->id,
             'quantity' => 20,
         ]);
 
-        $response = $this->actingAs($inCharge)->get(route('site.stocks.index', ['search' => 'Searchable']))
+        $response = $this->actingAs($inCharge)->get(route('plant.stocks.index', ['search' => 'Searchable']))
             ->assertStatus(200);
  
         $response->assertViewHas('balances', function ($balances) use ($productA, $productB) {
@@ -358,14 +358,14 @@ class SitePortalTest extends TestCase
         });
     }
  
-    public function test_site_in_charge_cannot_edit_purchase(): void
+    public function test_plant_in_charge_cannot_edit_purchase(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         
         $supplier = \App\Models\Supplier::factory()->create();
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-123456',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -374,11 +374,11 @@ class SitePortalTest extends TestCase
         ]);
  
         $this->actingAs($inCharge)
-            ->get(route('site.purchases.edit', $purchase))
+            ->get(route('plant.purchases.edit', $purchase))
             ->assertStatus(403);
  
         $this->actingAs($inCharge)
-            ->put(route('site.purchases.update', $purchase), [
+            ->put(route('plant.purchases.update', $purchase), [
                 'supplier_id' => $supplier->id,
                 'items' => [],
             ])
@@ -387,15 +387,15 @@ class SitePortalTest extends TestCase
  
     public function test_purchaser_can_edit_and_update_purchase(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
         
         $supplierA = \App\Models\Supplier::factory()->create();
         $supplierB = \App\Models\Supplier::factory()->create();
         $product = Product::factory()->create();
  
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplierA->id,
             'reference_no' => 'PO-123456',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -419,14 +419,14 @@ class SitePortalTest extends TestCase
  
         // Access edit form
         $this->actingAs($purchaser)
-            ->get(route('site.purchases.edit', $purchase))
+            ->get(route('plant.purchases.edit', $purchase))
             ->assertStatus(200)
             ->assertSee($purchase->reference_no)
             ->assertSee($supplierA->name);
  
         // Update purchase details (change to supplierB, unit price 60, toggle interstate)
         $response = $this->actingAs($purchaser)
-            ->put(route('site.purchases.update', $purchase), [
+            ->put(route('plant.purchases.update', $purchase), [
                 'supplier_id' => $supplierB->id,
                 'is_interstate' => 1,
                 'supplier_invoice_no' => 'INV-999',
@@ -440,7 +440,7 @@ class SitePortalTest extends TestCase
                 ],
             ]);
  
-        $response->assertRedirect(route('site.purchases.index'));
+        $response->assertRedirect(route('plant.purchases.index'));
         
         // Assert updated values in DB
         // New calculations: qty=2, unit_price=60, is_interstate=true, gst=18
@@ -473,30 +473,30 @@ class SitePortalTest extends TestCase
         ]);
     }
  
-    public function test_site_in_charge_cannot_edit_product_request(): void
+    public function test_plant_in_charge_cannot_edit_product_request(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
         $productRequest = \App\Models\ProductRequest::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
             'status' => \App\Enums\RequestStatus::Submitted,
         ]);
  
         $this->actingAs($inCharge)
-            ->get(route('site.product-requests.edit', $productRequest))
+            ->get(route('plant.product-requests.edit', $productRequest))
             ->assertStatus(403);
     }
  
     public function test_purchaser_can_edit_and_update_product_request(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser($plant);
         $product = Product::factory()->create();
  
         $productRequest = \App\Models\ProductRequest::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
             'status' => \App\Enums\RequestStatus::Submitted,
             'remarks' => 'Original Remarks',
@@ -510,12 +510,12 @@ class SitePortalTest extends TestCase
         ]);
  
         $this->actingAs($purchaser)
-            ->get(route('site.product-requests.edit', $productRequest))
+            ->get(route('plant.product-requests.edit', $productRequest))
             ->assertStatus(200)
             ->assertSee($product->name);
  
         $response = $this->actingAs($purchaser)
-            ->put(route('site.product-requests.update', $productRequest), [
+            ->put(route('plant.product-requests.update', $productRequest), [
                 'remarks' => 'Updated Remarks',
                 'items' => [
                     [
@@ -526,7 +526,7 @@ class SitePortalTest extends TestCase
                 ]
             ]);
  
-        $response->assertRedirect(route('site.product-requests.show', $productRequest));
+        $response->assertRedirect(route('plant.product-requests.show', $productRequest));
  
         $this->assertDatabaseHas('product_requests', [
             'id' => $productRequest->id,
@@ -542,16 +542,16 @@ class SitePortalTest extends TestCase
 
     public function test_purchaser_can_access_create_purchase_page(): void
     {
-        $site = Site::factory()->create();
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
         $product = Product::factory()->create();
         $supplier = \App\Models\Supplier::factory()->create();
 
         $purchaseRequest = \App\Models\PurchaseRequest::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $purchaser->id,
             'status' => RequestStatus::Submitted,
-            'site_status' => RequestStatus::Submitted,
+            'plant_status' => RequestStatus::Submitted,
         ]);
 
         \App\Models\PurchaseRequestItem::create([
@@ -563,7 +563,7 @@ class SitePortalTest extends TestCase
         ]);
 
         $this->actingAs($purchaser)
-            ->get(route('site.purchases.create', ['purchase_request_id' => $purchaseRequest->id]))
+            ->get(route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id]))
             ->assertOk()
             ->assertSee('Create Purchase Order')
             ->assertSee($product->name);
@@ -571,15 +571,15 @@ class SitePortalTest extends TestCase
 
     public function test_purchaser_receives_notification_when_product_request_submitted(): void
     {
-        $site = Site::factory()->create();
-        $inCharge = $this->siteInCharge($site);
-        $purchaser = $this->purchaser($site);
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser($plant);
         $product = Product::factory()->create();
 
         $initialCount = $purchaser->notifications()->count();
 
         $this->actingAs($inCharge)
-            ->post(route('site.product-requests.store'), [
+            ->post(route('plant.product-requests.store'), [
                 'items' => [
                     ['product_id' => $product->id, 'quantity' => 10],
                 ],

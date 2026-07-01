@@ -20,7 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
-        'site_id',
+        'plant_id',
         'is_active',
         'approval_status',
         'created_by',
@@ -57,9 +57,9 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function roleSlug(): ?string
@@ -82,7 +82,7 @@ class User extends Authenticatable
         return $this->canAccessHo();
     }
 
-    public function isSiteInCharge(): bool
+    public function isPlantInCharge(): bool
     {
         return $this->canCreateProductRequests();
     }
@@ -92,9 +92,9 @@ class User extends Authenticatable
         return $this->canManagePurchaseRequests();
     }
 
-    public function hasSiteRole(): bool
+    public function hasPlantRole(): bool
     {
-        return $this->role?->requires_site ?? false;
+        return $this->role?->requires_plant ?? false;
     }
 
     public function hasPermission(string $slug): bool
@@ -124,54 +124,54 @@ class User extends Authenticatable
         return $this->hasPermission(PermissionSlug::HO_MANAGE_PRODUCTS);
     }
 
-    public function canAccessSite(): bool
+    public function canAccessPlant(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_ACCESS) && $this->site_id !== null;
+        return $this->hasPermission(PermissionSlug::PLANT_ACCESS) && $this->plant_id !== null;
     }
 
     public function canCreateProductRequests(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_CREATE_PRODUCT_REQUESTS);
+        return $this->hasPermission(PermissionSlug::PLANT_CREATE_PRODUCT_REQUESTS);
     }
 
     public function canViewProductRequests(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_VIEW_PRODUCT_REQUESTS);
+        return $this->hasPermission(PermissionSlug::PLANT_VIEW_PRODUCT_REQUESTS);
     }
 
     public function canManagePurchaseRequests(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
     }
 
-    public function canManageSiteStocks(): bool
+    public function canManagePlantStocks(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_MANAGE_STOCKS);
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_STOCKS);
     }
 
     public function canManageSuppliers(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_MANAGE_SUPPLIERS);
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_SUPPLIERS);
     }
 
-    public function canManageSitePurchases(): bool
+    public function canManagePlantPurchases(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASES);
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
     }
 
-    public function canViewSitePurchases(): bool
+    public function canViewPlantPurchases(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_VIEW_PURCHASES);
+        return $this->hasPermission(PermissionSlug::PLANT_VIEW_PURCHASES);
     }
 
     public function canDispatchOrders(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_DISPATCH_ORDERS);
+        return $this->hasPermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
     }
 
     public function canEditProductRequests(): bool
     {
-        return $this->hasPermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
     }
 
     public function scopeWithPermission(Builder $query, string $permission): Builder
@@ -189,8 +189,8 @@ class User extends Authenticatable
             return 'ho.dashboard';
         }
 
-        if ($this->canAccessSite()) {
-            return 'site.dashboard';
+        if ($this->canAccessPlant()) {
+            return 'plant.dashboard';
         }
 
         return 'login';

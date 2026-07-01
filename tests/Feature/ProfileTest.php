@@ -18,7 +18,7 @@ class ProfileTest extends TestCase
             ->actingAs($user)
             ->get('/profile');
 
-        $response->assertRedirect(route('site.profile.edit', absolute: false));
+        $response->assertRedirect(route('plant.profile.edit', absolute: false));
     }
 
     public function test_profile_information_can_be_updated(): void
@@ -27,14 +27,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->patch(route('site.profile.update'), [
+            ->patch(route('plant.profile.update'), [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('site.profile.edit', absolute: false));
+            ->assertRedirect(route('plant.profile.edit', absolute: false));
 
         $user->refresh();
 
@@ -49,14 +49,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->patch(route('site.profile.update'), [
+            ->patch(route('plant.profile.update'), [
                 'name' => 'Test User',
                 'email' => $user->email,
             ]);
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('site.profile.edit', absolute: false));
+            ->assertRedirect(route('plant.profile.edit', absolute: false));
 
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
@@ -67,7 +67,7 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->delete(route('site.profile.destroy'), [
+            ->delete(route('plant.profile.destroy'), [
                 'password' => 'password',
             ]);
 
@@ -85,14 +85,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->from(route('site.profile.edit'))
-            ->delete(route('site.profile.destroy'), [
+            ->from(route('plant.profile.edit'))
+            ->delete(route('plant.profile.destroy'), [
                 'password' => 'wrong-password',
             ]);
 
         $response
             ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect(route('site.profile.edit', absolute: false));
+            ->assertRedirect(route('plant.profile.edit', absolute: false));
 
         $this->assertNotNull($user->fresh());
     }

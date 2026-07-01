@@ -47,12 +47,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
-        let sku = cleanName.substring(0, 3) + '_' + cleanCategory.substring(0, 3);
+        let sku = cleanCategory.substring(0, 3) + '_' + cleanName.substring(0, 3);
         if (cleanSubCategory) {
             sku += '_' + cleanSubCategory.substring(0, 3);
         }
         if (cleanSize) {
-            sku += '_' + cleanSize;
+            sku += '_' + cleanSize.substring(0, 3);
         }
 
         skuInput.value = sku;

@@ -1,15 +1,15 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Edit Product Request')
 @section('content')
 <x-admin-page-header title="Edit Product Request" subtitle="Request #{{ $productRequest->id }}">
-    <a href="{{ route('site.product-requests.show', $productRequest) }}" class="btn btn-admin-outline btn-sm">
+    <a href="{{ route('plant.product-requests.show', $productRequest) }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
 </x-admin-page-header>
 
 <div class="admin-card">
     <div class="admin-card-body">
-        <form method="POST" action="{{ route('site.product-requests.update', $productRequest) }}">
+        <form method="POST" action="{{ route('plant.product-requests.update', $productRequest) }}">
             @csrf
             @method('PUT')
             
@@ -58,7 +58,7 @@
             <button type="submit" class="btn btn-admin-primary">
                 <i class="bi bi-check2-circle me-1"></i>Save Changes
             </button>
-            <a href="{{ route('site.product-requests.show', $productRequest) }}" class="btn btn-admin-outline">Cancel</a>
+            <a href="{{ route('plant.product-requests.show', $productRequest) }}" class="btn btn-admin-outline">Cancel</a>
         </form>
     </div>
 </div>

@@ -1,5 +1,5 @@
 @props([
-    'portal' => 'site',
+    'portal' => 'plant',
     'menuIdSuffix' => '',
 ])
 

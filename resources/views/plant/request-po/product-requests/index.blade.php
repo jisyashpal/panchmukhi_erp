@@ -1,9 +1,9 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Product Requests')
 @section('content')
 <x-admin-page-header title="Product Requests" :subtitle="$isPurchaser ? 'Review requests and create purchase orders' : 'Request products for your plant'">
     @if(auth()->user()->canCreateProductRequests())
-        <a href="{{ route('site.product-requests.create') }}" class="btn btn-admin-primary btn-sm">
+        <a href="{{ route('plant.product-requests.create') }}" class="btn btn-admin-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>New Request
         </a>
     @endif
@@ -11,7 +11,7 @@
 
 <div class="admin-filters mb-0">
     @include('partials.status-tabs', [
-        'route' => 'site.product-requests.index',
+        'route' => 'plant.product-requests.index',
         'param' => 'status',
         'tabs' => [
             ['label' => 'All', 'key' => null],
@@ -44,7 +44,7 @@
                 <tr>
                     <th>#</th>
                     @if($isPurchaser)
-                        <th>Site</th>
+                        <th>Plant</th>
                     @endif
                     <th>Requested By</th>
                     <th>Status</th>
@@ -57,7 +57,7 @@
                 <tr>
                     <td>#{{ $pr->id }}</td>
                     @if($isPurchaser)
-                        <td class="fw-semibold">{{ $pr->site->name }}</td>
+                        <td class="fw-semibold">{{ $pr->plant->name }}</td>
                     @endif
                     <td>{{ $pr->requester?->name ?? 'N/A' }}</td>
                     <td><x-status-badge :status="$pr->status" /></td>
@@ -71,21 +71,21 @@
                             @if($isPurchaser)
                                 @if($pr->purchaseRequest?->purchases->isNotEmpty())
                                     @if($pr->purchaseRequest->purchases->count() === 1)
-                                        <a href="{{ route('site.purchases.show', $pr->purchaseRequest->purchases->first()) }}" class="btn btn-sm btn-admin-outline" title="View purchase order">
+                                        <a href="{{ route('plant.purchases.show', $pr->purchaseRequest->purchases->first()) }}" class="btn btn-sm btn-admin-outline" title="View purchase order">
                                             <i class="bi bi-receipt me-1"></i>PO
                                         </a>
                                     @else
-                                        <a href="{{ route('site.purchases.index', ['purchase_request_id' => $pr->purchaseRequest->id]) }}" class="btn btn-sm btn-admin-outline" title="View purchase orders">
+                                        <a href="{{ route('plant.purchases.index', ['purchase_request_id' => $pr->purchaseRequest->id]) }}" class="btn btn-sm btn-admin-outline" title="View purchase orders">
                                             <i class="bi bi-receipt me-1"></i>{{ $pr->purchaseRequest->purchases->count() }} POs
                                         </a>
                                     @endif
                                 @elseif(!in_array($pr->status->value, ['cancelled']))
                                     @if($pr->purchaseRequest)
-                                        <a href="{{ route('site.purchases.create', ['purchase_request_id' => $pr->purchaseRequest->id]) }}" class="btn btn-sm btn-warning">
+                                        <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $pr->purchaseRequest->id]) }}" class="btn btn-sm btn-warning">
                                             <i class="bi bi-cart-plus me-1"></i>Create PO
                                         </a>
                                     @else
-                                        <form method="POST" action="{{ route('site.product-requests.convert', $pr) }}" class="d-inline">
+                                        <form method="POST" action="{{ route('plant.product-requests.convert', $pr) }}" class="d-inline">
                                             @csrf
                                             <button type="submit" class="btn btn-sm btn-warning">
                                                 <i class="bi bi-cart-plus me-1"></i>Create PO
@@ -94,13 +94,13 @@
                                     @endif
                                 @endif
                                 @if(in_array($pr->status->value, ['submitted', 'in_progress']))
-                                    <a href="{{ route('site.product-requests.edit', $pr) }}" class="btn btn-sm btn-primary">
+                                    <a href="{{ route('plant.product-requests.edit', $pr) }}" class="btn btn-sm btn-primary">
                                         Edit
                                     </a>
                                 @endif
                             @endif
 
-                            <a href="{{ route('site.product-requests.show', $pr) }}" class="btn btn-sm btn-admin-outline" title="View">
+                            <a href="{{ route('plant.product-requests.show', $pr) }}" class="btn btn-sm btn-admin-outline" title="View">
                                 <i class="bi bi-eye"></i>
                             </a>
                         </div>

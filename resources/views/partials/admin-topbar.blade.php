@@ -46,7 +46,7 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end admin-topbar-dropdown shadow border-0">
                 <li class="dropdown-header small text-uppercase">Quick access</li>
-                <li><a class="dropdown-item" href="{{ route('admin.sites.index') }}"><i class="bi bi-building me-2"></i>Sites</a></li>
+                <li><a class="dropdown-item" href="{{ route('admin.plants.index') }}"><i class="bi bi-building me-2"></i>Plants</a></li>
                 <li><a class="dropdown-item" href="{{ route('admin.products.index') }}"><i class="bi bi-box-seam me-2"></i>Products</a></li>
                 <li><a class="dropdown-item" href="{{ route('ho.product-requests.index') }}"><i class="bi bi-clipboard-check me-2"></i>Product Requests</a></li>
                 <li><a class="dropdown-item" href="{{ route('ho.purchases.index') }}"><i class="bi bi-cart me-2"></i>Purchases</a></li>

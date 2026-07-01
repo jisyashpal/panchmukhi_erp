@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Support\FinancialYearResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 trait AppliesListFilters
 {
-    protected function applySiteProductFilters(Builder $query, Request $request, string $itemsTable = 'items'): void
-    {
-        if ($request->filled('site_id')) {
-            $query->where('site_id', $request->integer('site_id'));
+    protected function applyPlantProductFilters(
+        Builder $query,
+        Request $request,
+        string $itemsTable = 'items',
+        string $dateColumn = 'created_at'
+    ): void {
+        if ($request->filled('plant_id')) {
+            $query->where('plant_id', $request->integer('plant_id'));
         }
 
         if ($request->filled('product_id')) {
@@ -21,12 +26,6 @@ trait AppliesListFilters
             $query->where('status', $request->string('status'));
         }
 
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date('date_from'));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date('date_to'));
-        }
+        app(FinancialYearResolver::class)->applyToQuery($query, $dateColumn, $request);
     }
 }

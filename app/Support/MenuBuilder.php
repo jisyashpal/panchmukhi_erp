@@ -97,7 +97,7 @@ class MenuBuilder
         $user ??= auth()->user();
 
         return match ($portal) {
-            'site' => $user?->hasPermission(PermissionSlug::SITE_DISPATCH_ORDERS) ? 'Procurement Menu' : 'Site Menu',
+            'plant' => $user?->hasPermission(PermissionSlug::PLANT_DISPATCH_ORDERS) ? 'Procurement Menu' : 'Plant Menu',
             'ho' => config('menus.ho.label', 'HO Operations'),
             'admin' => config('menus.admin.label', 'Main Menu'),
             default => 'Menu',

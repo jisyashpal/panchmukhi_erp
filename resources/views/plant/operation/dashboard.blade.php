@@ -1,7 +1,7 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Dashboard')
 @section('content')
-<x-admin-page-header title="Site Dashboard" subtitle="{{ $site->name }} — site-specific summary" />
+<x-admin-page-header title="Plant Dashboard" subtitle="{{ $plant->name }} — plant-specific summary" />
 
 <div class="admin-stat-grid">
     <div class="admin-stat-card stat-accent-amber">

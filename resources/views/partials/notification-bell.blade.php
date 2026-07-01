@@ -2,9 +2,9 @@
     $user = auth()->user();
     $unread = $user->unreadNotifications()->limit(5)->get();
     $unreadCount = $user->unreadNotifications()->count();
-    $indexRoute = $indexRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.index' : 'site.notifications.index');
-    $readRoute = $readRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.read' : 'site.notifications.read');
-    $readAllRoute = $readAllRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.read-all' : 'site.notifications.read-all');
+    $indexRoute = $indexRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.index' : 'plant.notifications.index');
+    $readRoute = $readRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.read' : 'plant.notifications.read');
+    $readAllRoute = $readAllRoute ?? (auth()->user()->isSuperAdmin() ? 'admin.notifications.read-all' : 'plant.notifications.read-all');
 @endphp
 <div class="dropdown">
     <button class="btn btn-admin-outline btn-sm position-relative" type="button" data-bs-toggle="dropdown">

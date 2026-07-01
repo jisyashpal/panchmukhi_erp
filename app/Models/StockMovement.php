@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class StockMovement extends Model
 {
     protected $fillable = [
-        'site_id',
+        'plant_id',
         'product_id',
-        'machine_id',
+        'sub_category_id',
         'type',
         'quantity',
         'reference_type',
@@ -36,9 +36,9 @@ class StockMovement extends Model
         ];
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function product(): BelongsTo
@@ -46,9 +46,9 @@ class StockMovement extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function machine(): BelongsTo
+    public function subCategory(): BelongsTo
     {
-        return $this->belongsTo(Machine::class);
+        return $this->belongsTo(SubCategory::class);
     }
 
     public function performer(): BelongsTo

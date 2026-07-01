@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->boolean('requires_site')->default(true);
+            $table->boolean('requires_plant')->default(true);
             $table->boolean('is_system')->default(false);
             $table->boolean('is_active')->default(true);
             $table->unsignedSmallInteger('sort_order')->default(0);
@@ -23,10 +23,10 @@ return new class extends Migration
 
         $now = now();
         $roles = [
-            ['name' => 'Super Admin', 'slug' => 'super_admin', 'description' => 'Head office — full system access', 'requires_site' => false, 'is_system' => true, 'sort_order' => 1],
-            ['name' => 'HO Data Operator', 'slug' => 'ho_data_operator', 'description' => 'Head office operations — stock, PO, reports', 'requires_site' => false, 'is_system' => true, 'sort_order' => 2],
-            ['name' => 'Site In-Charge', 'slug' => 'site_in_charge', 'description' => 'Site manager — requests and tracking', 'requires_site' => true, 'is_system' => true, 'sort_order' => 3],
-            ['name' => 'Purchaser', 'slug' => 'purchaser', 'description' => 'Site purchaser — suppliers, PO dispatch', 'requires_site' => true, 'is_system' => true, 'sort_order' => 4],
+            ['name' => 'Super Admin', 'slug' => 'super_admin', 'description' => 'Head office — full system access', 'requires_plant' => false, 'is_system' => true, 'sort_order' => 1],
+            ['name' => 'HO Data Operator', 'slug' => 'ho_data_operator', 'description' => 'Head office operations — stock, PO, reports', 'requires_plant' => false, 'is_system' => true, 'sort_order' => 2],
+            ['name' => 'Plant In-Charge', 'slug' => 'plant_in_charge', 'description' => 'Plant manager — requests and tracking', 'requires_plant' => true, 'is_system' => true, 'sort_order' => 3],
+            ['name' => 'Purchaser', 'slug' => 'purchaser', 'description' => 'Plant purchaser — suppliers, PO dispatch', 'requires_plant' => true, 'is_system' => true, 'sort_order' => 4],
         ];
 
         foreach ($roles as $role) {
@@ -47,9 +47,9 @@ return new class extends Migration
         });
 
         foreach (DB::table('users')->get() as $user) {
-            $slug = $user->role ?? 'site_in_charge';
+            $slug = $user->role ?? 'plant_in_charge';
             DB::table('users')->where('id', $user->id)->update([
-                'role_id' => $slugToId[$slug] ?? $slugToId['site_in_charge'],
+                'role_id' => $slugToId[$slug] ?? $slugToId['plant_in_charge'],
             ]);
         }
 
@@ -61,14 +61,14 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('site_in_charge')->after('email');
+            $table->string('role')->default('plant_in_charge')->after('email');
         });
 
         $idToSlug = DB::table('roles')->pluck('slug', 'id');
 
         foreach (DB::table('users')->get() as $user) {
             DB::table('users')->where('id', $user->id)->update([
-                'role' => $idToSlug[$user->role_id] ?? 'site_in_charge',
+                'role' => $idToSlug[$user->role_id] ?? 'plant_in_charge',
             ]);
         }
 

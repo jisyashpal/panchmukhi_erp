@@ -33,6 +33,6 @@ trait AuthorizesPermissions
             abort(403, 'Purchasers cannot receive stock.');
         }
 
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_STOCKS);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_STOCKS);
     }
 }

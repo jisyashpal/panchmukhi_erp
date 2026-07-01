@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Http\Controllers\Site\RequestPo;
+namespace App\Http\Controllers\Plant\RequestPo;
 
 use App\Enums\RequestStatus;
 use App\Http\Controllers\Concerns\AuthorizesPermissions;
-use App\Http\Controllers\Concerns\BelongsToUserSite;
+use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\ProductRequestItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\NotificationService;
 use App\Support\PermissionSlug;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +20,7 @@ use Illuminate\View\View;
 
 class ProductRequestController extends Controller
 {
-    use AuthorizesPermissions, BelongsToUserSite;
+    use AuthorizesPermissions, BelongsToUserPlant;
 
     public function __construct(
         protected NotificationService $notifications
@@ -28,10 +28,10 @@ class ProductRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $isPurchaser = $this->purchaserSeesAllSites();
+        $isPurchaser = $this->purchaserSeesAllPlants();
 
-        $query = ProductRequest::with(['site', 'requester', 'items.product', 'purchaseRequest.purchases'])
-            ->when(! $isPurchaser, fn ($q) => $q->where('site_id', $this->siteId()))
+        $query = ProductRequest::with(['plant', 'requester', 'items.product', 'purchaseRequest.purchases'])
+            ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
             ->latest();
 
         if ($request->filled('status')) {
@@ -42,17 +42,17 @@ class ProductRequestController extends Controller
             $query->whereHas('items', fn ($q) => $q->where('product_id', $request->integer('product_id')));
         }
 
-        return view('site.request-po.product-requests.index', [
+        return view('plant.request-po.product-requests.index', [
             'productRequests' => $query->paginate(20)->withQueryString(),
             'products' => Product::orderBy('name')->get(),
-            'sites' => $isPurchaser ? Site::orderBy('name')->get() : collect(),
+            'plants' => $isPurchaser ? Plant::orderBy('name')->get() : collect(),
             'isPurchaser' => $isPurchaser,
         ]);
     }
 
     public function create(): View
     {
-        return view('site.request-po.product-requests.create', [
+        return view('plant.request-po.product-requests.create', [
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -67,10 +67,10 @@ class ProductRequestController extends Controller
             'items.*.remarks' => ['nullable', 'string'],
         ]);
 
-        $siteId = $this->siteId();
+        $plantId = $this->plantId();
 
         $productRequest = ProductRequest::create([
-            'site_id' => $siteId,
+            'plant_id' => $plantId,
             'requested_by' => auth()->id(),
             'remarks' => $data['remarks'] ?? null,
             'status' => RequestStatus::Submitted,
@@ -87,40 +87,40 @@ class ProductRequestController extends Controller
 
         $this->notifications->notifyProductRequestSubmitted($productRequest);
 
-        return redirect()->route('site.product-requests.show', $productRequest)
+        return redirect()->route('plant.product-requests.show', $productRequest)
             ->with('success', 'Product request submitted.');
     }
 
     public function show(ProductRequest $productRequest): View
     {
-        $this->authorizeSiteAccess($productRequest);
-        $productRequest->load(['site', 'requester', 'items.product', 'items.supplier', 'purchaseRequest.purchases']);
+        $this->authorizePlantAccess($productRequest);
+        $productRequest->load(['plant', 'requester', 'items.product', 'items.supplier', 'purchaseRequest.purchases']);
 
-        return view('site.request-po.product-requests.show', compact('productRequest'));
+        return view('plant.request-po.product-requests.show', compact('productRequest'));
     }
 
     public function edit(ProductRequest $productRequest): View|RedirectResponse
     {
-        $this->authorizeSiteAccess($productRequest);
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
+        $this->authorizePlantAccess($productRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
 
         if (in_array($productRequest->status, [RequestStatus::Completed, RequestStatus::Cancelled])) {
-            return redirect()->route('site.product-requests.index')
+            return redirect()->route('plant.product-requests.index')
                 ->with('error', 'Completed or cancelled product requests cannot be edited.');
         }
 
         $productRequest->load(['items.product']);
 
-        return view('site.request-po.product-requests.edit', compact('productRequest'));
+        return view('plant.request-po.product-requests.edit', compact('productRequest'));
     }
 
     public function update(Request $request, ProductRequest $productRequest): RedirectResponse
     {
-        $this->authorizeSiteAccess($productRequest);
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
+        $this->authorizePlantAccess($productRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
 
         if (in_array($productRequest->status, [RequestStatus::Completed, RequestStatus::Cancelled])) {
-            return redirect()->route('site.product-requests.index')
+            return redirect()->route('plant.product-requests.index')
                 ->with('error', 'Completed or cancelled product requests cannot be edited.');
         }
 
@@ -148,25 +148,25 @@ class ProductRequestController extends Controller
             }
         });
 
-        return redirect()->route('site.product-requests.show', $productRequest)
+        return redirect()->route('plant.product-requests.show', $productRequest)
             ->with('success', 'Product request updated successfully.');
     }
 
     public function convertToPurchaseRequest(ProductRequest $productRequest): RedirectResponse
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASES);
-        $this->authorizeSiteAccess($productRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
+        $this->authorizePlantAccess($productRequest);
 
         if ($productRequest->purchaseRequest) {
-            return redirect()->route('site.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id])
+            return redirect()->route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id])
                 ->with('info', 'Purchase request already exists. Complete the purchase order below.');
         }
 
         $purchaseRequest = PurchaseRequest::create([
-            'site_id' => $productRequest->site_id,
+            'plant_id' => $productRequest->plant_id,
             'product_request_id' => $productRequest->id,
             'requested_by' => auth()->id(),
-            'site_status' => RequestStatus::Completed,
+            'plant_status' => RequestStatus::Completed,
             'status' => RequestStatus::Submitted,
             'remarks' => $productRequest->remarks,
         ]);
@@ -187,7 +187,7 @@ class ProductRequestController extends Controller
             'reviewed_at' => now(),
         ]);
 
-        return redirect()->route('site.purchases.create', ['purchase_request_id' => $purchaseRequest->id])
+        return redirect()->route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id])
             ->with('success', 'Product request converted. Complete the purchase order below.');
     }
 }

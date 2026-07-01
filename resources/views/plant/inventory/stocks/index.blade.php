@@ -1,4 +1,4 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Stocks')
 @section('content')
 <x-admin-page-header title="Stock Balances" subtitle="Current inventory in this plant">
@@ -7,8 +7,8 @@
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         <div class="col-12 col-md-4 position-relative">
-            <label class="form-label small">Search Product / SKU</label>
-            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter product name or SKU..." autocomplete="off">
+            <label class="form-label small">Search Item Name / SKU</label>
+            <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter item name or SKU..." autocomplete="off">
             <div id="autocomplete-suggestions" class="autocomplete-suggestions d-none shadow border rounded-bottom bg-white"></div>
         </div>
         <div class="col-12 col-md-4">
@@ -23,7 +23,7 @@
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
             @if(request()->anyFilled(['product_id', 'search']))
-                <a href="{{ route('site.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
+                <a href="{{ route('plant.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
     </form>

@@ -11,9 +11,9 @@ class ProductUseEntry extends Model
     use HasFactory;
 
     protected $fillable = [
-        'site_id',
+        'plant_id',
         'product_id',
-        'machine_id',
+        'sub_category_id',
         'quantity',
         'life_hours',
         'usage_count',
@@ -32,9 +32,9 @@ class ProductUseEntry extends Model
         ];
     }
 
-    public function site(): BelongsTo
+    public function plant(): BelongsTo
     {
-        return $this->belongsTo(Site::class);
+        return $this->belongsTo(Plant::class);
     }
 
     public function product(): BelongsTo
@@ -42,9 +42,9 @@ class ProductUseEntry extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function machine(): BelongsTo
+    public function subCategory(): BelongsTo
     {
-        return $this->belongsTo(Machine::class);
+        return $this->belongsTo(SubCategory::class);
     }
 
     public function recorder(): BelongsTo

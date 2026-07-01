@@ -2,16 +2,16 @@
 
 namespace Database\Factories;
 
-use App\Models\Site;
+use App\Models\Plant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<Site>
+ * @extends Factory<Plant>
  */
-class SiteFactory extends Factory
+class PlantFactory extends Factory
 {
-    protected $model = Site::class;
+    protected $model = Plant::class;
 
     public function definition(): array
     {
@@ -20,7 +20,7 @@ class SiteFactory extends Factory
         return [
             'name' => $name,
             'code' => Str::upper(Str::slug($name, '')).fake()->unique()->numberBetween(1, 999),
-            'type' => fake()->randomElement(['site', 'plant']),
+            'type' => fake()->randomElement(['plant', 'mine']),
             'address' => fake()->address(),
             'is_active' => true,
         ];

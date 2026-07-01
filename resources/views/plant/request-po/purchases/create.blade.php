@@ -1,4 +1,4 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'New Purchase')
 @section('content')
 @php
@@ -6,12 +6,12 @@
         ? 'Create Purchase Order'
         : 'New Purchase Order';
     $pageSubtitle = $purchaseRequest
-        ? 'Purchase Request #'.$purchaseRequest->id.' · '.$purchaseRequest->site->name
+        ? 'Purchase Request #'.$purchaseRequest->id.' · '.$purchaseRequest->plant->name
         : 'Enter supplier, rate, quantity & GST per product';
     $supplierNames = $suppliers->pluck('name', 'id');
 @endphp
 <x-admin-page-header :title="$pageTitle" :subtitle="$pageSubtitle">
-    <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline btn-sm">
+    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
 </x-admin-page-header>
@@ -19,14 +19,14 @@
 @if(!$purchaseRequest && $purchaseRequests->isNotEmpty())
 <div class="admin-card mb-4">
     <div class="admin-card-body py-3">
-        <form method="GET" action="{{ route('site.purchases.create') }}" class="row g-2 align-items-end">
+        <form method="GET" action="{{ route('plant.purchases.create') }}" class="row g-2 align-items-end">
             <div class="col-md-8">
                 <label class="form-label small mb-1" for="purchase_request_id">Link to purchase request</label>
                 <select name="purchase_request_id" id="purchase_request_id" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">— Manual purchase —</option>
                     @foreach($purchaseRequests as $pr)
                     <option value="{{ $pr->id }}" @selected(request('purchase_request_id')==$pr->id)>
-                        PR #{{ $pr->id }} — {{ $pr->site->name }} ({{ $pr->items->count() }} items)
+                        PR #{{ $pr->id }} — {{ $pr->plant->name }} ({{ $pr->items->count() }} items)
                     </option>
                     @endforeach
                 </select>
@@ -59,11 +59,11 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('site.purchases.store') }}" id="purchase-form">
+<form method="POST" action="{{ route('plant.purchases.store') }}" id="purchase-form">
     @csrf
     @if($purchaseRequest)
     <input type="hidden" name="purchase_request_id" value="{{ $purchaseRequest->id }}">
-    <input type="hidden" name="site_id" value="{{ $purchaseRequest->site_id }}">
+    <input type="hidden" name="plant_id" value="{{ $purchaseRequest->plant_id }}">
     @endif
 
     <div class="row g-4">
@@ -171,17 +171,17 @@
                     <div class="vstack gap-3">
                         @if(!$purchaseRequest)
                         <div>
-                            <label class="form-label small" for="site_id">Site / Plant</label>
-                            <select name="site_id" id="site_id" class="form-select form-select-sm" required>
-                                @foreach($sites as $s)
-                                <option value="{{ $s->id }}" @selected(old('site_id')==$s->id)>{{ $s->name }}</option>
+                            <label class="form-label small" for="plant_id">Plant</label>
+                            <select name="plant_id" id="plant_id" class="form-select form-select-sm" required>
+                                @foreach($plants as $s)
+                                <option value="{{ $s->id }}" @selected(old('plant_id')==$s->id)>{{ $s->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         @else
                         <div>
-                            <span class="form-label small text-muted d-block">Site / Plant</span>
-                            <span class="fw-semibold">{{ $purchaseRequest->site->name }}</span>
+                            <span class="form-label small text-muted d-block">Plant</span>
+                            <span class="fw-semibold">{{ $purchaseRequest->plant->name }}</span>
                         </div>
                         @endif
 
@@ -251,7 +251,7 @@
                     <button type="submit" class="btn btn-admin-primary w-100 mb-2">
                         <i class="bi bi-check2-circle me-1"></i>Create purchase order
                     </button>
-                    <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline w-100 btn-sm">Cancel</a>
+                    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline w-100 btn-sm">Cancel</a>
                 </div>
             </div>
         </div>

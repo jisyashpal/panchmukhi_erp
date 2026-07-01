@@ -5,7 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\PurchasePricingService;
@@ -40,16 +40,16 @@ class PurchaseGstCalculationTest extends TestCase
 
     public function test_purchaser_can_create_purchase_with_gst(): void
     {
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $purchaser = User::factory()->create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
         $supplier = Supplier::factory()->create();
         $product = Product::factory()->create();
 
-        $response = $this->actingAs($purchaser)->post(route('site.purchases.store'), [
-            'site_id' => $site->id,
+        $response = $this->actingAs($purchaser)->post(route('plant.purchases.store'), [
+            'plant_id' => $plant->id,
             'is_interstate' => 0,
             'items' => [
                 [
@@ -64,7 +64,7 @@ class PurchaseGstCalculationTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseHas('purchases', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'grand_total' => 590,
             'total_cgst' => 45,
             'total_sgst' => 45,
@@ -81,9 +81,9 @@ class PurchaseGstCalculationTest extends TestCase
 
     public function test_create_purchase_splits_items_by_supplier_into_separate_pos(): void
     {
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $purchaser = User::factory()->create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
         $supplierA = Supplier::factory()->create(['name' => 'Supplier A']);
@@ -91,8 +91,8 @@ class PurchaseGstCalculationTest extends TestCase
         $productA = Product::factory()->create(['name' => 'Product A']);
         $productB = Product::factory()->create(['name' => 'Product B']);
 
-        $response = $this->actingAs($purchaser)->post(route('site.purchases.store'), [
-            'site_id' => $site->id,
+        $response = $this->actingAs($purchaser)->post(route('plant.purchases.store'), [
+            'plant_id' => $plant->id,
             'is_interstate' => 0,
             'items' => [
                 [
@@ -112,15 +112,15 @@ class PurchaseGstCalculationTest extends TestCase
             ],
         ]);
 
-        $response->assertRedirect(route('site.purchases.index', ['purchase_request_id' => null]));
+        $response->assertRedirect(route('plant.purchases.index', ['purchase_request_id' => null]));
         $this->assertEquals(2, Purchase::count());
         $this->assertDatabaseHas('purchases', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplierA->id,
             'grand_total' => 236,
         ]);
         $this->assertDatabaseHas('purchases', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplierB->id,
             'grand_total' => 177,
         ]);

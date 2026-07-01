@@ -13,7 +13,7 @@ class Role extends Model
 
     public const SLUG_HO_DATA_OPERATOR = 'ho_data_operator';
 
-    public const SLUG_SITE_IN_CHARGE = 'site_in_charge';
+    public const SLUG_PLANT_IN_CHARGE = 'plant_in_charge';
 
     public const SLUG_PURCHASER = 'purchaser';
 
@@ -21,7 +21,7 @@ class Role extends Model
         'name',
         'slug',
         'description',
-        'requires_site',
+        'requires_plant',
         'is_system',
         'is_active',
         'sort_order',
@@ -30,7 +30,7 @@ class Role extends Model
     protected function casts(): array
     {
         return [
-            'requires_site' => 'boolean',
+            'requires_plant' => 'boolean',
             'is_system' => 'boolean',
             'is_active' => 'boolean',
         ];

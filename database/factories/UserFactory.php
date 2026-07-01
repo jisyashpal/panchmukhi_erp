@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\UserApprovalStatus;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,8 +24,8 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'role_id' => fn () => Role::where('slug', 'site_in_charge')->value('id'),
-            'site_id' => Site::factory(),
+            'role_id' => fn () => Role::where('slug', 'plant_in_charge')->value('id'),
+            'plant_id' => Plant::factory(),
             'is_active' => true,
             'approval_status' => UserApprovalStatus::Approved,
         ];
@@ -35,7 +35,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn () => [
             'role_id' => fn () => Role::where('slug', Role::SLUG_SUPER_ADMIN)->value('id'),
-            'site_id' => null,
+            'plant_id' => null,
         ]);
     }
 
@@ -43,7 +43,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn () => [
             'role_id' => fn () => Role::where('slug', Role::SLUG_HO_DATA_OPERATOR)->value('id'),
-            'site_id' => null,
+            'plant_id' => null,
         ]);
     }
 

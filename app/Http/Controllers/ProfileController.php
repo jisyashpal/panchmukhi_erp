@@ -19,8 +19,8 @@ class ProfileController extends Controller
             return view('admin.profile.edit', compact('user'));
         }
 
-        if ($user->hasSiteRole()) {
-            return redirect()->route('site.profile.edit');
+        if ($user->hasPlantRole()) {
+            return redirect()->route('plant.profile.edit');
         }
 
         return view('admin.profile.edit', compact('user'));
@@ -46,11 +46,11 @@ class ProfileController extends Controller
         return Redirect::route('ho.profile.edit')->with('status', 'profile-updated');
     }
 
-    public function editSite(Request $request): View
+    public function editPlant(Request $request): View
     {
-        $user = $request->user()->load(['role', 'site']);
+        $user = $request->user()->load(['role', 'plant']);
 
-        return view('site.profile.edit', compact('user'));
+        return view('plant.profile.edit', compact('user'));
     }
 
     public function update(ProfileUpdateRequest $request): RedirectResponse
@@ -66,14 +66,14 @@ class ProfileController extends Controller
         $route = match (true) {
             $request->user()->isSuperAdmin() => 'admin.profile.edit',
             $request->user()->isHoDataOperator() => 'ho.profile.edit',
-            $request->user()->hasSiteRole() => 'site.profile.edit',
+            $request->user()->hasPlantRole() => 'plant.profile.edit',
             default => 'admin.profile.edit',
         };
 
         return Redirect::route($route)->with('status', 'profile-updated');
     }
 
-    public function updateSite(ProfileUpdateRequest $request): RedirectResponse
+    public function updatePlant(ProfileUpdateRequest $request): RedirectResponse
     {
         $request->user()->fill($request->validated());
 
@@ -83,7 +83,7 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        return Redirect::route('site.profile.edit')->with('status', 'profile-updated');
+        return Redirect::route('plant.profile.edit')->with('status', 'profile-updated');
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -104,7 +104,7 @@ class ProfileController extends Controller
         return Redirect::to('/');
     }
 
-    public function destroySite(Request $request): RedirectResponse
+    public function destroyPlant(Request $request): RedirectResponse
     {
         return $this->destroy($request);
     }

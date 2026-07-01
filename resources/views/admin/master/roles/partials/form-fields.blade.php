@@ -40,16 +40,16 @@
 
 <div class="col-md-4">
     <div class="form-check mt-4">
-        <input type="hidden" name="requires_site" value="0">
+        <input type="hidden" name="requires_plant" value="0">
         <input
             type="checkbox"
-            name="requires_site"
+            name="requires_plant"
             value="1"
             class="form-check-input"
-            id="requires_site"
-            @checked(old('requires_site', $role?->requires_site ?? true))
+            id="requires_plant"
+            @checked(old('requires_plant', $role?->requires_plant ?? true))
         >
-        <label class="form-check-label" for="requires_site">Requires site assignment</label>
+        <label class="form-check-label" for="requires_plant">Requires plant assignment</label>
     </div>
 </div>
 

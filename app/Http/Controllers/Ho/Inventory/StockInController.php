@@ -8,7 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Services\PurchasePricingService;
 use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +26,7 @@ class StockInController extends Controller
     public function create(Request $request): View|RedirectResponse
     {
         $selectedPurchase = $request->filled('purchase_id')
-            ? Purchase::with(['items.product', 'site', 'supplier'])->find($request->integer('purchase_id'))
+            ? Purchase::with(['items.product', 'plant', 'supplier'])->find($request->integer('purchase_id'))
             : null;
 
         if ($selectedPurchase?->status === PurchaseStatus::Delivered) {
@@ -35,9 +35,9 @@ class StockInController extends Controller
         }
 
         return view('ho.inventory.stocks.stock-in', [
-            'sites' => Site::orderBy('name')->get(),
+            'plants' => Plant::orderBy('name')->get(),
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
-            'purchases' => Purchase::with(['site', 'supplier', 'items'])
+            'purchases' => Purchase::with(['plant', 'supplier', 'items'])
                 ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
                 ->latest()
                 ->limit(50)
@@ -193,7 +193,7 @@ class StockInController extends Controller
         }
 
         $data = $request->validate([
-            'site_id' => ['required', 'exists:sites,id'],
+            'plant_id' => ['required', 'exists:plants,id'],
             'product_id' => ['required', 'exists:products,id'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'photo_confirmed' => ['nullable', 'boolean'],
@@ -205,7 +205,7 @@ class StockInController extends Controller
         $meta = $this->buildStockMeta($request, $data, photoConfirmed: $request->boolean('photo_confirmed'));
 
         $this->stockService->recordIn(
-            (int) $data['site_id'],
+            (int) $data['plant_id'],
             (int) $data['product_id'],
             (float) $data['quantity'],
             (int) auth()->id(),
@@ -214,7 +214,7 @@ class StockInController extends Controller
             $meta
         );
 
-        return redirect()->route('ho.stocks.index', ['site_id' => $data['site_id']])
+        return redirect()->route('ho.stocks.index', ['plant_id' => $data['plant_id']])
             ->with('success', 'Stock in recorded.');
     }
 

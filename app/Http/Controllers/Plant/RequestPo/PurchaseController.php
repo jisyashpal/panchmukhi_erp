@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Site\RequestPo;
+namespace App\Http\Controllers\Plant\RequestPo;
 
 use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
 use App\Http\Controllers\Concerns\AuthorizesPermissions;
-use App\Http\Controllers\Concerns\BelongsToUserSite;
+use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Concerns\CreatesPurchaseOrders;
 use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
@@ -13,7 +13,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseRequest;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Notifications\ErpDatabaseNotification;
@@ -30,7 +30,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PurchaseController extends Controller
 {
-    use AuthorizesPermissions, BelongsToUserSite, CreatesPurchaseOrders, StreamsPurchasePdf;
+    use AuthorizesPermissions, BelongsToUserPlant, CreatesPurchaseOrders, StreamsPurchasePdf;
 
     public function __construct(
         protected StockService $stockService,
@@ -40,11 +40,11 @@ class PurchaseController extends Controller
 
     public function index(Request $request): View
     {
-        $isPurchaser = $this->purchaserSeesAllSites();
-        $canReceive = auth()->user()->canManageSiteStocks() && ! $isPurchaser;
+        $isPurchaser = $this->purchaserSeesAllPlants();
+        $canReceive = auth()->user()->canManagePlantStocks() && ! $isPurchaser;
 
-        $purchases = Purchase::with(['supplier', 'site', 'items.product'])
-            ->when(! $isPurchaser, fn ($q) => $q->where('site_id', $this->siteId()))
+        $purchases = Purchase::with(['supplier', 'plant', 'items.product'])
+            ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
             ->when($canReceive, fn ($q) => $q->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial]))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->string('search');
@@ -61,7 +61,7 @@ class PurchaseController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('site.request-po.purchases.index', [
+        return view('plant.request-po.purchases.index', [
             'purchases' => $purchases,
             'isPurchaser' => $isPurchaser,
             'canReceive' => $canReceive,
@@ -75,31 +75,31 @@ class PurchaseController extends Controller
 
     public function create(Request $request): View|RedirectResponse
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASES);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
 
         $purchaseRequest = $request->filled('purchase_request_id')
-            ? PurchaseRequest::with(['items.product', 'items.supplier', 'site', 'productRequest.items'])->findOrFail($request->integer('purchase_request_id'))
+            ? PurchaseRequest::with(['items.product', 'items.supplier', 'plant', 'productRequest.items'])->findOrFail($request->integer('purchase_request_id'))
             : null;
 
         if ($purchaseRequest?->purchases()->exists()) {
             $purchases = $purchaseRequest->purchases()->latest()->get();
 
             if ($purchases->count() === 1) {
-                return redirect()->route('site.purchases.show', $purchases->first())
+                return redirect()->route('plant.purchases.show', $purchases->first())
                     ->with('info', 'Purchase order(s) already exist for this request.');
             }
 
-            return redirect()->route('site.purchases.index', ['purchase_request_id' => $purchaseRequest->id])
+            return redirect()->route('plant.purchases.index', ['purchase_request_id' => $purchaseRequest->id])
                 ->with('info', 'Purchase order(s) already exist for this request.');
         }
 
-        return view('site.request-po.purchases.create', [
-            'sites' => Site::orderBy('name')->get(),
+        return view('plant.request-po.purchases.create', [
+            'plants' => Plant::orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
             'purchaseRequests' => PurchaseRequest::whereNot('status', RequestStatus::Cancelled)
                 ->whereDoesntHave('purchases')
-                ->with('site')
+                ->with('plant')
                 ->latest()
                 ->get(),
             'purchaseRequest' => $purchaseRequest,
@@ -108,10 +108,10 @@ class PurchaseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASES);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
 
         $data = $request->validate([
-            'site_id' => ['required', 'exists:sites,id'],
+            'plant_id' => ['required', 'exists:plants,id'],
             'purchase_request_id' => ['nullable', 'exists:purchase_requests,id'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'is_interstate' => ['boolean'],
@@ -140,7 +140,7 @@ class PurchaseController extends Controller
         foreach ($itemsBySupplier as $supplierId => $items) {
             $createdPurchases[] = $this->createPurchaseForSupplier(
                 pricing: $this->pricing,
-                siteId: (int) $data['site_id'],
+                plantId: (int) $data['plant_id'],
                 supplierId: (int) $supplierId,
                 items: $items,
                 isInterstate: $isInterstate,
@@ -156,17 +156,17 @@ class PurchaseController extends Controller
         if ($data['purchase_request_id'] ?? null) {
             PurchaseRequest::where('id', $data['purchase_request_id'])->update([
                 'status' => RequestStatus::Completed,
-                'site_status' => RequestStatus::Completed,
+                'plant_status' => RequestStatus::Completed,
             ]);
         }
 
         foreach ($createdPurchases as $purchase) {
             $this->notifications->notifyUsers(
                 User::query()
-                    ->where('site_id', $purchase->site_id)
+                    ->where('plant_id', $purchase->plant_id)
                     ->where('is_active', true)
                     ->whereHas('role', fn ($q) => $q->whereIn('slug', [
-                        Role::SLUG_SITE_IN_CHARGE,
+                        Role::SLUG_PLANT_IN_CHARGE,
                         Role::SLUG_PURCHASER,
                     ]))
                     ->get(),
@@ -174,35 +174,35 @@ class PurchaseController extends Controller
                     type: 'purchase_ordered',
                     title: 'Purchase order placed',
                     body: "PO {$purchase->reference_no} ordered — awaiting dispatch.",
-                    url: route('site.purchases.index'),
-                    siteId: $purchase->site_id,
+                    url: route('plant.purchases.index'),
+                    plantId: $purchase->plant_id,
                 )
             );
         }
 
         if (count($createdPurchases) === 1) {
-            return redirect()->route('site.purchases.show', $createdPurchases[0])
+            return redirect()->route('plant.purchases.show', $createdPurchases[0])
                 ->with('success', 'Purchase order created.');
         }
 
         $refs = collect($createdPurchases)->pluck('reference_no')->implode(', ');
 
-        return redirect()->route('site.purchases.index', [
+        return redirect()->route('plant.purchases.index', [
             'purchase_request_id' => $data['purchase_request_id'] ?? null,
         ])->with('success', count($createdPurchases)." purchase orders created: {$refs}");
     }
 
     public function show(Purchase $purchase): View
     {
-        $this->authorizeSiteAccess($purchase);
-        $purchase->load(['site', 'supplier', 'items.product', 'purchaseRequest', 'receiver', 'dispatcher']);
+        $this->authorizePlantAccess($purchase);
+        $purchase->load(['plant', 'supplier', 'items.product', 'purchaseRequest', 'receiver', 'dispatcher']);
 
-        return view('site.request-po.purchases.show', [
+        return view('plant.request-po.purchases.show', [
             'purchase' => $purchase,
             'pdfDefaults' => $this->purchasePdfDefaults($purchase),
-            'pdfRoute' => route('site.purchases.pdf', $purchase),
-            'emailRoute' => route('site.purchases.email', $purchase),
-            'shareLinksRoute' => route('site.purchases.share-links', $purchase),
+            'pdfRoute' => route('plant.purchases.pdf', $purchase),
+            'emailRoute' => route('plant.purchases.email', $purchase),
+            'shareLinksRoute' => route('plant.purchases.share-links', $purchase),
             'pdfFilename' => $this->purchasePdfFilename($purchase),
             'supplier' => $purchase->supplier,
         ]);
@@ -210,7 +210,7 @@ class PurchaseController extends Controller
 
     public function pdf(Request $request, Purchase $purchase): Response
     {
-        $this->authorizeSiteAccess($purchase);
+        $this->authorizePlantAccess($purchase);
 
         return $this->streamPurchasePdf($request, $purchase);
     }
@@ -222,41 +222,41 @@ class PurchaseController extends Controller
 
     public function shareLinks(Request $request, Purchase $purchase): JsonResponse
     {
-        $this->authorizeSiteAccess($purchase);
+        $this->authorizePlantAccess($purchase);
 
-        return $this->purchaseShareLinksResponse($request, $purchase, 'site.purchases.shared-pdf');
+        return $this->purchaseShareLinksResponse($request, $purchase, 'plant.purchases.shared-pdf');
     }
 
     public function email(Request $request, Purchase $purchase): JsonResponse
     {
-        $this->authorizeSiteAccess($purchase);
+        $this->authorizePlantAccess($purchase);
 
         return $this->emailPurchasePdfToSupplier($request, $purchase);
     }
 
     public function edit(Purchase $purchase): View|RedirectResponse
     {
-        $this->authorizeSiteAccess($purchase);
-        $this->authorizePermission(PermissionSlug::SITE_DISPATCH_ORDERS);
+        $this->authorizePlantAccess($purchase);
+        $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
 
         if (! in_array($purchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial])) {
-            return redirect()->route('site.purchases.index')
+            return redirect()->route('plant.purchases.index')
                 ->with('error', 'Only pending orders can be edited.');
         }
 
         $purchase->load(['items.product', 'supplier']);
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        return view('site.request-po.purchases.edit', compact('purchase', 'suppliers'));
+        return view('plant.request-po.purchases.edit', compact('purchase', 'suppliers'));
     }
 
     public function update(Request $request, Purchase $purchase): RedirectResponse
     {
-        $this->authorizeSiteAccess($purchase);
-        $this->authorizePermission(PermissionSlug::SITE_DISPATCH_ORDERS);
+        $this->authorizePlantAccess($purchase);
+        $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
 
         if (! in_array($purchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial])) {
-            return redirect()->route('site.purchases.index')
+            return redirect()->route('plant.purchases.index')
                 ->with('error', 'Only pending orders can be edited.');
         }
 
@@ -320,28 +320,28 @@ class PurchaseController extends Controller
             }
         });
 
-        return redirect()->route('site.purchases.index')
+        return redirect()->route('plant.purchases.index')
             ->with('success', 'Purchase details updated successfully.');
     }
 
     public function receiveForm(Purchase $purchase): View|RedirectResponse
     {
-        $this->authorizeSiteAccess($purchase);
+        $this->authorizePlantAccess($purchase);
         $this->authorizePurchaseReceipt();
 
         if ($purchase->status === PurchaseStatus::Delivered) {
-            return redirect()->route('site.purchases.index')
+            return redirect()->route('plant.purchases.index')
                 ->with('error', 'Purchase already received.');
         }
 
         $purchase->load(['items.product', 'supplier']);
 
-        return view('site.request-po.purchases.receive', compact('purchase'));
+        return view('plant.request-po.purchases.receive', compact('purchase'));
     }
 
     public function receive(Request $request, Purchase $purchase): RedirectResponse
     {
-        $this->authorizeSiteAccess($purchase);
+        $this->authorizePlantAccess($purchase);
         $this->authorizePurchaseReceipt();
 
         if ($purchase->status === PurchaseStatus::Delivered) {
@@ -369,7 +369,7 @@ class PurchaseController extends Controller
             'received_at' => now(),
         ]);
 
-        return redirect()->route('site.purchases.index')
+        return redirect()->route('plant.purchases.index')
             ->with('success', 'Stock in recorded for this purchase.');
     }
 }

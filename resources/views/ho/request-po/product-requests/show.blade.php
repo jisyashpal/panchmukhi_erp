@@ -1,7 +1,7 @@
 @extends('layouts.ho')
 @section('title', 'Product Request #'.$productRequest->id)
 @section('content')
-<x-admin-page-header title="Product Request #{{ $productRequest->id }}" subtitle="{{ $productRequest->site->name }}">
+<x-admin-page-header title="Product Request #{{ $productRequest->id }}" subtitle="{{ $productRequest->plant->name }}">
     <div class="d-flex gap-2">
         <x-status-badge :status="$productRequest->status" />
         <a href="{{ route('ho.product-requests.edit', $productRequest) }}" class="btn btn-primary btn-sm">Edit billing</a>

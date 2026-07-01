@@ -1,8 +1,8 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Suppliers')
 @section('content')
 <x-admin-page-header title="Suppliers" subtitle="Manage vendor and supplier records">
-    <a href="{{ route('site.suppliers.create') }}" class="btn btn-admin-primary btn-sm">
+    <a href="{{ route('plant.suppliers.create') }}" class="btn btn-admin-primary btn-sm">
         <i class="bi bi-plus-lg me-1"></i>Add Supplier
     </a>
 </x-admin-page-header>
@@ -29,7 +29,7 @@
                     <td>{{ $s->email ?? '—' }}</td>
                     <td>{{ $s->gstin ?? '—' }}</td>
                     <td class="text-end">
-                        <x-admin-action-edit :href="route('site.suppliers.edit', $s)" />
+                        <x-admin-action-edit :href="route('plant.suppliers.edit', $s)" />
                     </td>
                 </tr>
                 @empty

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers\Site\RequestPo;
+namespace App\Http\Controllers\Plant\RequestPo;
 
 use App\Enums\RequestStatus;
 use App\Http\Controllers\Concerns\AuthorizesPermissions;
-use App\Http\Controllers\Concerns\BelongsToUserSite;
+use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\PurchaseRequest;
@@ -19,7 +19,7 @@ use Illuminate\View\View;
 
 class PurchaseRequestController extends Controller
 {
-    use AuthorizesPermissions, BelongsToUserSite;
+    use AuthorizesPermissions, BelongsToUserPlant;
 
     public function __construct(
         protected RequestWorkflowService $workflow,
@@ -28,8 +28,8 @@ class PurchaseRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $query = PurchaseRequest::with(['items.product', 'productRequest', 'purchases', 'site'])
-            ->when(! $this->purchaserSeesAllSites(), fn ($q) => $q->where('site_id', $this->siteId()))
+        $query = PurchaseRequest::with(['items.product', 'productRequest', 'purchases', 'plant'])
+            ->when(! $this->purchaserSeesAllPlants(), fn ($q) => $q->where('plant_id', $this->plantId()))
             ->latest();
 
         if ($request->filled('status')) {
@@ -40,7 +40,7 @@ class PurchaseRequestController extends Controller
             $query->whereHas('items', fn ($q) => $q->where('product_id', $request->integer('product_id')));
         }
 
-        return view('site.request-po.purchase-requests.index', [
+        return view('plant.request-po.purchase-requests.index', [
             'purchaseRequests' => $query->paginate(20)->withQueryString(),
             'products' => Product::orderBy('name')->get(),
         ]);
@@ -48,7 +48,7 @@ class PurchaseRequestController extends Controller
 
     public function create(): View
     {
-        return view('site.request-po.purchase-requests.create', [
+        return view('plant.request-po.purchase-requests.create', [
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
         ]);
@@ -65,13 +65,13 @@ class PurchaseRequestController extends Controller
             'items.*.supplier_id' => ['nullable', 'exists:suppliers,id'],
         ]);
 
-        $siteId = $this->siteId();
+        $plantId = $this->plantId();
 
         $purchaseRequest = PurchaseRequest::create([
-            'site_id' => $siteId,
+            'plant_id' => $plantId,
             'requested_by' => auth()->id(),
             'remarks' => $data['remarks'] ?? null,
-            'site_status' => RequestStatus::Submitted,
+            'plant_status' => RequestStatus::Submitted,
             'status' => RequestStatus::Submitted,
         ]);
 
@@ -87,16 +87,16 @@ class PurchaseRequestController extends Controller
 
         $this->notifications->notifyPurchaseRequestSubmitted($purchaseRequest);
 
-        return redirect()->route('site.purchase-requests.show', $purchaseRequest)
+        return redirect()->route('plant.purchase-requests.show', $purchaseRequest)
             ->with('success', 'Purchase request created.');
     }
 
     public function show(PurchaseRequest $purchaseRequest): View
     {
-        $this->authorizeSiteAccess($purchaseRequest);
-        $purchaseRequest->load(['site', 'requester', 'items.product', 'items.supplier', 'productRequest', 'purchases.supplier']);
+        $this->authorizePlantAccess($purchaseRequest);
+        $purchaseRequest->load(['plant', 'requester', 'items.product', 'items.supplier', 'productRequest', 'purchases.supplier']);
 
-        return view('site.request-po.purchase-requests.show', [
+        return view('plant.request-po.purchase-requests.show', [
             'purchaseRequest' => $purchaseRequest,
             'canEdit' => auth()->user()->canManagePurchaseRequests(),
         ]);
@@ -104,11 +104,11 @@ class PurchaseRequestController extends Controller
 
     public function edit(PurchaseRequest $purchaseRequest): View
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
-        $this->authorizeSiteAccess($purchaseRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        $this->authorizePlantAccess($purchaseRequest);
         $purchaseRequest->load(['items.product', 'items.supplier']);
 
-        return view('site.request-po.purchase-requests.edit', [
+        return view('plant.request-po.purchase-requests.edit', [
             'purchaseRequest' => $purchaseRequest,
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
@@ -117,8 +117,8 @@ class PurchaseRequestController extends Controller
 
     public function update(Request $request, PurchaseRequest $purchaseRequest): RedirectResponse
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
-        $this->authorizeSiteAccess($purchaseRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        $this->authorizePlantAccess($purchaseRequest);
 
         $data = $request->validate([
             'remarks' => ['nullable', 'string'],
@@ -144,14 +144,14 @@ class PurchaseRequestController extends Controller
             $this->workflow->advancePurchaseRequest($purchaseRequest, RequestStatus::InProgress, (int) auth()->id());
         }
 
-        return redirect()->route('site.purchase-requests.show', $purchaseRequest)
+        return redirect()->route('plant.purchase-requests.show', $purchaseRequest)
             ->with('success', 'Purchase request updated.');
     }
 
     public function updateStatus(Request $request, PurchaseRequest $purchaseRequest): RedirectResponse
     {
-        $this->authorizePermission(PermissionSlug::SITE_MANAGE_PURCHASE_REQUESTS);
-        $this->authorizeSiteAccess($purchaseRequest);
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        $this->authorizePlantAccess($purchaseRequest);
 
         $data = $request->validate([
             'status' => ['required', 'in:in_progress,completed,cancelled'],

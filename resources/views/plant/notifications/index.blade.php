@@ -1,15 +1,15 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Notifications')
 @section('content')
 <x-admin-page-header title="Notifications" subtitle="Alerts for requests, purchases and stock updates">
     @if(auth()->user()->unreadNotifications()->count())
-    <form method="POST" action="{{ route('site.notifications.read-all') }}">@csrf<button class="btn btn-admin-outline btn-sm">Mark all read</button></form>
+    <form method="POST" action="{{ route('plant.notifications.read-all') }}">@csrf<button class="btn btn-admin-outline btn-sm">Mark all read</button></form>
     @endif
 </x-admin-page-header>
 <div class="admin-card">
     <div class="list-group list-group-flush">
         @forelse($notifications as $n)
-        <form method="POST" action="{{ route('site.notifications.read', $n->id) }}">
+        <form method="POST" action="{{ route('plant.notifications.read', $n->id) }}">
             @csrf
             <button type="submit" class="list-group-item list-group-item-action text-start {{ $n->read_at ? '' : 'fw-semibold' }}">
                 <div>{{ $n->data['title'] ?? 'Notification' }}</div>

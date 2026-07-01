@@ -1,7 +1,7 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'Purchase ' . $purchase->reference_no)
 @section('content')
-<x-admin-page-header title="Purchase {{ $purchase->reference_no }}" subtitle="{{ $purchase->site->name }}">
+<x-admin-page-header title="Purchase {{ $purchase->reference_no }}" subtitle="{{ $purchase->plant->name }}">
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <x-status-badge :status="$purchase->status" />
         @if($purchase->is_interstate)
@@ -9,7 +9,7 @@
         @else
             <span class="badge bg-secondary">Intra-state · CGST+SGST</span>
         @endif
-        <a href="{{ route('site.purchases.index') }}" class="btn btn-admin-outline btn-sm">
+        <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
             <i class="bi bi-arrow-left me-1"></i>All purchases
         </a>
     </div>
@@ -32,8 +32,8 @@
                         @endif
                     </div>
                     <div class="col-sm-6">
-                        <span class="text-muted d-block">Site / Plant</span>
-                        <strong>{{ $purchase->site->name }}</strong>
+                        <span class="text-muted d-block">Plant</span>
+                        <strong>{{ $purchase->plant->name }}</strong>
                     </div>
                     @if($purchase->purchase_request_id)
                     <div class="col-sm-6">
@@ -119,7 +119,7 @@
         </div>
         @if($purchase->received_at)
         <div class="admin-card">
-            <div class="admin-card-header"><h2>Site receipt</h2></div>
+            <div class="admin-card-header"><h2>Plant receipt</h2></div>
             <div class="admin-card-body small">
                 <p class="mb-1"><strong>Received by:</strong> {{ $purchase->receiver?->name ?? '—' }}</p>
                 <p class="mb-0"><strong>Received at:</strong> {{ $purchase->received_at->format('d M Y H:i') }}</p>

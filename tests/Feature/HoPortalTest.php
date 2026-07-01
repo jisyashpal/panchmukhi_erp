@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\ProductRequestItem;
 use App\Models\Role;
-use App\Models\Site;
+use App\Models\Plant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class HoPortalTest extends TestCase
     protected function hoOperator(): User
     {
         return User::factory()->create([
-            'site_id' => null,
+            'plant_id' => null,
             'role_id' => Role::where('slug', Role::SLUG_HO_DATA_OPERATOR)->value('id'),
         ]);
     }
@@ -35,12 +35,12 @@ class HoPortalTest extends TestCase
 
     public function test_ho_operator_can_update_product_request_billing(): void
     {
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $product = Product::factory()->create();
         $ho = $this->hoOperator();
 
         $request = ProductRequest::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $ho->id,
             'status' => RequestStatus::Submitted,
         ]);
@@ -106,10 +106,10 @@ class HoPortalTest extends TestCase
     public function test_ho_operator_can_comment_on_purchase(): void
     {
         $ho = $this->hoOperator();
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $supplier = \App\Models\Supplier::factory()->create();
         $purchase = \App\Models\Purchase::create([
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'supplier_id' => $supplier->id,
             'reference_no' => 'PO-HO-COMMENT',
             'status' => \App\Enums\PurchaseStatus::Ordered,
@@ -145,7 +145,7 @@ class HoPortalTest extends TestCase
         $this->actingAs($ho)->get(route('ho.product-requests.create'))
             ->assertOk()
             ->assertSee('New Product Request')
-            ->assertSee('Site');
+            ->assertSee('Plant');
     }
 
     public function test_ho_operator_can_manage_products(): void
@@ -214,13 +214,13 @@ class HoPortalTest extends TestCase
 
     public function test_ho_operator_can_store_product_request(): void
     {
-        $site = Site::factory()->create();
+        $plant = Plant::factory()->create();
         $product = Product::factory()->create();
         $ho = $this->hoOperator();
 
         $response = $this->actingAs($ho)
             ->post(route('ho.product-requests.store'), [
-                'site_id' => $site->id,
+                'plant_id' => $plant->id,
                 'remarks' => 'Test remarks from HO',
                 'items' => [
                     [
@@ -233,7 +233,7 @@ class HoPortalTest extends TestCase
         $response->assertRedirect();
         
         $this->assertDatabaseHas('product_requests', [
-            'site_id' => $site->id,
+            'plant_id' => $plant->id,
             'requested_by' => $ho->id,
             'remarks' => 'Test remarks from HO',
         ]);

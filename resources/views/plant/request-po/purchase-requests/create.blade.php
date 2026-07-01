@@ -1,13 +1,13 @@
-@extends('layouts.site')
+@extends('layouts.plant')
 @section('title', 'New Purchase Request')
 @section('content')
 <x-admin-page-header title="New Purchase Request" subtitle="Submit procurement request to Head Office">
-    <a href="{{ route('site.purchase-requests.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <a href="{{ route('plant.purchase-requests.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </x-admin-page-header>
 
 <div class="admin-card">
     <div class="admin-card-body">
-        <form method="POST" action="{{ route('site.purchase-requests.store') }}">
+        <form method="POST" action="{{ route('plant.purchase-requests.store') }}">
             @csrf
             <div class="row g-3">
                 <x-admin-form-group label="Remarks" name="remarks" col="col-md-12">
