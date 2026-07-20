@@ -18,7 +18,7 @@ trait ManagesSubCategories
     {
         $subCategories = SubCategory::with('category')
             ->withCount('products')
-            ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
+            ->when($request->filled('category_id'), fn($q) => $q->where('category_id', $request->integer('category_id')))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
@@ -49,8 +49,8 @@ trait ManagesSubCategories
 
         return $this->redirectAfterCatalogStore(
             $request,
-            'Sub category created.',
-            $this->catalogPortal().'.sub-categories.index',
+            'Item Type created.',
+            $this->catalogPortal() . '.sub-categories.index',
             [
                 'category_id' => $subCategory->category_id,
                 'sub_category_id' => $subCategory->id,
@@ -77,18 +77,18 @@ trait ManagesSubCategories
 
         $subCategory->update($data);
 
-        return redirect()->route($this->catalogPortal().'.sub-categories.index')->with('success', 'Sub category updated.');
+        return redirect()->route($this->catalogPortal() . '.sub-categories.index')->with('success', 'Item Type updated.');
     }
 
     public function destroy(SubCategory $subCategory): RedirectResponse
     {
         if ($subCategory->products()->exists()) {
-            return redirect()->route($this->catalogPortal().'.sub-categories.index')
-                ->with('error', 'Cannot delete a sub category that has products. Remove or reassign products first.');
+            return redirect()->route($this->catalogPortal() . '.sub-categories.index')
+                ->with('error', 'Cannot delete a Item Type that has products. Remove or reassign products first.');
         }
 
         $subCategory->delete();
 
-        return redirect()->route($this->catalogPortal().'.sub-categories.index')->with('success', 'Sub category deleted.');
+        return redirect()->route($this->catalogPortal() . '.sub-categories.index')->with('success', 'Item Type deleted.');
     }
 }

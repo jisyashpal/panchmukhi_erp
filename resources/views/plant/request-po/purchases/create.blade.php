@@ -9,6 +9,13 @@
         ? 'Purchase Request #'.$purchaseRequest->id.' · '.$purchaseRequest->plant->name
         : 'Enter supplier, rate, quantity & GST per product';
     $supplierNames = $suppliers->pluck('name', 'id');
+    $purchaseProductCatalog = $products->map(function ($p) {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'sku' => $p->sku ?? '',
+        ];
+    })->values();
 @endphp
 <x-admin-page-header :title="$pageTitle" :subtitle="$pageSubtitle">
     <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
@@ -77,7 +84,10 @@
                     <table class="table table-sm mb-0 purchase-create-table">
                         <thead>
                             <tr>
-                                <th class="purchase-col-product">Product</th>
+                                <th class="purchase-col-product">{{ $purchaseRequest ? 'Item Name' : 'Product' }}</th>
+                                @if($purchaseRequest)
+                                <th class="purchase-col-requested">Requested item</th>
+                                @endif
                                 <th class="purchase-col-supplier">Supplier</th>
                                 <th class="purchase-col-num purchase-col-qty">Qty</th>
                                 <th class="purchase-col-num purchase-col-rate">Rate (₹)</th>
@@ -92,21 +102,46 @@
                             @if($purchaseRequest)
                             @foreach($purchaseRequest->items as $i => $item)
                             @php
-                                $prItem = $purchaseRequest->productRequest
-                                    ? $purchaseRequest->productRequest->items->firstWhere('product_id', $item->product_id)
-                                    : null;
+                                $prItem = $item->productRequestItem
+                                    ?? ($purchaseRequest->productRequest
+                                        ? $purchaseRequest->productRequest->items->firstWhere('id', $item->product_request_item_id)
+                                        : null);
+                                if (! $prItem && $item->product_id && $purchaseRequest->productRequest) {
+                                    $prItem = $purchaseRequest->productRequest->items->firstWhere('product_id', $item->product_id);
+                                }
                                 $defaultGstRate = $prItem ? $prItem->gst_rate : 18;
                                 $defaultUnitPrice = $item->unit_price > 0 ? $item->unit_price : ($prItem ? $prItem->unit_price : 0);
                                 $defaultSupplierId = $item->supplier_id ?? ($prItem?->supplier_id);
+                                $requestedLabel = $item->displayName();
+                                $requestedSize = $item->size ?? $prItem?->size ?? $item->product?->size;
+                                $selectedProductId = old("items.$i.product_id", $item->product_id);
+                                $selectedProduct = $selectedProductId ? $products->firstWhere('id', (int) $selectedProductId) : null;
+                                $itemNameValue = $selectedProduct?->name ?? '';
                             @endphp
                             <tr class="purchase-line-row">
                                 <td class="purchase-col-product">
-                                    <span class="fw-semibold d-block text-truncate" title="{{ $item->product->name }}">{{ $item->product->name }}</span>
-                                    @if($item->product->sku)
-                                        <code class="small text-muted">{{ $item->product->sku }}</code>
-                                    @endif
-                                    <input type="hidden" name="items[{{ $i }}][product_id]" value="{{ $item->product_id }}">
+                                    <input type="text"
+                                           value="{{ $itemNameValue }}"
+                                           class="form-control form-control-sm purchase-line-input purchase-item-name-input"
+                                           placeholder="Search item name or SKU..."
+                                           required
+                                           autocomplete="off">
+                                    <input type="hidden"
+                                           name="items[{{ $i }}][product_id]"
+                                           value="{{ $selectedProductId }}"
+                                           class="purchase-item-product-id">
                                 </td>
+                                @if($purchaseRequest)
+                                <td class="purchase-col-requested">
+                                    <span class="fw-semibold d-block">{{ $requestedLabel }}</span>
+                                    @if($requestedSize)
+                                        <span class="small text-muted">Size: {{ $requestedSize }}</span>
+                                    @endif
+                                    @if($item->subCategory?->name ?? $prItem?->subCategory?->name)
+                                        <span class="d-block small text-muted">{{ $item->subCategory?->name ?? $prItem?->subCategory?->name }}</span>
+                                    @endif
+                                </td>
+                                @endif
                                 <td class="purchase-col-supplier">
                                     <select name="items[{{ $i }}][supplier_id]" class="form-select form-select-sm purchase-line-input purchase-supplier-select" required>
                                         <option value="">— Select —</option>
@@ -122,7 +157,11 @@
                                     <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ old("items.$i.unit_price", $defaultUnitPrice) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
                                 </td>
                                 <td class="purchase-col-num purchase-col-gst">
-                                    <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][gst_rate]" value="{{ old("items.$i.gst_rate", $defaultGstRate) }}" class="form-control form-control-sm purchase-line-input purchase-num-input">
+                                    <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input purchase-num-input">
+                                        @foreach([0, 5, 12, 18, 28] as $rate)
+                                            <option value="{{ $rate }}" @selected(old("items.$i.gst_rate", $defaultGstRate) == $rate)>{{ $rate }} %</option>
+                                        @endforeach
+                                    </select>
                                 </td>
                                 <td class="purchase-col-num purchase-col-total purchase-line-total-cell">
                                     <span class="purchase-line-total">₹0.00</span>
@@ -268,6 +307,26 @@
 </template>
 
 @push('scripts')
+<style>
+#purchase-item-autocomplete-portal {
+    position: fixed;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 2000;
+    display: none;
+}
+#purchase-item-autocomplete-portal.is-open {
+    display: block;
+}
+#purchase-item-autocomplete-portal .suggestion-item {
+    cursor: pointer;
+    transition: background 0.15s ease-in-out;
+}
+#purchase-item-autocomplete-portal .suggestion-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+<script type="application/json" id="purchase-product-catalog-data">@json($purchaseProductCatalog)</script>
 <script>
     const supplierNames = @json($supplierNames);
 
@@ -374,7 +433,150 @@
     document.addEventListener('DOMContentLoaded', () => {
         bindPurchaseGstCalc();
         recalcPurchaseTotals();
+        initPurchaseItemAutocomplete();
     });
+
+    function initPurchaseItemAutocomplete() {
+        const catalogEl = document.getElementById('purchase-product-catalog-data');
+        const form = document.getElementById('purchase-form');
+        if (!catalogEl || !form) {
+            return;
+        }
+
+        const products = JSON.parse(catalogEl.textContent);
+        let activeInput = null;
+
+        const portal = document.createElement('div');
+        portal.id = 'purchase-item-autocomplete-portal';
+        portal.className = 'autocomplete-suggestions shadow border rounded-bottom bg-white';
+        document.body.appendChild(portal);
+
+        function hideSuggestions() {
+            portal.innerHTML = '';
+            portal.classList.remove('is-open');
+            activeInput = null;
+        }
+
+        function positionPortal(input) {
+            const rect = input.getBoundingClientRect();
+            portal.style.top = (rect.bottom + 2) + 'px';
+            portal.style.left = rect.left + 'px';
+            portal.style.width = rect.width + 'px';
+        }
+
+        function applyProductSelection(row, product) {
+            const input = row.querySelector('.purchase-item-name-input');
+            const productIdInput = row.querySelector('.purchase-item-product-id');
+
+            input.value = product.name;
+            productIdInput.value = product.id;
+            input.classList.remove('is-invalid');
+            hideSuggestions();
+        }
+
+        function showSuggestions(input) {
+            const row = input.closest('.purchase-line-row');
+            if (!row) {
+                return;
+            }
+
+            const productIdInput = row.querySelector('.purchase-item-product-id');
+            const val = input.value.trim().toLowerCase();
+
+            activeInput = input;
+            productIdInput.value = '';
+            portal.innerHTML = '';
+
+            if (!val) {
+                hideSuggestions();
+                return;
+            }
+
+            const filtered = products.filter(function (product) {
+                return product.name.toLowerCase().includes(val)
+                    || (product.sku && product.sku.toLowerCase().includes(val));
+            }).slice(0, 10);
+
+            if (filtered.length === 0) {
+                hideSuggestions();
+                return;
+            }
+
+            filtered.forEach(function (product) {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
+                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
+                    + product.name
+                    + '</span> <span class="text-muted small">'
+                    + (product.sku || 'No SKU')
+                    + '</span>';
+                div.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    applyProductSelection(row, product);
+                });
+                portal.appendChild(div);
+            });
+
+            positionPortal(input);
+            portal.classList.add('is-open');
+        }
+
+        document.addEventListener('input', function (event) {
+            if (event.target.matches('.purchase-item-name-input')) {
+                showSuggestions(event.target);
+            }
+        });
+
+        document.addEventListener('focusin', function (event) {
+            if (event.target.matches('.purchase-item-name-input') && event.target.value.trim()) {
+                showSuggestions(event.target);
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            if (activeInput && (activeInput.contains(event.target) || portal.contains(event.target))) {
+                return;
+            }
+            hideSuggestions();
+        });
+
+        window.addEventListener('scroll', function () {
+            if (activeInput && portal.classList.contains('is-open')) {
+                positionPortal(activeInput);
+            }
+        }, true);
+
+        window.addEventListener('resize', function () {
+            if (activeInput && portal.classList.contains('is-open')) {
+                positionPortal(activeInput);
+            }
+        });
+
+        form.addEventListener('submit', function (event) {
+            let hasError = false;
+
+            document.querySelectorAll('#purchase-lines .purchase-line-row').forEach(function (row) {
+                const nameInput = row.querySelector('.purchase-item-name-input');
+                const productIdInput = row.querySelector('.purchase-item-product-id');
+
+                if (!nameInput || !productIdInput) {
+                    return;
+                }
+
+                if (!productIdInput.value) {
+                    hasError = true;
+                    nameInput.classList.add('is-invalid');
+                } else {
+                    nameInput.classList.remove('is-invalid');
+                }
+            });
+
+            if (hasError) {
+                event.preventDefault();
+                alert('Please search and select an item from the catalog for each line.');
+            }
+        });
+    }
 </script>
 @endpush
 @endsection

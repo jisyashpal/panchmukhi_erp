@@ -9,7 +9,7 @@
 
 <div class="admin-card">
     <div class="admin-card-body">
-        <form method="POST" action="{{ route('plant.product-requests.update', $productRequest) }}">
+        <form method="POST" action="{{ route('plant.product-requests.update', $productRequest) }}" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             
@@ -27,14 +27,15 @@
                             <th>Product</th>
                             <th class="text-end" style="width: 180px;">Quantity</th>
                             <th>Item Remarks</th>
+                            <th>Image</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($productRequest->items as $i => $item)
                             <tr>
                                 <td>
-                                    <span class="fw-semibold text-dark">{{ $item->product->name }}</span>
-                                    @if($item->product->sku)
+                                    <span class="fw-semibold text-dark">{{ $item->product ? $item->product->name : $item->item_name }}</span>
+                                    @if($item->product && $item->product->sku)
                                         <span class="d-block small text-muted text-uppercase">SKU: {{ $item->product->sku }}</span>
                                     @endif
                                     <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
@@ -48,6 +49,16 @@
                                     <input type="text" name="items[{{ $i }}][remarks]" 
                                            value="{{ old('items.'.$i.'.remarks', $item->remarks) }}" 
                                            class="form-control @error('items.'.$i.'.remarks') is-invalid @enderror" placeholder="Optional notes for this product">
+                                </td>
+                                <td>
+                                    @if($item->image_path)
+                                        <div class="mb-1">
+                                            <a href="{{ $item->image_url }}" target="_blank" class="d-inline-block">
+                                                <img src="{{ $item->image_url }}" alt="Preview" class="img-thumbnail" style="max-height: 40px;">
+                                            </a>
+                                        </div>
+                                    @endif
+                                    <input type="file" name="items[{{ $i }}][image]" class="form-control form-control-sm" accept="image/*">
                                 </td>
                             </tr>
                         @endforeach

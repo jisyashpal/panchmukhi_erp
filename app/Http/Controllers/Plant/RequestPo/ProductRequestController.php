@@ -12,6 +12,7 @@ use App\Models\ProductRequestItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
 use App\Models\Plant;
+use App\Models\SubCategory;
 use App\Services\NotificationService;
 use App\Support\PermissionSlug;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +31,9 @@ class ProductRequestController extends Controller
     {
         $isPurchaser = $this->purchaserSeesAllPlants();
 
-        $query = ProductRequest::with(['plant', 'requester', 'items.product', 'purchaseRequest.purchases'])
+        $query = ProductRequest::with(['plant', 'requester', 'items.product', 'items.subCategory', 'purchaseRequest.purchases'])
+            ->withCount('items')
+            ->withSum('items', 'quantity')
             ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
             ->latest();
 
@@ -54,17 +57,25 @@ class ProductRequestController extends Controller
     {
         return view('plant.request-po.product-requests.create', [
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
+            'subCategories' => SubCategory::where('is_active', true)->orderBy('name')->get(),
+            'categories' => \App\Models\Category::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'remarks' => ['nullable', 'string'],
+            'requester_name' => ['required', 'string', 'max:255'],
+            'remarks' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.item_name' => ['required', 'string', 'max:255'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.category_id' => ['nullable', 'exists:categories,id'],
+            'items.*.sub_category_id' => ['nullable', 'exists:sub_categories,id'],
+            'items.*.size' => ['nullable', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.remarks' => ['nullable', 'string'],
+            'items.*.image' => ['nullable', 'image', 'max:5120'],
         ]);
 
         $plantId = $this->plantId();
@@ -72,16 +83,43 @@ class ProductRequestController extends Controller
         $productRequest = ProductRequest::create([
             'plant_id' => $plantId,
             'requested_by' => auth()->id(),
+            'requester_name' => trim($data['requester_name']),
             'remarks' => $data['remarks'] ?? null,
             'status' => RequestStatus::Submitted,
         ]);
 
-        foreach ($data['items'] as $item) {
+        foreach ($data['items'] as $index => $item) {
+            $productId = $item['product_id'] ?? null;
+            $itemName = trim($item['item_name']);
+            $size = isset($item['size']) ? trim((string) $item['size']) : null;
+            $subCategoryId = $item['sub_category_id'] ?? null;
+
+            if ($productId) {
+                $product = Product::find($productId);
+                if ($product) {
+                    $itemName = $product->name;
+                    $size = $size ?: $product->size;
+                    $subCategoryId = $subCategoryId ?: $product->sub_category_id;
+                }
+            }
+
+            $imagePath = null;
+            if ($request->hasFile("items.{$index}.image")) {
+                $file = $request->file("items.{$index}.image");
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move(public_path('uploads'), $fileName);
+                $imagePath = 'uploads/' . $fileName;
+            }
+
             ProductRequestItem::create([
                 'product_request_id' => $productRequest->id,
-                'product_id' => $item['product_id'],
+                'product_id' => $productId,
+                'item_name' => $productId ? null : $itemName,
+                'size' => $size ?: null,
+                'sub_category_id' => $subCategoryId,
                 'quantity' => $item['quantity'],
                 'remarks' => $item['remarks'] ?? null,
+                'image_path' => $imagePath,
             ]);
         }
 
@@ -94,7 +132,7 @@ class ProductRequestController extends Controller
     public function show(ProductRequest $productRequest): View
     {
         $this->authorizePlantAccess($productRequest);
-        $productRequest->load(['plant', 'requester', 'items.product', 'items.supplier', 'purchaseRequest.purchases']);
+        $productRequest->load(['plant', 'requester', 'items.product', 'items.subCategory', 'items.supplier', 'purchaseRequest.purchases']);
 
         return view('plant.request-po.product-requests.show', compact('productRequest'));
     }
@@ -130,20 +168,30 @@ class ProductRequestController extends Controller
             'items.*.id' => ['required', 'exists:product_request_items,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.remarks' => ['nullable', 'string'],
+            'items.*.image' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($productRequest, $data) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($productRequest, $data, $request) {
             $productRequest->update([
                 'remarks' => $data['remarks'] ?? null,
             ]);
 
-            foreach ($data['items'] as $itemData) {
+            foreach ($data['items'] as $index => $itemData) {
                 $item = $productRequest->items()->find($itemData['id']);
                 if ($item) {
-                    $item->update([
+                    $updateData = [
                         'quantity' => $itemData['quantity'],
                         'remarks' => $itemData['remarks'] ?? null,
-                    ]);
+                    ];
+
+                    if ($request->hasFile("items.{$index}.image")) {
+                        $file = $request->file("items.{$index}.image");
+                        $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $file->move(public_path('uploads'), $fileName);
+                        $updateData['image_path'] = 'uploads/' . $fileName;
+                    }
+
+                    $item->update($updateData);
                 }
             }
         });
@@ -174,7 +222,11 @@ class ProductRequestController extends Controller
         foreach ($productRequest->items as $item) {
             PurchaseRequestItem::create([
                 'purchase_request_id' => $purchaseRequest->id,
+                'product_request_item_id' => $item->id,
                 'product_id' => $item->product_id,
+                'item_name' => $item->product_id ? null : $item->displayName(),
+                'size' => $item->size,
+                'sub_category_id' => $item->sub_category_id,
                 'supplier_id' => $item->supplier_id,
                 'quantity' => $item->quantity,
                 'unit_price' => $item->unit_price ?? 0,

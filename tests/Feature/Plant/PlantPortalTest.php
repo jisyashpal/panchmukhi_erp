@@ -48,8 +48,13 @@ class PlantPortalTest extends TestCase
 
         $this->actingAs($inCharge)
             ->post(route('plant.product-requests.store'), [
+                'requester_name' => 'Site Supervisor',
                 'items' => [
-                    ['product_id' => $product->id, 'quantity' => 2],
+                    [
+                        'product_id' => $product->id,
+                        'item_name' => $product->name,
+                        'quantity' => 2,
+                    ],
                 ],
             ])
             ->assertRedirect();
@@ -58,6 +63,41 @@ class PlantPortalTest extends TestCase
             'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
             'status' => RequestStatus::Submitted->value,
+        ]);
+    }
+
+    public function test_plant_in_charge_can_create_product_request_with_custom_item_name(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $category = \App\Models\Category::factory()->create();
+        $subCategory = \App\Models\SubCategory::create([
+            'category_id' => $category->id,
+            'name' => 'Cement',
+            'slug' => 'cement-test',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($inCharge)
+            ->post(route('plant.product-requests.store'), [
+                'requester_name' => 'Site Supervisor',
+                'items' => [
+                    [
+                        'item_name' => 'Custom Cement Bag',
+                        'sub_category_id' => $subCategory->id,
+                        'size' => '50kg',
+                        'quantity' => 3,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('product_request_items', [
+            'item_name' => 'Custom Cement Bag',
+            'product_id' => null,
+            'size' => '50kg',
+            'sub_category_id' => $subCategory->id,
+            'quantity' => 3,
         ]);
     }
 
@@ -96,8 +136,9 @@ class PlantPortalTest extends TestCase
 
         $this->actingAs($inCharge)->get(route('plant.purchases.index'))
             ->assertStatus(200)
-            ->assertSee('Receive Stock', false)
-            ->assertDontSee('Print', false);
+            ->assertSee('Purchases', false)
+            ->assertDontSee('Print', false)
+            ->assertDontSee('Receive', false);
     }
 
     public function test_plant_in_charge_can_receive_purchase(): void
@@ -480,6 +521,7 @@ class PlantPortalTest extends TestCase
         $productRequest = \App\Models\ProductRequest::create([
             'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
             'status' => \App\Enums\RequestStatus::Submitted,
         ]);
  
@@ -498,6 +540,7 @@ class PlantPortalTest extends TestCase
         $productRequest = \App\Models\ProductRequest::create([
             'plant_id' => $plant->id,
             'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
             'status' => \App\Enums\RequestStatus::Submitted,
             'remarks' => 'Original Remarks',
         ]);
@@ -569,6 +612,67 @@ class PlantPortalTest extends TestCase
             ->assertSee($product->name);
     }
 
+    public function test_purchaser_can_create_po_from_purchase_request_with_custom_item(): void
+    {
+        $plant = Plant::factory()->create();
+        $purchaser = $this->purchaser($plant);
+        $supplier = \App\Models\Supplier::factory()->create();
+        $category = \App\Models\Category::factory()->create();
+        $subCategory = \App\Models\SubCategory::create([
+            'category_id' => $category->id,
+            'name' => 'Steel',
+            'slug' => 'steel-test',
+            'is_active' => true,
+        ]);
+        $catalogProduct = Product::factory()->create();
+
+        $purchaseRequest = \App\Models\PurchaseRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $purchaser->id,
+            'status' => RequestStatus::Submitted,
+            'plant_status' => RequestStatus::Submitted,
+        ]);
+
+        \App\Models\PurchaseRequestItem::create([
+            'purchase_request_id' => $purchaseRequest->id,
+            'product_id' => null,
+            'item_name' => 'Custom TMT Bar',
+            'size' => '12mm',
+            'sub_category_id' => $subCategory->id,
+            'supplier_id' => $supplier->id,
+            'quantity' => 4,
+            'unit_price' => 0,
+        ]);
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id]))
+            ->assertOk()
+            ->assertSee('Item Name')
+            ->assertSee('Search item name or SKU');
+
+        $this->actingAs($purchaser)
+            ->post(route('plant.purchases.store'), [
+                'plant_id' => $plant->id,
+                'purchase_request_id' => $purchaseRequest->id,
+                'is_interstate' => 0,
+                'items' => [
+                    [
+                        'product_id' => $catalogProduct->id,
+                        'supplier_id' => $supplier->id,
+                        'quantity' => 4,
+                        'unit_price' => 500,
+                        'gst_rate' => 18,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('purchase_items', [
+            'product_id' => $catalogProduct->id,
+            'quantity' => 4,
+        ]);
+    }
+
     public function test_purchaser_receives_notification_when_product_request_submitted(): void
     {
         $plant = Plant::factory()->create();
@@ -580,8 +684,13 @@ class PlantPortalTest extends TestCase
 
         $this->actingAs($inCharge)
             ->post(route('plant.product-requests.store'), [
+                'requester_name' => 'Site Supervisor',
                 'items' => [
-                    ['product_id' => $product->id, 'quantity' => 10],
+                    [
+                        'product_id' => $product->id,
+                        'item_name' => $product->name,
+                        'quantity' => 10,
+                    ],
                 ],
             ])
             ->assertRedirect();

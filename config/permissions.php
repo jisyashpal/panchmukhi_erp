@@ -42,6 +42,7 @@ return [
         ['name' => 'View Plant Purchases', 'slug' => 'plant.view_purchases', 'module' => 'plant', 'sort_order' => 7, 'roles' => ['super_admin', 'plant_in_charge', 'purchaser']],
         ['name' => 'Manage Plant Purchases', 'slug' => 'plant.manage_purchases', 'module' => 'plant', 'sort_order' => 8, 'roles' => ['super_admin', 'purchaser']],
         ['name' => 'Dispatch Orders', 'slug' => 'plant.dispatch_orders', 'module' => 'plant', 'sort_order' => 9, 'roles' => ['super_admin', 'purchaser']],
+        ['name' => 'Manage Products', 'slug' => 'plant.manage_products', 'module' => 'plant', 'sort_order' => 10, 'roles' => ['super_admin', 'purchaser']],
     ],
 
 ];

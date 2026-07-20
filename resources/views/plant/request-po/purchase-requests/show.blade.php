@@ -19,12 +19,16 @@
             <tbody>
                 @foreach($purchaseRequest->items as $item)
                 <tr>
-                    <td>{{ $item->product->name }}</td>
+                    <td>{{ $item->displayName() }}</td>
                     <td>{{ $item->supplier?->name ?? '—' }}</td>
                     <td class="text-end">{{ $item->quantity }}</td>
                     <td class="text-end">{{ $item->unit_price }}</td>
                     <td class="text-end">
-                        <span class="stock-check" data-url="{{ route('plant.api.stock.check', ['plant' => $purchaseRequest->plant_id, 'product' => $item->product_id]) }}">…</span>
+                        @if($item->product_id)
+                            <span class="stock-check" data-url="{{ route('plant.api.stock.check', ['plant' => $purchaseRequest->plant_id, 'product' => $item->product_id]) }}">…</span>
+                        @else
+                            —
+                        @endif
                     </td>
                 </tr>
                 @endforeach

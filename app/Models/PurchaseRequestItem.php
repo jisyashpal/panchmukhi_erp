@@ -9,7 +9,11 @@ class PurchaseRequestItem extends Model
 {
     protected $fillable = [
         'purchase_request_id',
+        'product_request_item_id',
         'product_id',
+        'item_name',
+        'size',
+        'sub_category_id',
         'supplier_id',
         'quantity',
         'unit_price',
@@ -28,13 +32,39 @@ class PurchaseRequestItem extends Model
         return $this->belongsTo(PurchaseRequest::class);
     }
 
+    public function productRequestItem(): BelongsTo
+    {
+        return $this->belongsTo(ProductRequestItem::class);
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    public function subCategory(): BelongsTo
+    {
+        return $this->belongsTo(SubCategory::class);
+    }
+
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function requiresProductSelection(): bool
+    {
+        return $this->product_id === null;
+    }
+
+    public function displayName(): string
+    {
+        if ($this->item_name) {
+            return $this->item_name;
+        }
+
+        return $this->productRequestItem?->displayName()
+            ?? $this->product?->name
+            ?? '—';
     }
 }

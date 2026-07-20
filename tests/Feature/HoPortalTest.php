@@ -42,6 +42,7 @@ class HoPortalTest extends TestCase
         $request = ProductRequest::create([
             'plant_id' => $plant->id,
             'requested_by' => $ho->id,
+            'requester_name' => $ho->name,
             'status' => RequestStatus::Submitted,
         ]);
 
@@ -175,12 +176,16 @@ class HoPortalTest extends TestCase
             ->assertSee('Add Product');
 
         $response = $this->actingAs($ho)->post(route('ho.products.store'), [
-            'name' => 'Test Cement Bag',
-            'size' => '50KG',
-            'category_id' => $category->id,
-            'unit_id' => $unit->id,
-            'reorder_level' => 15,
-            'is_active' => '1',
+            'products' => [
+                [
+                    'name' => 'Test Cement Bag',
+                    'size' => '50KG',
+                    'category_id' => $category->id,
+                    'unit_id' => $unit->id,
+                    'reorder_level' => 15,
+                    'is_active' => '1',
+                ]
+            ]
         ]);
 
         $response->assertRedirect(route('ho.products.index'));

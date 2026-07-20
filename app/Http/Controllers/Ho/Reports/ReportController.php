@@ -18,7 +18,8 @@ class ReportController extends Controller
 {
     public function __construct(
         protected ReportService $reports
-    ) {}
+    ) {
+    }
 
     public function index(): View
     {
@@ -131,19 +132,28 @@ class ReportController extends Controller
         $entries = $this->reports->productLifeUsage($filters, forExport: true);
 
         return SpreadsheetDownload::csv('product-life-report.csv', [
-            'Date', 'Plant', 'Product', 'Category', 'Sub Category', 'Qty', 'Usage Count', 'Life hrs', 'Recorded By', 'Notes',
-        ], $entries->map(fn ($e) => [
-            $e->used_at->format('d M Y'),
-            $e->plant->name,
-            $e->product->name,
-            $e->product->category?->name ?? '',
-            $e->subCategory?->name ?? '',
-            $e->quantity,
-            $e->usage_count,
-            $e->life_hours,
-            $e->recorder->name ?? '',
-            $e->notes ?? '',
-        ]));
+            'Date',
+            'Plant',
+            'Product',
+            'Category',
+            'Item Type',
+            'Qty',
+            'Usage Count',
+            'Life hrs',
+            'Recorded By',
+            'Notes',
+        ], $entries->map(fn($e) => [
+                        $e->used_at->format('d M Y'),
+                        $e->plant->name,
+                        $e->product->name,
+                        $e->product->category?->name ?? '',
+                        $e->subCategory?->name ?? '',
+                        $e->quantity,
+                        $e->usage_count,
+                        $e->life_hours,
+                        $e->recorder->name ?? '',
+                        $e->notes ?? '',
+                    ]));
     }
 
     private function exportCategoryPurchase(ReportFilters $filters): StreamedResponse
@@ -151,12 +161,14 @@ class ReportController extends Controller
         $rows = $this->reports->categoryWisePurchaseAmount($filters);
 
         return SpreadsheetDownload::csv('category-purchase-report.csv', [
-            'Category', 'Qty', 'Amount',
-        ], $rows->map(fn ($r) => [
-            $r->category_name,
-            $r->total_qty,
-            $r->total_amount,
-        ]));
+            'Category',
+            'Qty',
+            'Amount',
+        ], $rows->map(fn($r) => [
+                        $r->category_name,
+                        $r->total_qty,
+                        $r->total_amount,
+                    ]));
     }
 
     private function exportMultipleUsage(ReportFilters $filters): StreamedResponse
@@ -164,18 +176,26 @@ class ReportController extends Controller
         $rows = $this->reports->multipleUsageHighlights($filters, forExport: true);
 
         return SpreadsheetDownload::csv('multiple-usage-report.csv', [
-            'Product', 'Category', 'Use Count', 'Total Qty', 'Avg Qty/Use', 'Total Life Hours', 'Avg Life Hours', 'Plants', 'Last Used',
-        ], $rows->map(fn ($r) => [
-            $r->product_name,
-            $r->category_name,
-            $r->use_count,
-            $r->total_qty,
-            $r->avg_qty_per_use,
-            $r->total_life_hours,
-            $r->avg_life_hours,
-            $r->plant_count,
-            $r->last_used_at ? \Carbon\Carbon::parse($r->last_used_at)->format('d M Y') : '',
-        ]));
+            'Product',
+            'Category',
+            'Use Count',
+            'Total Qty',
+            'Avg Qty/Use',
+            'Total Life Hours',
+            'Avg Life Hours',
+            'Plants',
+            'Last Used',
+        ], $rows->map(fn($r) => [
+                        $r->product_name,
+                        $r->category_name,
+                        $r->use_count,
+                        $r->total_qty,
+                        $r->avg_qty_per_use,
+                        $r->total_life_hours,
+                        $r->avg_life_hours,
+                        $r->plant_count,
+                        $r->last_used_at ? \Carbon\Carbon::parse($r->last_used_at)->format('d M Y') : '',
+                    ]));
     }
 
     private function exportUsageByCategory(ReportFilters $filters): StreamedResponse
@@ -183,15 +203,20 @@ class ReportController extends Controller
         $rows = $this->reports->productUsageByCategory($filters);
 
         return SpreadsheetDownload::csv('usage-by-category-report.csv', [
-            'Category', 'Total Qty Used', 'Usage Count', 'Products', 'Total Life Hours', 'Avg Life Hours/Entry',
-        ], $rows->map(fn ($r) => [
-            $r->category_name,
-            $r->total_qty,
-            $r->usage_count,
-            $r->product_count,
-            $r->total_life_hours,
-            $r->avg_life_hours,
-        ]));
+            'Category',
+            'Total Qty Used',
+            'Usage Count',
+            'Products',
+            'Total Life Hours',
+            'Avg Life Hours/Entry',
+        ], $rows->map(fn($r) => [
+                        $r->category_name,
+                        $r->total_qty,
+                        $r->usage_count,
+                        $r->product_count,
+                        $r->total_life_hours,
+                        $r->avg_life_hours,
+                    ]));
     }
 
     private function exportPartyPurchase(ReportFilters $filters): StreamedResponse
@@ -199,12 +224,14 @@ class ReportController extends Controller
         $rows = $this->reports->supplierWisePurchaseTotals($filters);
 
         return SpreadsheetDownload::csv('party-purchase-report.csv', [
-            'Party (Supplier)', 'Orders', 'Amount',
-        ], $rows->map(fn ($r) => [
-            $r->supplier?->name ?? 'Unknown',
-            $r->order_count,
-            $r->total_amount,
-        ]));
+            'Party (Supplier)',
+            'Orders',
+            'Amount',
+        ], $rows->map(fn($r) => [
+                        $r->supplier?->name ?? 'Unknown',
+                        $r->order_count,
+                        $r->total_amount,
+                    ]));
     }
 
     private function exportPartyLedger(Supplier $supplier, ReportFilters $filters): StreamedResponse
@@ -212,71 +239,89 @@ class ReportController extends Controller
         $rows = $this->reports->supplierLedger($supplier->id, $filters);
 
         return SpreadsheetDownload::csv("party-ledger-{$supplier->id}.csv", [
-            'Date', 'PO Ref', 'Plant', 'Items', 'Subtotal', 'GST', 'Grand Total', 'Status',
-        ], $rows->map(fn ($p) => [
-            $p->ordered_at?->format('d M Y') ?? '',
-            $p->reference_no,
-            $p->plant->name,
-            $p->items->map(fn ($item) => "{$item->product->name} (x{$item->quantity})")->implode(', '),
-            $p->subtotal,
-            $p->total_gst,
-            $p->grand_total,
-            $p->status->label(),
-        ]));
+            'Date',
+            'PO Ref',
+            'Plant',
+            'Items',
+            'Subtotal',
+            'GST',
+            'Grand Total',
+            'Status',
+        ], $rows->map(fn($p) => [
+                        $p->ordered_at?->format('d M Y') ?? '',
+                        $p->reference_no,
+                        $p->plant->name,
+                        $p->items->map(fn($item) => "{$item->product->name} (x{$item->quantity})")->implode(', '),
+                        $p->subtotal,
+                        $p->total_gst,
+                        $p->grand_total,
+                        $p->status->label(),
+                    ]));
     }
 
     public function categoryStockInOut(Request $request): View|StreamedResponse
     {
         $filters = ReportFilters::fromRequest($request);
-        $data    = $this->reports->categoryStockInOut($filters);
+        $data = $this->reports->categoryStockInOut($filters);
 
         if ($request->query('export') === 'excel') {
             return SpreadsheetDownload::csv('category-stock-in-out.csv', [
-                'Category', 'Stock In Qty', 'Stock In Amount (₹)', 'Stock Out Qty',
-            ], collect($data['rows'])->map(fn ($r) => [
-                $r->category,
-                $r->in_qty,
-                number_format($r->in_amount, 2),
-                $r->out_qty,
-            ]));
+                'Category',
+                'Stock In Qty',
+                'Stock In Amount (₹)',
+                'Stock Out Qty',
+            ], collect($data['rows'])->map(fn($r) => [
+                            $r->category,
+                            $r->in_qty,
+                            number_format($r->in_amount, 2),
+                            $r->out_qty,
+                        ]));
         }
 
         return view('ho.reports.category-stock-in-out', [
             ...$this->filterOptions(),
-            'filters'    => $filters,
-            'rows'       => $data['rows'],
+            'filters' => $filters,
+            'rows' => $data['rows'],
             'totalInQty' => $data['in_qty'],
             'totalInAmt' => $data['in_amount'],
-            'totalOutQty'=> $data['out_qty'],
+            'totalOutQty' => $data['out_qty'],
         ]);
     }
 
     public function categoryPurchaseLedger(Request $request, Category $category): View|StreamedResponse
     {
         $filters = ReportFilters::fromRequest($request);
-        $items   = $this->reports->categoryPurchaseLedger($category->id, $filters);
+        $items = $this->reports->categoryPurchaseLedger($category->id, $filters);
 
         if ($request->query('export') === 'excel') {
             return SpreadsheetDownload::csv("category-purchase-ledger-{$category->id}.csv", [
-                'Date', 'PO Ref', 'Plant', 'Supplier', 'Product', 'Qty', 'Unit Price', 'Line Total', 'Status',
-            ], $items->map(fn ($r) => [
-                $r->ordered_at ? \Carbon\Carbon::parse($r->ordered_at)->format('d M Y') : '',
-                $r->reference_no,
-                $r->plant_name,
-                $r->supplier_name ?? '—',
-                $r->product_name,
-                $r->quantity,
-                $r->unit_price,
-                $r->line_total,
-                $r->status,
-            ]));
+                'Date',
+                'PO Ref',
+                'Plant',
+                'Supplier',
+                'Product',
+                'Qty',
+                'Unit Price',
+                'Line Total',
+                'Status',
+            ], $items->map(fn($r) => [
+                            $r->ordered_at ? \Carbon\Carbon::parse($r->ordered_at)->format('d M Y') : '',
+                            $r->reference_no,
+                            $r->plant_name,
+                            $r->supplier_name ?? '—',
+                            $r->product_name,
+                            $r->quantity,
+                            $r->unit_price,
+                            $r->line_total,
+                            $r->status,
+                        ]));
         }
 
         return view('ho.reports.category-purchase-ledger', [
             ...$this->filterOptions(),
-            'filters'  => $filters,
+            'filters' => $filters,
             'category' => $category,
-            'items'    => $items,
+            'items' => $items,
         ]);
     }
 }

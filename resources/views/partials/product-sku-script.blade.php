@@ -17,6 +17,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentSelectedValue = subCategorySelect.value;
 
         subCategorySelect.innerHTML = '';
+        
+        if (!selectedCategoryId) {
+            subCategorySelect.disabled = true;
+            const defaultOpt = originalSubCategories[0].cloneNode(true);
+            defaultOpt.text = 'Select Category First';
+            subCategorySelect.appendChild(defaultOpt);
+            subCategorySelect.value = '';
+            if (!isInitialLoad) {
+                generateSku();
+            }
+            return;
+        }
+
+        subCategorySelect.disabled = false;
         subCategorySelect.appendChild(originalSubCategories[0]);
 
         let selectedStillValid = false;
@@ -42,17 +56,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const subCategoryOption = subCategorySelect.options[subCategorySelect.selectedIndex];
         const subCategoryName = (subCategoryOption && subCategoryOption.value) ? subCategoryOption.text : '';
 
-        const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanCategory = categoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
-        let sku = cleanCategory.substring(0, 3) + '_' + cleanName.substring(0, 3);
-        if (cleanSubCategory) {
-            sku += '_' + cleanSubCategory.substring(0, 3);
+        const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
+        const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
+        const sizePart = cleanSize ? cleanSize.substring(0, 3) : '';
+        const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
+
+        let sku = catPart;
+        if (subPart) {
+            sku += '_' + subPart;
         }
-        if (cleanSize) {
-            sku += '_' + cleanSize.substring(0, 3);
+        if (sizePart) {
+            sku += '_' + sizePart;
+        }
+        if (namePart) {
+            sku += '_' + namePart;
         }
 
         skuInput.value = sku;

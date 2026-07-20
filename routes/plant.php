@@ -11,6 +11,11 @@ use App\Http\Controllers\Plant\RequestPo\PurchaseController;
 use App\Http\Controllers\Plant\RequestPo\PurchaseRequestController;
 use App\Http\Controllers\Plant\RequestPo\SupplierController;
 use App\Http\Controllers\Plant\Inventory\StockController;
+use App\Http\Controllers\Plant\Product\BrandController;
+use App\Http\Controllers\Plant\Product\CategoryController;
+use App\Http\Controllers\Plant\Product\ProductController;
+use App\Http\Controllers\Plant\Product\SubCategoryController;
+use App\Http\Controllers\Plant\Product\UnitController;
 use App\Support\PermissionSlug;
 use Illuminate\Support\Facades\Route;
 
@@ -95,5 +100,13 @@ Route::middleware(['auth', 'plant_portal'])
         Route::middleware('permission:'.PermissionSlug::PLANT_DISPATCH_ORDERS)->group(function () {
             Route::get('dispatch', [DispatchController::class, 'index'])->name('dispatch.index');
             Route::post('dispatch/{purchase}', [DispatchController::class, 'dispatch'])->name('dispatch.store');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PRODUCTS)->group(function () {
+            Route::resource('categories', CategoryController::class)->except(['show']);
+            Route::resource('sub-categories', SubCategoryController::class)->except(['show']);
+            Route::resource('brands', BrandController::class)->except(['show']);
+            Route::resource('units', UnitController::class)->except(['show']);
+            Route::resource('products', ProductController::class)->except(['show']);
         });
     });

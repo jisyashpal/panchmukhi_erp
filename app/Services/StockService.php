@@ -57,7 +57,7 @@ class StockService
                     $purchase->id,
                     $performedBy,
                     $meta['notes'] ?? 'Stock in from purchase '.$purchase->reference_no,
-                    $meta
+                    array_merge($meta, ['supplier_id' => $purchase->supplier_id])
                 );
 
                 $item = $purchase->items()->where('product_id', $line['product_id'])->first();
@@ -149,6 +149,7 @@ class StockService
         StockMovement::create([
             'plant_id' => $plantId,
             'product_id' => $productId,
+            'supplier_id' => $meta['supplier_id'] ?? null,
             'sub_category_id' => $meta['sub_category_id'] ?? null,
             'type' => $type,
             'quantity' => $quantity,

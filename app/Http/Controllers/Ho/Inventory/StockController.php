@@ -95,7 +95,7 @@ class StockController extends Controller
         $openingBalance = $currentQty - (float) ($futureMovements->stock_in ?? 0) + (float) ($futureMovements->stock_out ?? 0);
 
         // Fetch movements in date range chronologically
-        $movements = StockMovement::with(['subCategory', 'performer'])
+        $movements = StockMovement::with(['subCategory', 'performer', 'supplier'])
             ->where('plant_id', $plant->id)
             ->where('product_id', $product->id)
             ->whereDate('moved_at', '>=', $dates['from'])

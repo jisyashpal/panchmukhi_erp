@@ -12,8 +12,7 @@
 @endphp
 
 <x-admin-form-group label="Category" name="category_id" required
-    :create-href="route($portal.'.categories.create', $returnParams)"
-    create-label="Create category">
+    :create-href="route($portal.'.categories.create', $returnParams)" create-label="Create category">
     <select name="category_id" id="category_id" class="form-select" required>
         @foreach ($categories as $c)
             <option value="{{ $c->id }}" @selected($selectedCategoryId == $c->id)>{{ $c->name }}</option>
@@ -21,19 +20,18 @@
     </select>
 </x-admin-form-group>
 
-<x-admin-form-group label="Sub Category" name="sub_category_id"
-    :create-href="route($portal.'.sub-categories.create', $subCategoryCreateParams)"
-    create-label="Create sub category">
+<x-admin-form-group label="Item Type" name="sub_category_id"
+    :create-href="route($portal.'.sub-categories.create', $subCategoryCreateParams)" create-label="Create Item Type">
     <select name="sub_category_id" id="sub_category_id" class="form-select">
         <option value="">—</option>
         @foreach ($subCategories as $sc)
-            <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}" @selected($selectedSubCategoryId == $sc->id)>{{ $sc->name }}</option>
+            <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}"
+                @selected($selectedSubCategoryId == $sc->id)>{{ $sc->name }}</option>
         @endforeach
     </select>
 </x-admin-form-group>
 
-<x-admin-form-group label="Brand" name="brand_id"
-    :create-href="route($portal.'.brands.create', $returnParams)"
+<x-admin-form-group label="Brand" name="brand_id" :create-href="route($portal.'.brands.create', $returnParams)"
     create-label="Create brand">
     <select name="brand_id" id="brand_id" class="form-select">
         <option value="">—</option>
@@ -43,8 +41,7 @@
     </select>
 </x-admin-form-group>
 
-<x-admin-form-group label="Unit" name="unit_id" required
-    :create-href="route($portal.'.units.create', $returnParams)"
+<x-admin-form-group label="Unit" name="unit_id" required :create-href="route($portal.'.units.create', $returnParams)"
     create-label="Create unit">
     <select name="unit_id" id="unit_id" class="form-select" required>
         @foreach ($units as $u)

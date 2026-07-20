@@ -51,4 +51,6 @@ final class PermissionSlug
     public const PLANT_MANAGE_PURCHASES = 'plant.manage_purchases';
 
     public const PLANT_DISPATCH_ORDERS = 'plant.dispatch_orders';
+
+    public const PLANT_MANAGE_PRODUCTS = 'plant.manage_products';
 }

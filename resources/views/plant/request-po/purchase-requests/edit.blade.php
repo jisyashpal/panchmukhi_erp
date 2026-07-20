@@ -11,7 +11,7 @@
                 <tbody>
                     @foreach($purchaseRequest->items as $i => $item)
                     <tr>
-                        <td>{{ $item->product->name }}<input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}"></td>
+                        <td>{{ $item->displayName() }}<input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}"></td>
                         <td>
                             <select name="items[{{ $i }}][supplier_id]" class="form-select form-select-sm">
                                 <option value="">—</option>

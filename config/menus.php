@@ -106,6 +106,20 @@ return [
                 ],
             ],
             [
+                'type' => 'group',
+                'label' => 'Product',
+                'icon' => 'bi-box-seam',
+                'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS,
+                'routes' => ['plant.categories.*', 'plant.sub-categories.*', 'plant.brands.*', 'plant.units.*', 'plant.products.*'],
+                'children' => [
+                    ['label' => 'Categories', 'route' => 'plant.categories.index', 'icon' => 'bi-folder', 'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS, 'routes' => ['plant.categories.*']],
+                    ['label' => 'Item Types', 'route' => 'plant.sub-categories.index', 'icon' => 'bi-folder2-open', 'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS, 'routes' => ['plant.sub-categories.*']],
+                    ['label' => 'Brands', 'route' => 'plant.brands.index', 'icon' => 'bi-tag', 'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS, 'routes' => ['plant.brands.*']],
+                    ['label' => 'Units', 'route' => 'plant.units.index', 'icon' => 'bi-rulers', 'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS, 'routes' => ['plant.units.*']],
+                    ['label' => 'Products', 'route' => 'plant.products.index', 'icon' => 'bi-box', 'permission' => PermissionSlug::PLANT_MANAGE_PRODUCTS, 'routes' => ['plant.products.*']],
+                ],
+            ],
+            [
                 'type' => 'link',
                 'label' => 'Notifications',
                 'route' => 'plant.notifications.index',
@@ -151,7 +165,7 @@ return [
                 'routes' => ['ho.categories.*', 'ho.sub-categories.*', 'ho.brands.*', 'ho.units.*', 'ho.products.*'],
                 'children' => [
                     ['label' => 'Categories', 'route' => 'ho.categories.index', 'icon' => 'bi-folder', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.categories.*']],
-                    ['label' => 'Sub Categories', 'route' => 'ho.sub-categories.index', 'icon' => 'bi-folder2-open', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.sub-categories.*']],
+                    ['label' => 'Item Types', 'route' => 'ho.sub-categories.index', 'icon' => 'bi-folder2-open', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.sub-categories.*']],
                     ['label' => 'Brands', 'route' => 'ho.brands.index', 'icon' => 'bi-tag', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.brands.*']],
                     ['label' => 'Units', 'route' => 'ho.units.index', 'icon' => 'bi-rulers', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.units.*']],
                     ['label' => 'Products', 'route' => 'ho.products.index', 'icon' => 'bi-box', 'permission' => PermissionSlug::HO_MANAGE_PRODUCTS, 'routes' => ['ho.products.*']],
@@ -233,7 +247,7 @@ return [
                 'routes' => ['admin.categories.*', 'admin.sub-categories.*', 'admin.brands.*', 'admin.units.*', 'admin.products.*'],
                 'children' => [
                     ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'bi-folder', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.categories.*']],
-                    ['label' => 'Sub Categories', 'route' => 'admin.sub-categories.index', 'icon' => 'bi-folder2-open', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.sub-categories.*']],
+                    ['label' => 'Item Types', 'route' => 'admin.sub-categories.index', 'icon' => 'bi-folder2-open', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.sub-categories.*']],
                     ['label' => 'Brands', 'route' => 'admin.brands.index', 'icon' => 'bi-tag', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.brands.*']],
                     ['label' => 'Units', 'route' => 'admin.units.index', 'icon' => 'bi-rulers', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.units.*']],
                     ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'bi-box', 'permission' => PermissionSlug::ADMIN_MANAGE_PRODUCTS, 'routes' => ['admin.products.*']],

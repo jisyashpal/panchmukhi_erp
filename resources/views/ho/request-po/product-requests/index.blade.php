@@ -17,6 +17,7 @@
                     <th>#</th>
                     <th>Plant</th>
                     <th>Requested By</th>
+                    <th>Items</th>
                     <th>Status</th>
                     <th>Date</th>
                     <th class="text-end">Actions</th>
@@ -27,7 +28,11 @@
                 <tr>
                     <td>#{{ $pr->id }}</td>
                     <td class="fw-semibold">{{ $pr->plant->name }}</td>
-                    <td>{{ $pr->requester?->name ?? 'N/A' }}</td>
+                    <td>{{ $pr->displayRequesterName() }}</td>
+                    <td>
+                        <span class="fw-semibold">{{ $pr->items_count }} items</span>
+                        <span class="d-block small text-muted">Qty {{ number_format((float) ($pr->items_sum_quantity ?? 0), 2) }}</span>
+                    </td>
                     <td><x-status-badge :status="$pr->status" /></td>
                     <td>{{ $pr->created_at->format('d M Y') }}</td>
                     <td class="text-end">
@@ -48,7 +53,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6"><div class="admin-empty">No product requests</div></td></tr>
+                <tr><td colspan="7"><div class="admin-empty">No product requests</div></td></tr>
                 @endforelse
             </tbody>
         </table>

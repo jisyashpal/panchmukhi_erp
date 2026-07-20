@@ -6,6 +6,9 @@ use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
 use App\Enums\StockMovementType;
 use App\Enums\StockReferenceType;
+use App\Models\Category;
+use App\Models\Brand;
+use App\Models\Unit;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\ProductRequest;
@@ -28,6 +31,13 @@ class WorkflowSeeder extends Seeder
 {
     public function run(): void
     {
+        // Look up real catalog products to build the workflow with
+        $cement = Product::where('name', 'HYVA BOLT NUT 12X40')->first() ?: Product::first();
+        $steel12 = Product::where('name', 'BEARING 22217')->first() ?: Product::first();
+        $steel16 = Product::where('name', 'CRUSHER IMPACT ROLLER 200MM')->first() ?: Product::first();
+        $sand = Product::where('name', 'BATTERY 12V')->first() ?: Product::first();
+        $paint = Product::where('name', 'AIR FILTER SET 15KVA')->first() ?: Product::first();
+
         $plant = Plant::where('code', 'PLT-001')->firstOrFail();
         $branchPlant = Plant::where('code', 'PLT-002')->firstOrFail();
 
@@ -39,13 +49,7 @@ class WorkflowSeeder extends Seeder
         $ultratechSupplier = Supplier::where('email', 'ultratech@demo.test')->firstOrFail();
         $interstateSupplier = Supplier::where('email', 'tata@demo.test')->firstOrFail();
 
-        $cement = Product::where('sku', 'CEM-OPC-50')->firstOrFail();
-        $steel12 = Product::where('sku', 'STL-12MM')->firstOrFail();
-        $steel16 = Product::where('sku', 'STL-16MM')->firstOrFail();
-        $sand = Product::where('sku', 'SND-RIVER')->firstOrFail();
-        $paint = Product::where('sku', 'PNT-EMUL-20')->firstOrFail();
-
-        $cementSub = SubCategory::where('slug', 'cement')->firstOrFail();
+        $cementSub = $cement->subCategory;
 
         $this->seedProductRequests($plant, $plantUser, $hoUser, $cement, $steel12, $sand, $localSupplier, $ultratechSupplier);
         $this->seedPurchaseRequests($plant, $plantUser, $hoUser, $steel16, $paint, $sand, $cement, $localSupplier, $ultratechSupplier);
@@ -70,6 +74,7 @@ class WorkflowSeeder extends Seeder
             ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — submitted'],
             [
                 'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
                 'status' => RequestStatus::Submitted,
             ]
         );
@@ -82,6 +87,7 @@ class WorkflowSeeder extends Seeder
             ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — in progress'],
             [
                 'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
                 'status' => RequestStatus::InProgress,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(2),
@@ -96,6 +102,7 @@ class WorkflowSeeder extends Seeder
             ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — completed'],
             [
                 'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
                 'status' => RequestStatus::Completed,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(5),
@@ -124,6 +131,7 @@ class WorkflowSeeder extends Seeder
             ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — cancelled'],
             [
                 'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
                 'status' => RequestStatus::Cancelled,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(1),
@@ -136,6 +144,7 @@ class WorkflowSeeder extends Seeder
             ['plant_id' => $plant->id, 'remarks' => '[demo] End-to-End Pipeline: Product Request'],
             [
                 'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
                 'status' => RequestStatus::Completed,
                 'reviewed_by' => $hoUser->id,
                 'reviewed_at' => now()->subDays(12),

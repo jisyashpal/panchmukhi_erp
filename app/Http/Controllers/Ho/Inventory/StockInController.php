@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Plant;
+use App\Models\Supplier;
 use App\Services\PurchasePricingService;
 use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +38,7 @@ class StockInController extends Controller
         return view('ho.inventory.stocks.stock-in', [
             'plants' => Plant::orderBy('name')->get(),
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'purchases' => Purchase::with(['plant', 'supplier', 'items'])
                 ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
                 ->latest()
@@ -55,6 +57,7 @@ class StockInController extends Controller
         }
 
         $data = $request->validate([
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'supplier_invoice_date' => ['nullable', 'date'],
             'is_interstate' => ['boolean'],
@@ -144,6 +147,7 @@ class StockInController extends Controller
 
         DB::transaction(function () use ($purchase, $data, $isInterstate, $totals, $itemsToUpsert, $submittedIds) {
             $purchase->update([
+                'supplier_id' => $data['supplier_id'] ?? $purchase->supplier_id,
                 'is_interstate' => $isInterstate,
                 'supplier_invoice_no' => $data['supplier_invoice_no'] ?? null,
                 'supplier_invoice_date' => $data['supplier_invoice_date'] ?? null,
@@ -194,6 +198,7 @@ class StockInController extends Controller
 
         $data = $request->validate([
             'plant_id' => ['required', 'exists:plants,id'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'product_id' => ['required', 'exists:products,id'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'photo_confirmed' => ['nullable', 'boolean'],
@@ -288,6 +293,7 @@ class StockInController extends Controller
             'notes' => $data['notes'] ?? ($purchase
                 ? 'Stock in from PO '.$purchase->reference_no
                 : 'Stock in'),
+            'supplier_id' => $data['supplier_id'] ?? ($purchase?->supplier_id ?? null),
         ];
 
         if ($request->hasFile('photo')) {

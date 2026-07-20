@@ -7,7 +7,7 @@
 
 <div class="admin-card">
     <div class="admin-card-body">
-        <form method="POST" action="{{ route('ho.product-requests.store') }}">
+        <form method="POST" action="{{ route('ho.product-requests.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="row g-3">
                 <div class="col-md-6">

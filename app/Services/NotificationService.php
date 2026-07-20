@@ -21,7 +21,7 @@ class NotificationService
         $productRequest->loadMissing(['plant', 'requester']);
         $plantId = $productRequest->plant_id;
         $plantName = $productRequest->plant->name;
-        $requesterName = $productRequest->requester?->name ?? 'Plant In-charge';
+        $requesterName = $productRequest->displayRequesterName();
 
         $this->notifyHoDataOperators(new ErpDatabaseNotification(
             type: 'product_request_new',

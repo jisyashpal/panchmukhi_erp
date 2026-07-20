@@ -77,6 +77,18 @@
                 <div class="admin-card-body">
                     <div class="vstack gap-3">
                         <div>
+                            <label class="form-label small" for="supplier_id">Supplier</label>
+                            <select name="supplier_id" id="supplier_id" class="form-select form-select-sm @error('supplier_id') is-invalid @enderror">
+                                <option value="">Select Supplier</option>
+                                @foreach($suppliers as $sup)
+                                    <option value="{{ $sup->id }}" @selected(old('supplier_id', $selectedPurchase->supplier_id) == $sup->id)>{{ $sup->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('supplier_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div>
                             <label class="form-label small" for="supplier_invoice_no">Supplier invoice no.</label>
                             <input type="text" name="supplier_invoice_no" id="supplier_invoice_no"
                                 value="{{ old('supplier_invoice_no', $selectedPurchase->supplier_invoice_no) }}"
@@ -426,7 +438,7 @@
 <form method="POST" action="{{ route('ho.stocks.stock-in.store') }}" enctype="multipart/form-data" class="admin-card admin-card-body">
     @csrf
     <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label">Plant</label>
             <select name="plant_id" class="form-select" required>
                 @foreach($plants as $s)
@@ -434,7 +446,19 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label class="form-label">Supplier</label>
+            <select name="supplier_id" class="form-select @error('supplier_id') is-invalid @enderror">
+                <option value="">Select Supplier</option>
+                @foreach($suppliers as $sup)
+                <option value="{{ $sup->id }}" @selected(old('supplier_id')==$sup->id)>{{ $sup->name }}</option>
+                @endforeach
+            </select>
+            @error('supplier_id')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-md-3">
             <label class="form-label">Product</label>
             <select name="product_id" class="form-select" required>
                 @foreach($products as $p)
@@ -442,7 +466,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label">Quantity</label>
             <input type="number" step="0.01" name="quantity" value="{{ old('quantity') }}" class="form-control" required>
         </div>

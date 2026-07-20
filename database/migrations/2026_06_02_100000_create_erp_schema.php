@@ -81,20 +81,11 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('machines', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
-            $table->string('name');
-            $table->string('code');
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-            $table->unique(['plant_id', 'code']);
-        });
-
         Schema::create('product_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('requested_by')->constrained('users')->cascadeOnDelete();
+            $table->string('requester_name');
             $table->string('status')->default('submitted');
             $table->text('remarks')->nullable();
             $table->text('decline_reason')->nullable();
@@ -107,13 +98,17 @@ return new class extends Migration
         Schema::create('product_request_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_request_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('item_name')->nullable();
+            $table->string('size')->nullable();
+            $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('gst_rate', 5, 2)->default(0);
             $table->text('billing_notes')->nullable();
             $table->text('remarks')->nullable();
+            $table->string('image_path')->nullable();
             $table->timestamps();
         });
 
@@ -139,7 +134,11 @@ return new class extends Migration
         Schema::create('purchase_request_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('purchase_request_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_request_item_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('item_name')->nullable();
+            $table->string('size')->nullable();
+            $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);
             $table->decimal('unit_price', 12, 2)->default(0);
@@ -202,7 +201,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('machine_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->string('type');
             $table->decimal('quantity', 12, 2);
             $table->string('reference_type');
@@ -221,7 +221,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('machine_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);
             $table->decimal('life_hours', 12, 2)->default(0);
             $table->unsignedInteger('usage_count')->default(1);
@@ -243,7 +243,6 @@ return new class extends Migration
         Schema::dropIfExists('purchase_requests');
         Schema::dropIfExists('product_request_items');
         Schema::dropIfExists('product_requests');
-        Schema::dropIfExists('machines');
         Schema::dropIfExists('products');
         Schema::dropIfExists('units');
         Schema::dropIfExists('brands');

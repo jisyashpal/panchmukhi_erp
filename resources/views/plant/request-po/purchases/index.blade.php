@@ -1,9 +1,9 @@
 @extends('layouts.plant')
-@section('title', $canReceive ? 'Receive Stock' : 'Purchases')
+@section('title', 'Purchases')
 @section('content')
 <x-admin-page-header
-    :title="$canReceive ? 'Receive Stock (PO)' : 'Purchases'"
-    :subtitle="$canReceive ? 'Confirm delivery and record stock in' : ($isPurchaser ? 'View and print purchase orders' : 'View purchase orders for this plant')"
+    title="Purchases"
+    :subtitle="$isPurchaser ? 'View and print purchase orders' : 'View purchase orders for this plant'"
 />
 
 <div class="admin-filters mb-3">
@@ -83,9 +83,6 @@
                                 </a>
                             @endif
                         @endif
-                        @if($canReceive)
-                            <a href="{{ route('plant.purchases.receive', $purchase) }}" class="btn btn-sm btn-success">Receive</a>
-                        @endif
                     </td>
                 </tr>
                 @empty
@@ -93,7 +90,7 @@
                     <td colspan="6">
                         <div class="admin-empty">
                             <i class="bi bi-truck d-block"></i>
-                            {{ $canReceive ? 'No purchases awaiting receipt' : 'No purchases found' }}
+                            No purchases found
                         </div>
                     </td>
                 </tr>

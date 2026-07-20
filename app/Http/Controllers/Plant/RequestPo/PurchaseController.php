@@ -41,11 +41,9 @@ class PurchaseController extends Controller
     public function index(Request $request): View
     {
         $isPurchaser = $this->purchaserSeesAllPlants();
-        $canReceive = auth()->user()->canManagePlantStocks() && ! $isPurchaser;
 
         $purchases = Purchase::with(['supplier', 'plant', 'items.product'])
             ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
-            ->when($canReceive, fn ($q) => $q->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial]))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->string('search');
                 $q->where(function ($q) use ($search) {
@@ -64,7 +62,6 @@ class PurchaseController extends Controller
         return view('plant.request-po.purchases.index', [
             'purchases' => $purchases,
             'isPurchaser' => $isPurchaser,
-            'canReceive' => $canReceive,
             'pdfDefaults' => [
                 'company_name' => config('company.name', ''),
                 'company_address' => config('company.address', ''),
@@ -78,7 +75,14 @@ class PurchaseController extends Controller
         $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
 
         $purchaseRequest = $request->filled('purchase_request_id')
-            ? PurchaseRequest::with(['items.product', 'items.supplier', 'plant', 'productRequest.items'])->findOrFail($request->integer('purchase_request_id'))
+            ? PurchaseRequest::with([
+                'items.product',
+                'items.productRequestItem',
+                'items.subCategory',
+                'items.supplier',
+                'plant',
+                'productRequest.items',
+            ])->findOrFail($request->integer('purchase_request_id'))
             : null;
 
         if ($purchaseRequest?->purchases()->exists()) {

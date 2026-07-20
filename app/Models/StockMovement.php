@@ -12,6 +12,7 @@ class StockMovement extends Model
     protected $fillable = [
         'plant_id',
         'product_id',
+        'supplier_id',
         'sub_category_id',
         'type',
         'quantity',
@@ -44,6 +45,11 @@ class StockMovement extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function subCategory(): BelongsTo

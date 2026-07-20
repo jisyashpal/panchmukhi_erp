@@ -16,6 +16,7 @@ class ProductRequest extends Model
     protected $fillable = [
         'plant_id',
         'requested_by',
+        'requester_name',
         'status',
         'remarks',
         'decline_reason',
@@ -54,5 +55,10 @@ class ProductRequest extends Model
     public function purchaseRequest(): HasOne
     {
         return $this->hasOne(PurchaseRequest::class);
+    }
+
+    public function displayRequesterName(): string
+    {
+        return $this->requester_name ?: ($this->requester?->name ?? 'N/A');
     }
 }

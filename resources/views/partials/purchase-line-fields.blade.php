@@ -5,13 +5,16 @@
 @endphp
 <tr class="dynamic-row purchase-line-row">
     <td class="purchase-col-product">
-        <select name="items[{{ $i }}][product_id]" required class="form-select form-select-sm purchase-line-input">
-            @foreach($products as $p)
-                <option value="{{ $p->id }}" @selected(isset($productId) && $productId == $p->id)>
-                    {{ $p->name }}@if($p->sku) ({{ $p->sku }})@endif
-                </option>
-            @endforeach
-        </select>
+        <input type="text"
+               value="{{ isset($productId) && ($selectedProduct = $products->firstWhere('id', (int) $productId)) ? $selectedProduct->name : '' }}"
+               class="form-control form-control-sm purchase-line-input purchase-item-name-input"
+               placeholder="Search item name or SKU..."
+               required
+               autocomplete="off">
+        <input type="hidden"
+               name="items[{{ $i }}][product_id]"
+               value="{{ $productId ?? '' }}"
+               class="purchase-item-product-id">
     </td>
     <td class="purchase-col-supplier">
         <select name="items[{{ $i }}][supplier_id]" required class="form-select form-select-sm purchase-line-input purchase-supplier-select">
@@ -32,8 +35,11 @@
                class="form-control form-control-sm purchase-line-input purchase-num-input" placeholder="0.00">
     </td>
     <td class="purchase-col-num purchase-col-gst">
-        <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][gst_rate]" value="{{ $gstRate ?? 18 }}"
-               class="form-control form-control-sm purchase-line-input purchase-num-input">
+        <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input purchase-num-input">
+            @foreach([0, 5, 12, 18, 28] as $rate)
+                <option value="{{ $rate }}" @selected(($gstRate ?? 18) == $rate)>{{ $rate }} %</option>
+            @endforeach
+        </select>
     </td>
     @if($showLineTotal)
     <td class="purchase-col-num purchase-col-total purchase-line-total-cell">

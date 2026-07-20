@@ -33,9 +33,11 @@
             class="form-control form-control-sm stock-in-po-input purchase-num-input" required>
     </td>
     <td class="purchase-col-num purchase-col-gst">
-        <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][gst_rate]"
-            value="{{ old("items.$i.gst_rate", $isExisting ? $item->gst_rate : 18) }}"
-            class="form-control form-control-sm stock-in-po-input purchase-num-input">
+        <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm stock-in-po-input purchase-num-input">
+            @foreach([0, 5, 12, 18, 28] as $rate)
+                <option value="{{ $rate }}" @selected(old("items.$i.gst_rate", $isExisting ? $item->gst_rate : 18) == $rate)>{{ $rate }} %</option>
+            @endforeach
+        </select>
     </td>
     <td class="purchase-col-num purchase-col-qty text-muted">
         @if($isExisting)

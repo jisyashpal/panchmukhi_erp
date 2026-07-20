@@ -47,6 +47,7 @@
                         <th>Plant</th>
                     @endif
                     <th>Requested By</th>
+                    <th>Items</th>
                     <th>Status</th>
                     <th>Date</th>
                     <th class="text-end">Actions</th>
@@ -59,7 +60,11 @@
                     @if($isPurchaser)
                         <td class="fw-semibold">{{ $pr->plant->name }}</td>
                     @endif
-                    <td>{{ $pr->requester?->name ?? 'N/A' }}</td>
+                    <td>{{ $pr->displayRequesterName() }}</td>
+                    <td>
+                        <span class="fw-semibold">{{ $pr->items_count }} items</span>
+                        <span class="d-block small text-muted">Qty {{ number_format((float) ($pr->items_sum_quantity ?? 0), 2) }}</span>
+                    </td>
                     <td><x-status-badge :status="$pr->status" /></td>
                     <td>{{ $pr->created_at->format('d M Y') }}</td>
                     <td class="text-end">
@@ -107,7 +112,7 @@
                     </td>
                 </tr>
                 @empty
-                    @include('partials.table-empty', ['colspan' => $isPurchaser ? 6 : 5, 'icon' => 'bi-clipboard-check', 'message' => 'No product requests'])
+                    @include('partials.table-empty', ['colspan' => $isPurchaser ? 7 : 6, 'icon' => 'bi-clipboard-check', 'message' => 'No product requests'])
                 @endforelse
             </tbody>
         </table>
