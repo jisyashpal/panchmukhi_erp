@@ -95,15 +95,17 @@ class ProductCatalogSeeder extends Seeder
                 $brand = Brand::firstOrCreate(['name' => $brandName]);
             }
 
-            // Generate clean SKU format: Category_SubCategory_Size_NamePart
+            // Generate clean SKU format: Category_SubCategory_Size_Brand_NamePart
             $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $category->name);
             $cleanSubCategory = $subCategory ? preg_replace('/[^A-Za-z0-9]/', '', $subCategory->name) : '';
             $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $size);
+            $cleanBrand = $brand ? preg_replace('/[^A-Za-z0-9]/', '', $brand->name) : '';
             $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $prodName);
 
             $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
             $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
             $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+            $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
             $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 
             $sku = $categoryPart;
@@ -112,6 +114,9 @@ class ProductCatalogSeeder extends Seeder
             }
             if ($sizePart !== '') {
                 $sku .= '_' . $sizePart;
+            }
+            if ($brandPart !== '') {
+                $sku .= '_' . $brandPart;
             }
             if ($namePart !== '') {
                 $sku .= '_' . $namePart;

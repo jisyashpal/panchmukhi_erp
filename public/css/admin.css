@@ -546,6 +546,17 @@ body.admin-body .offcanvas-backdrop.show {
     overflow: hidden;
 }
 
+a.admin-stat-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+a.admin-stat-card:hover .stat-label {
+    color: var(--admin-primary);
+}
+
 .admin-stat-card::before {
     content: '';
     position: absolute;

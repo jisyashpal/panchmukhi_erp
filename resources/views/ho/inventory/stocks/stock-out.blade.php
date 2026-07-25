@@ -18,7 +18,7 @@
                     </div>
                     <div class="admin-card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label" for="plant_id">Plant</label>
                                 <select name="plant_id" id="plant_id" class="form-select form-select-sm" required>
                                     @foreach($plants as $s)
@@ -26,7 +26,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label" for="category_id">Category</label>
                                 <select id="category_id" class="form-select form-select-sm">
                                     <option value="">All categories</option>
@@ -37,15 +37,25 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-12 position-relative">
+                            <div class="col-md-4">
+                                <label class="form-label" for="filter_sub_category_id">Item Type</label>
+                                <select id="filter_sub_category_id" class="form-select form-select-sm">
+                                    <option value="">All item types</option>
+                                    @foreach($subCategories as $sc)
+                                        <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}"
+                                            @selected((int) $selectedSubCategoryId === $sc->id)>
+                                            {{ $sc->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12">
                                 <label class="form-label" for="product-search">Search item name</label>
                                 <input type="text" id="product-search"
                                     class="form-control form-control-sm @error('product_id') is-invalid @enderror"
                                     value="{{ $selectedProduct?->name ?? old('product_search') }}"
                                     placeholder="Type item name or SKU..." autocomplete="off" required>
                                 <input type="hidden" name="product_id" id="product_id" value="{{ $selectedProductId }}">
-                                <div id="product-suggestions"
-                                    class="autocomplete-suggestions d-none shadow border rounded-bottom bg-white"></div>
                                 @error('product_id')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
@@ -90,9 +100,9 @@
                                 <label class="form-label d-block">Used for</label>
                                 <div class="d-flex flex-wrap gap-3 pt-1">
                                     <div class="form-check">
-                                        <input type="radio" name="usage_type" value="subcategory" id="usage_subcategory"
-                                            class="form-check-input usage-type-input" @checked(old('usage_type', 'subcategory') === 'subcategory')>
-                                        <label class="form-check-label" for="usage_subcategory">Item Type</label>
+                                        <input type="radio" name="usage_type" value="vehicle" id="usage_vehicle"
+                                            class="form-check-input usage-type-input" @checked(old('usage_type', 'vehicle') === 'vehicle')>
+                                        <label class="form-check-label" for="usage_vehicle">Vehicle</label>
                                     </div>
                                     <div class="form-check">
                                         <input type="radio" name="usage_type" value="other" id="usage_other"
@@ -101,20 +111,24 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6" id="subcategory-field">
-                                <label class="form-label" for="sub_category_id">Item Type <span
-                                        class="text-danger">*</span></label>
-                                <select name="sub_category_id" id="sub_category_id"
-                                    class="form-select form-select-sm @error('sub_category_id') is-invalid @enderror">
-                                    <option value="">— Select subcategory —</option>
-                                    @foreach($subCategories as $sc)
-                                        <option value="{{ $sc->id }}" @selected(old('sub_category_id') == $sc->id)>{{ $sc->name }}
+                            <div class="col-md-6" id="vehicle-field">
+                                <label class="form-label" for="vehicle_id">Vehicle <span class="text-danger">*</span></label>
+                                <select name="vehicle_id" id="vehicle_id"
+                                    class="form-select form-select-sm @error('vehicle_id') is-invalid @enderror">
+                                    <option value="">— Select vehicle —</option>
+                                    @foreach($vehicles as $vehicle)
+                                        <option value="{{ $vehicle->id }}" data-category-id="{{ $vehicle->category_id }}"
+                                            @selected(old('vehicle_id') == $vehicle->id)>
+                                            {{ $vehicle->displayLabel() }}
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('sub_category_id')
+                                @error('vehicle_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
+                                <div class="form-text">Vehicles are filtered by selected category.
+                                    <a href="{{ route('ho.vehicles.create') }}" target="_blank">Add vehicle</a>
+                                </div>
                             </div>
                             <div class="col-md-6 d-none" id="other-purpose-field">
                                 <label class="form-label" for="other_purpose">Purpose / location</label>
@@ -176,31 +190,38 @@
                 'name' => $p->name,
                 'sku' => $p->sku,
                 'category_id' => $p->category_id,
+                'sub_category_id' => $p->sub_category_id,
                 'unit' => $p->unit?->abbreviation ?? $p->unit?->name ?? '',
             ])->values();
         @endphp
         <style>
-            .autocomplete-suggestions {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                z-index: 1050;
+            #stock-out-product-suggestions {
+                position: fixed;
                 max-height: 260px;
                 overflow-y: auto;
-                margin-top: 2px;
+                z-index: 2000;
+                display: none;
             }
 
-            .suggestion-item {
+            #stock-out-product-suggestions.is-open {
+                display: block;
+            }
+
+            #stock-out-product-suggestions .suggestion-item {
                 cursor: pointer;
                 transition: background 0.15s ease-in-out;
             }
 
-            .suggestion-item:hover,
-            .suggestion-item.active {
+            #stock-out-product-suggestions .suggestion-item:hover,
+            #stock-out-product-suggestions .suggestion-item.active {
                 background-color: #f8f9fa;
             }
+
+            #stock-out-product-suggestions .suggestion-item:last-child {
+                border-bottom: none !important;
+            }
         </style>
+        @include('partials.infinite-suggestions')
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const products = @json($productOptions);
@@ -208,26 +229,83 @@
 
                 const plantSelect = document.getElementById('plant_id');
                 const categorySelect = document.getElementById('category_id');
+                const itemTypeSelect = document.getElementById('filter_sub_category_id');
                 const searchInput = document.getElementById('product-search');
                 const productIdInput = document.getElementById('product_id');
-                const suggestionsBox = document.getElementById('product-suggestions');
                 const availableQty = document.getElementById('available-qty');
                 const selectedMeta = document.getElementById('selected-product-meta');
                 const quantityInput = document.getElementById('quantity');
-                const subcategoryField = document.getElementById('subcategory-field');
+                const vehicleField = document.getElementById('vehicle-field');
                 const otherPurposeField = document.getElementById('other-purpose-field');
-                const subcategorySelect = document.getElementById('sub_category_id');
+                const vehicleSelect = document.getElementById('vehicle_id');
                 const reasonInput = document.getElementById('reason');
                 const reasonRequiredMark = document.getElementById('reason-required-mark');
 
+                const originalItemTypeOptions = Array.from(itemTypeSelect.options);
+                const originalVehicleOptions = Array.from(vehicleSelect.options);
+
+                const suggestionsBox = document.createElement('div');
+                suggestionsBox.id = 'stock-out-product-suggestions';
+                suggestionsBox.className = 'autocomplete-suggestions shadow border rounded-bottom bg-white';
+                document.body.appendChild(suggestionsBox);
+
                 let availableQuantity = null;
+
+                const infinite = window.PanchmukhiInfiniteSuggestions.create(suggestionsBox, {
+                    pageSize: 25,
+                    renderItem: function (p) {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
+                        div.innerHTML = `<span class="fw-semibold d-block text-truncate">${p.name}</span><span class="text-muted small">${p.sku || 'No SKU'} · ${p.unit}</span>`;
+                        div.addEventListener('mousedown', function (event) {
+                            event.preventDefault();
+                            selectProduct(p);
+                        });
+                        return div;
+                    },
+                });
+
+                function hideSuggestions() {
+                    infinite.reset();
+                    suggestionsBox.classList.remove('is-open');
+                }
+
+                function positionSuggestions() {
+                    const rect = searchInput.getBoundingClientRect();
+                    suggestionsBox.style.top = (rect.bottom + 2) + 'px';
+                    suggestionsBox.style.left = rect.left + 'px';
+                    suggestionsBox.style.width = rect.width + 'px';
+                }
+
+                function filterSelectByCategory(select, originalOptions, categoryId, keepValue) {
+                    const current = keepValue || select.value;
+                    select.innerHTML = '';
+                    originalOptions.forEach(option => {
+                        if (!option.value) {
+                            select.appendChild(option.cloneNode(true));
+                            return;
+                        }
+                        if (!categoryId || option.getAttribute('data-category-id') === String(categoryId)) {
+                            select.appendChild(option.cloneNode(true));
+                        }
+                    });
+                    if (current && Array.from(select.options).some(o => o.value === String(current))) {
+                        select.value = String(current);
+                    } else {
+                        select.value = '';
+                    }
+                }
 
                 function filteredProducts() {
                     const categoryId = categorySelect.value;
+                    const itemTypeId = itemTypeSelect.value;
                     const term = searchInput.value.trim().toLowerCase();
 
                     return products.filter(p => {
                         if (categoryId && String(p.category_id) !== String(categoryId)) {
+                            return false;
+                        }
+                        if (itemTypeId && String(p.sub_category_id) !== String(itemTypeId)) {
                             return false;
                         }
                         if (!term) {
@@ -239,20 +317,13 @@
                 }
 
                 function renderSuggestions(list) {
-                    suggestionsBox.innerHTML = '';
-                    if (list.length === 0) {
-                        suggestionsBox.classList.add('d-none');
+                    if (!infinite.setResults(list)) {
+                        hideSuggestions();
                         return;
                     }
 
-                    list.slice(0, 12).forEach(p => {
-                        const div = document.createElement('div');
-                        div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                        div.innerHTML = `<span class="fw-semibold d-block text-truncate">${p.name}</span><span class="text-muted small">${p.sku || 'No SKU'} · ${p.unit}</span>`;
-                        div.addEventListener('click', () => selectProduct(p));
-                        suggestionsBox.appendChild(div);
-                    });
-                    suggestionsBox.classList.remove('d-none');
+                    positionSuggestions();
+                    suggestionsBox.classList.add('is-open');
                 }
 
                 async function fetchAvailableQty() {
@@ -295,17 +366,41 @@
                     searchInput.value = product.name;
                     selectedMeta.innerHTML = `SKU: <code>${product.sku || '—'}</code> · Unit: ${product.unit || '—'}`;
                     selectedMeta.classList.remove('d-none');
-                    suggestionsBox.classList.add('d-none');
+                    hideSuggestions();
+
+                    if (product.category_id) {
+                        categorySelect.value = String(product.category_id);
+                        filterSelectByCategory(itemTypeSelect, originalItemTypeOptions, product.category_id, product.sub_category_id);
+                        filterSelectByCategory(vehicleSelect, originalVehicleOptions, product.category_id, vehicleSelect.value);
+                    }
+                    if (product.sub_category_id) {
+                        itemTypeSelect.value = String(product.sub_category_id);
+                    }
+
                     fetchAvailableQty();
                 }
 
+                function clearProductSelection() {
+                    productIdInput.value = '';
+                    searchInput.value = '';
+                    selectedMeta.classList.add('d-none');
+                    availableQty.textContent = 'Select plant and product';
+                    availableQuantity = null;
+                }
+
                 function syncUsageFields() {
-                    const isSubcategory = document.getElementById('usage_subcategory').checked;
-                    subcategoryField.classList.toggle('d-none', !isSubcategory);
-                    otherPurposeField.classList.toggle('d-none', isSubcategory);
-                    subcategorySelect.required = isSubcategory;
-                    reasonInput.required = !isSubcategory;
-                    reasonRequiredMark.classList.toggle('d-none', isSubcategory);
+                    const isVehicle = document.getElementById('usage_vehicle').checked;
+                    vehicleField.classList.toggle('d-none', !isVehicle);
+                    otherPurposeField.classList.toggle('d-none', isVehicle);
+                    vehicleSelect.required = isVehicle;
+                    reasonInput.required = !isVehicle;
+                    reasonRequiredMark.classList.toggle('d-none', isVehicle);
+                }
+
+                function syncCategoryFilters() {
+                    const categoryId = categorySelect.value;
+                    filterSelectByCategory(itemTypeSelect, originalItemTypeOptions, categoryId);
+                    filterSelectByCategory(vehicleSelect, originalVehicleOptions, categoryId);
                 }
 
                 searchInput.addEventListener('input', function () {
@@ -323,11 +418,13 @@
                 });
 
                 categorySelect.addEventListener('change', function () {
-                    productIdInput.value = '';
-                    searchInput.value = '';
-                    selectedMeta.classList.add('d-none');
-                    availableQty.textContent = 'Select plant and product';
-                    availableQuantity = null;
+                    clearProductSelection();
+                    syncCategoryFilters();
+                    renderSuggestions(filteredProducts());
+                });
+
+                itemTypeSelect.addEventListener('change', function () {
+                    clearProductSelection();
                     renderSuggestions(filteredProducts());
                 });
 
@@ -338,6 +435,11 @@
                         url.searchParams.set('category_id', categorySelect.value);
                     } else {
                         url.searchParams.delete('category_id');
+                    }
+                    if (itemTypeSelect.value) {
+                        url.searchParams.set('sub_category_id', itemTypeSelect.value);
+                    } else {
+                        url.searchParams.delete('sub_category_id');
                     }
                     url.searchParams.delete('product_id');
                     window.location.href = url.toString();
@@ -357,7 +459,7 @@
                         return;
                     }
 
-                    if (!document.getElementById('usage_subcategory').checked) {
+                    if (!document.getElementById('usage_vehicle').checked) {
                         const purpose = document.getElementById('other_purpose').value.trim();
                         if (purpose && !reasonInput.value.includes(purpose)) {
                             reasonInput.value = purpose + (reasonInput.value ? '\n' + reasonInput.value : '');
@@ -368,11 +470,34 @@
                 document.querySelectorAll('.usage-type-input').forEach(el => el.addEventListener('change', syncUsageFields));
 
                 document.addEventListener('click', function (e) {
-                    if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
-                        suggestionsBox.classList.add('d-none');
+                    if (e.target === searchInput || suggestionsBox.contains(e.target)) {
+                        return;
+                    }
+                    hideSuggestions();
+                });
+
+                window.addEventListener('scroll', function (e) {
+                    if (!suggestionsBox.classList.contains('is-open')) {
+                        return;
+                    }
+                    // Keep open while scrolling inside the suggestion list itself.
+                    if (suggestionsBox.contains(e.target)) {
+                        return;
+                    }
+                    positionSuggestions();
+                }, true);
+
+                window.addEventListener('resize', function () {
+                    if (suggestionsBox.classList.contains('is-open')) {
+                        positionSuggestions();
                     }
                 });
 
+                syncCategoryFilters();
+                const initialItemTypeId = @json($selectedSubCategoryId ? (string) $selectedSubCategoryId : '');
+                if (initialItemTypeId) {
+                    itemTypeSelect.value = initialItemTypeId;
+                }
                 syncUsageFields();
 
                 if (productIdInput.value) {

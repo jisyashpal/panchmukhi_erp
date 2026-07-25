@@ -22,6 +22,7 @@ use App\Models\Plant;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Services\PurchasePricingService;
 use App\Services\StockService;
 use Illuminate\Database\Seeder;
@@ -51,13 +52,182 @@ class WorkflowSeeder extends Seeder
 
         $cementSub = $cement->subCategory;
 
+        $this->seedHyvaVehiclesAndProductLife($plant, $hoUser, $stockService = app(StockService::class));
+
         $this->seedProductRequests($plant, $plantUser, $hoUser, $cement, $steel12, $sand, $localSupplier, $ultratechSupplier);
         $this->seedPurchaseRequests($plant, $plantUser, $hoUser, $steel16, $paint, $sand, $cement, $localSupplier, $ultratechSupplier);
         $this->seedPurchases($plant, $purchaser, $plantUser, $hoUser, $localSupplier, $ultratechSupplier, $interstateSupplier, $cement, $steel12, $sand, $paint);
 
-        $stockService = app(StockService::class);
-
         $this->seedStockAndUsage($plant, $branchPlant, $hoUser, $cementSub, $cement, $steel12, $sand, $paint, $stockService);
+    }
+
+    /**
+     * HYVA category: 3 demo vehicles + vehicle-wise product life (filter change with KM readings).
+     */
+    private function seedHyvaVehiclesAndProductLife(Plant $plant, User $hoUser, StockService $stockService): void
+    {
+        $hyva = Category::where('name', 'HYVA')->first();
+        if (! $hyva) {
+            return;
+        }
+
+        $vehicles = [
+            ['name' => 'HYVA Tipper 01', 'registration_no' => 'JH01HY1001'],
+            ['name' => 'HYVA Tipper 02', 'registration_no' => 'JH01HY1002'],
+            ['name' => 'HYVA Tipper 03', 'registration_no' => 'JH01HY1003'],
+        ];
+
+        $vehicleModels = collect($vehicles)->map(function (array $row) use ($hyva) {
+            return Vehicle::firstOrCreate(
+                [
+                    'category_id' => $hyva->id,
+                    'registration_no' => $row['registration_no'],
+                ],
+                [
+                    'name' => $row['name'],
+                    'is_active' => true,
+                ]
+            );
+        });
+
+        $filterType = SubCategory::where('category_id', $hyva->id)
+            ->where('name', 'FILTER')
+            ->first();
+
+        $beltType = SubCategory::where('category_id', $hyva->id)
+            ->where('name', 'BELT')
+            ->first();
+
+        $filters = Product::where('category_id', $hyva->id)
+            ->when($filterType, fn ($q) => $q->where('sub_category_id', $filterType->id))
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->take(3)
+            ->get();
+
+        if ($filters->count() < 2) {
+            $filters = Product::where('category_id', $hyva->id)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->take(3)
+                ->get();
+            $filterType = $filters->first()?->subCategory;
+        }
+
+        if ($filters->count() < 2 || ! $filterType) {
+            return;
+        }
+
+        $oldFilter = $filters[0];
+        $newFilter = $filters[1] ?? $filters[0];
+        $vehicle = $vehicleModels->first();
+
+        // Ensure stock for product-life consumption
+        foreach ([$oldFilter, $newFilter] as $product) {
+            if ($stockService->getBalance($plant->id, $product->id) < 5) {
+                $stockService->recordIn(
+                    $plant->id,
+                    $product->id,
+                    10,
+                    $hoUser->id,
+                    StockReferenceType::StockIn,
+                    null,
+                    ['notes' => '[demo] HYVA opening stock for product life']
+                );
+            }
+        }
+
+        if (! ProductUseEntry::where('notes', '[demo] HYVA Tipper 01 — first FILTER fitment')->exists()) {
+            DB::transaction(function () use ($plant, $vehicle, $oldFilter, $filterType, $hoUser, $stockService) {
+                $first = ProductUseEntry::create([
+                    'plant_id' => $plant->id,
+                    'vehicle_id' => $vehicle->id,
+                    'product_id' => $oldFilter->id,
+                    'replaced_product_id' => null,
+                    'sub_category_id' => $filterType->id,
+                    'meter_type' => 'km',
+                    'current_reading' => 40000,
+                    'previous_reading' => null,
+                    'quantity' => 1,
+                    'life_hours' => 0,
+                    'usage_count' => 1,
+                    'used_at' => now()->subDays(45),
+                    'recorded_by' => $hoUser->id,
+                    'notes' => '[demo] HYVA Tipper 01 — first FILTER fitment',
+                ]);
+                $stockService->recordProductUse($first);
+            });
+        }
+
+        if (! ProductUseEntry::where('notes', '[demo] HYVA Tipper 01 — FILTER change (prev life used)')->exists()) {
+            DB::transaction(function () use ($plant, $vehicle, $oldFilter, $newFilter, $filterType, $hoUser, $stockService) {
+                $change = ProductUseEntry::create([
+                    'plant_id' => $plant->id,
+                    'vehicle_id' => $vehicle->id,
+                    'product_id' => $newFilter->id,
+                    'replaced_product_id' => $oldFilter->id,
+                    'sub_category_id' => $filterType->id,
+                    'meter_type' => 'km',
+                    'current_reading' => 45200,
+                    'previous_reading' => 40000,
+                    'quantity' => 1,
+                    'life_hours' => 5200, // previous filter used 5200 km
+                    'usage_count' => 1,
+                    'used_at' => now()->subDays(2),
+                    'recorded_by' => $hoUser->id,
+                    'notes' => '[demo] HYVA Tipper 01 — FILTER change (prev life used)',
+                ]);
+                $stockService->recordProductUse($change);
+            });
+        }
+
+        // Optional belt demo on Tipper 02 so create form has another vehicle history
+        if ($beltType) {
+            $belts = Product::where('category_id', $hyva->id)
+                ->where('sub_category_id', $beltType->id)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->take(2)
+                ->get();
+
+            $tipper2 = $vehicleModels->get(1);
+            if ($belts->isNotEmpty() && $tipper2) {
+                $belt = $belts->first();
+                if ($stockService->getBalance($plant->id, $belt->id) < 2) {
+                    $stockService->recordIn(
+                        $plant->id,
+                        $belt->id,
+                        5,
+                        $hoUser->id,
+                        StockReferenceType::StockIn,
+                        null,
+                        ['notes' => '[demo] HYVA belt stock for product life']
+                    );
+                }
+
+                if (! ProductUseEntry::where('notes', '[demo] HYVA Tipper 02 — first BELT fitment')->exists()) {
+                    DB::transaction(function () use ($plant, $tipper2, $belt, $beltType, $hoUser, $stockService) {
+                        $entry = ProductUseEntry::create([
+                            'plant_id' => $plant->id,
+                            'vehicle_id' => $tipper2->id,
+                            'product_id' => $belt->id,
+                            'replaced_product_id' => null,
+                            'sub_category_id' => $beltType->id,
+                            'meter_type' => 'km',
+                            'current_reading' => 28000,
+                            'previous_reading' => null,
+                            'quantity' => 1,
+                            'life_hours' => 0,
+                            'usage_count' => 1,
+                            'used_at' => now()->subDays(20),
+                            'recorded_by' => $hoUser->id,
+                            'notes' => '[demo] HYVA Tipper 02 — first BELT fitment',
+                        ]);
+                        $stockService->recordProductUse($entry);
+                    });
+                }
+            }
+        }
     }
 
     private function seedProductRequests(

@@ -67,6 +67,8 @@ Route::middleware(['auth', 'plant_portal'])
         Route::middleware('permission:'.PermissionSlug::PLANT_VIEW_PURCHASES.','.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
             Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
             Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
+            Route::get('purchases/{purchase}/excel', [PurchaseController::class, 'excel'])->name('purchases.excel');
+            Route::get('purchases/{purchase}/word', [PurchaseController::class, 'word'])->name('purchases.word');
             Route::get('purchases/{purchase}/share-links', [PurchaseController::class, 'shareLinks'])->name('purchases.share-links');
             Route::post('purchases/{purchase}/email', [PurchaseController::class, 'email'])->name('purchases.email');
         });

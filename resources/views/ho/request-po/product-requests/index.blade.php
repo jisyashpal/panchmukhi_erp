@@ -1,7 +1,7 @@
 @extends('layouts.ho')
 @section('title', 'Product Requests')
 @section('content')
-<x-admin-page-header title="Product Requests" subtitle="Edit rate, quantity, supplier and billing details">
+<x-admin-page-header title="Product Requests" subtitle="Review plant product requests and update status">
     <a href="{{ route('ho.product-requests.create') }}" class="btn btn-admin-primary btn-sm">
         <i class="bi bi-plus-lg me-1"></i>New Request
     </a>
@@ -48,7 +48,6 @@
                             <a href="{{ route('ho.product-requests.show', $pr) }}" class="btn btn-sm btn-admin-outline" title="View">
                                 <i class="bi bi-eye"></i>
                             </a>
-                            <a href="{{ route('ho.product-requests.edit', $pr) }}" class="btn btn-sm btn-primary">Edit</a>
                         </div>
                     </td>
                 </tr>

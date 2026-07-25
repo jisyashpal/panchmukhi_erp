@@ -108,49 +108,56 @@
     border-bottom: none !important;
 }
 </style>
+@include('partials.infinite-suggestions')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('product-search');
     const suggestionsBox = document.getElementById('autocomplete-suggestions');
     const products = @json($products->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku]));
 
-    searchInput.addEventListener('input', function() {
-        const val = this.value.trim().toLowerCase();
-        suggestionsBox.innerHTML = '';
-        
-        if (!val) {
-            suggestionsBox.classList.add('d-none');
-            return;
-        }
-        
-        const filtered = products.filter(p => 
-            p.name.toLowerCase().includes(val) || 
-            (p.sku && p.sku.toLowerCase().includes(val))
-        ).slice(0, 10);
-        
-        if (filtered.length === 0) {
-            suggestionsBox.classList.add('d-none');
-            return;
-        }
-        
-        filtered.forEach(p => {
+    if (!searchInput || !suggestionsBox) return;
+
+    const infinite = window.PanchmukhiInfiniteSuggestions.create(suggestionsBox, {
+        pageSize: 25,
+        renderItem: function (p) {
             const div = document.createElement('div');
             div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
             div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
             div.addEventListener('click', function() {
                 searchInput.value = p.name;
+                infinite.reset();
                 suggestionsBox.classList.add('d-none');
                 searchInput.form.submit();
             });
-            suggestionsBox.appendChild(div);
-        });
-        
+            return div;
+        },
+    });
+
+    searchInput.addEventListener('input', function() {
+        const val = this.value.trim().toLowerCase();
+
+        if (!val) {
+            infinite.reset();
+            suggestionsBox.classList.add('d-none');
+            return;
+        }
+
+        const filtered = products.filter(p =>
+            p.name.toLowerCase().includes(val) ||
+            (p.sku && p.sku.toLowerCase().includes(val))
+        );
+
+        if (!infinite.setResults(filtered)) {
+            suggestionsBox.classList.add('d-none');
+            return;
+        }
+
         suggestionsBox.classList.remove('d-none');
     });
 
-    // Hide dropdown when clicking outside
     document.addEventListener('click', function(e) {
         if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            infinite.reset();
             suggestionsBox.classList.add('d-none');
         }
     });

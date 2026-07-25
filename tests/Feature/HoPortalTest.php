@@ -33,7 +33,7 @@ class HoPortalTest extends TestCase
             ->assertSee('Stock Lines');
     }
 
-    public function test_ho_operator_can_update_product_request_billing(): void
+    public function test_ho_operator_cannot_edit_product_request(): void
     {
         $plant = Plant::factory()->create();
         $product = Product::factory()->create();
@@ -46,28 +46,28 @@ class HoPortalTest extends TestCase
             'status' => RequestStatus::Submitted,
         ]);
 
-        $item = ProductRequestItem::create([
+        ProductRequestItem::create([
             'product_request_id' => $request->id,
             'product_id' => $product->id,
             'quantity' => 10,
         ]);
 
         $this->actingAs($ho)
-            ->put(route('ho.product-requests.update', $request), [
+            ->get('/ho/product-requests/'.$request->id.'/edit')
+            ->assertNotFound();
+
+        $this->actingAs($ho)
+            ->put('/ho/product-requests/'.$request->id, [
                 'items' => [
                     [
-                        'id' => $item->id,
+                        'id' => 1,
                         'quantity' => 12,
                         'unit_price' => 100,
                         'gst_rate' => 18,
                     ],
                 ],
             ])
-            ->assertRedirect();
-
-        $item->refresh();
-        $this->assertEquals(12, (float) $item->quantity);
-        $this->assertEquals(100, (float) $item->unit_price);
+            ->assertMethodNotAllowed();
     }
 
     public function test_login_redirects_ho_operator_to_ho_dashboard(): void

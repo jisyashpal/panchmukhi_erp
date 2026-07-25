@@ -32,14 +32,22 @@ trait ManagesProductCatalog
             $subCategoryName = $subCategory ? $subCategory->name : '';
         }
 
+        $brandName = '';
+        if ($request->filled('brand_id')) {
+            $brand = Brand::find($request->brand_id);
+            $brandName = $brand ? $brand->name : '';
+        }
+
         $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $categoryName);
         $cleanSubCategory = preg_replace('/[^A-Za-z0-9]/', '', $subCategoryName);
         $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $request->size ?? '');
+        $cleanBrand = preg_replace('/[^A-Za-z0-9]/', '', $brandName);
         $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $request->name ?? '');
 
         $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
         $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
         $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+        $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
         $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 
         $sku = $categoryPart;
@@ -48,6 +56,9 @@ trait ManagesProductCatalog
         }
         if ($sizePart !== '') {
             $sku .= '_' . $sizePart;
+        }
+        if ($brandPart !== '') {
+            $sku .= '_' . $brandPart;
         }
         if ($namePart !== '') {
             $sku .= '_' . $namePart;

@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const skuInput = document.getElementById('sku');
     const categorySelect = document.getElementById('category_id');
     const subCategorySelect = document.getElementById('sub_category_id');
+    const brandSelect = document.getElementById('brand_id');
 
     if (!nameInput || !sizeInput || !skuInput || !categorySelect || !subCategorySelect) return;
 
@@ -55,15 +56,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const categoryName = categoryOption ? categoryOption.text : '';
         const subCategoryOption = subCategorySelect.options[subCategorySelect.selectedIndex];
         const subCategoryName = (subCategoryOption && subCategoryOption.value) ? subCategoryOption.text : '';
+        const brandOption = brandSelect ? brandSelect.options[brandSelect.selectedIndex] : null;
+        const brandName = (brandOption && brandOption.value) ? brandOption.text : '';
 
         const cleanCategory = categoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
         const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
         const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
         const sizePart = cleanSize ? cleanSize.substring(0, 3) : '';
+        const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
         const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
 
         let sku = catPart;
@@ -72,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (sizePart) {
             sku += '_' + sizePart;
+        }
+        if (brandPart) {
+            sku += '_' + brandPart;
         }
         if (namePart) {
             sku += '_' + namePart;
@@ -84,6 +92,9 @@ document.addEventListener('DOMContentLoaded', function() {
     sizeInput.addEventListener('input', generateSku);
     categorySelect.addEventListener('change', filterSubCategories);
     subCategorySelect.addEventListener('change', generateSku);
+    if (brandSelect) {
+        brandSelect.addEventListener('change', generateSku);
+    }
 
     filterSubCategories();
     isInitialLoad = false;

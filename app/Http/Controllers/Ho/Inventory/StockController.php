@@ -95,7 +95,7 @@ class StockController extends Controller
         $openingBalance = $currentQty - (float) ($futureMovements->stock_in ?? 0) + (float) ($futureMovements->stock_out ?? 0);
 
         // Fetch movements in date range chronologically
-        $movements = StockMovement::with(['subCategory', 'performer', 'supplier'])
+        $movements = StockMovement::with(['subCategory', 'vehicle', 'performer', 'supplier'])
             ->where('plant_id', $plant->id)
             ->where('product_id', $product->id)
             ->whereDate('moved_at', '>=', $dates['from'])
@@ -174,13 +174,17 @@ class StockController extends Controller
         // Grouped usage/consumption summary with quantity and value
         $usageSummary = $movements->where('type', StockMovementType::Out)
             ->groupBy(function ($m) {
+                if ($m->vehicle) {
+                    return 'Vehicle: '.$m->vehicle->displayLabel();
+                }
                 if ($m->subCategory) {
-                    return "Sub-Category: " . $m->subCategory->name;
+                    return 'Sub-Category: '.$m->subCategory->name;
                 }
                 if ($m->reason) {
-                    return "Reason: " . $m->reason;
+                    return 'Reason: '.$m->reason;
                 }
-                return "Other / Unspecified";
+
+                return 'Other / Unspecified';
             })
             ->map(fn ($group) => [
                 'quantity' => $group->sum('quantity'),

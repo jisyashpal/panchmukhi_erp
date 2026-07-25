@@ -2,101 +2,138 @@
 @section('title', 'Add Product Life')
 @section('content')
     <x-admin-page-header title="Add Product Life Entry"
-        subtitle="Record product usage, quantity consumed, and life hours" />
+        subtitle="Same vehicle + item type (e.g. Tyre) — purana KM aayega, previous item kitna use hua track hoga" />
 
     <div class="row g-4">
         <div class="col-lg-8">
-            <form method="POST" action="{{ route('ho.product-life.store') }}" class="admin-card admin-card-body">
+            <form method="POST" action="{{ route('ho.product-life.store') }}" class="admin-card admin-card-body" id="product-life-form">
                 @csrf
                 <div class="row g-3">
-                    {{-- Plant --}}
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Plant <span class="text-danger">*</span></label>
-                        <select name="plant_id" class="form-select" required
-                            onchange="location.href='?plant_id='+this.value">
+                        <select name="plant_id" class="form-select @error('plant_id') is-invalid @enderror" required>
                             @foreach($plants as $s)
-                                <option value="{{ $s->id }}" @selected($plantId == $s->id)>{{ $s->name }}</option>
+                                <option value="{{ $s->id }}" @selected(old('plant_id', $plantId) == $s->id)>{{ $s->name }}</option>
                             @endforeach
                         </select>
+                        @error('plant_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
-                    {{-- Product --}}
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Product <span class="text-danger">*</span></label>
-                        <select name="product_id" id="product_id" class="form-select" required>
+                        <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                        <select name="category_id" id="category_id" class="form-select @error('category_id') is-invalid @enderror" required>
+                            <option value="">— Select Category —</option>
+                            @foreach($categories as $c)
+                                <option value="{{ $c->id }}" @selected(old('category_id') == $c->id)>{{ $c->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Vehicle <span class="text-danger">*</span></label>
+                        <select name="vehicle_id" id="vehicle_id" class="form-select @error('vehicle_id') is-invalid @enderror" required>
+                            <option value="">— Select vehicle —</option>
+                            @foreach($vehicles as $vehicle)
+                                <option value="{{ $vehicle->id }}"
+                                    data-category-id="{{ $vehicle->category_id }}"
+                                    @selected(old('vehicle_id') == $vehicle->id)>
+                                    {{ $vehicle->displayLabel() }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('vehicle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Item Type <span class="text-danger">*</span></label>
+                        <select name="sub_category_id" id="sub_category_id"
+                            class="form-select @error('sub_category_id') is-invalid @enderror" required>
+                            <option value="">— e.g. Tyre —</option>
+                            @foreach($subCategories as $sc)
+                                <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}"
+                                    @selected(old('sub_category_id') == $sc->id)>
+                                    {{ $sc->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('sub_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-text">Same type pe last change ka KM/hrs previous reading me aayega</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">New item (ab laga rahe ho) <span class="text-danger">*</span></label>
+                        <select name="product_id" id="product_id" class="form-select @error('product_id') is-invalid @enderror" required>
                             <option value="">— Select Product —</option>
                             @foreach($products as $p)
-                                <option value="{{ $p->id }}" data-category="{{ $p->category?->name }}">
+                                <option value="{{ $p->id }}"
+                                    data-category-id="{{ $p->category_id }}"
+                                    data-sub-category-id="{{ $p->sub_category_id }}"
+                                    @selected(old('product_id') == $p->id)>
                                     {{ $p->name }}@if($p->category) ({{ $p->category->name }})@endif
                                 </option>
                             @endforeach
                         </select>
+                        @error('product_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-text" id="replaced_item_hint">Pichla fitted item save pe “replaced” me track hoga</div>
                     </div>
 
-                    {{-- Item Type --}}
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Item Type</label>
-                        <select name="sub_category_id" id="sub_category_id" class="form-select">
-                            <option value="">—</option>
-                            @foreach($subCategories as $sc)
-                                <option value="{{ $sc->id }}">{{ $sc->name }}</option>
-                            @endforeach
+                        <label class="form-label fw-semibold">Used At <span class="text-danger">*</span></label>
+                        <input type="date" name="used_at" value="{{ old('used_at', date('Y-m-d')) }}" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Meter type <span class="text-danger">*</span></label>
+                        <select name="meter_type" id="meter_type" class="form-select" required>
+                            <option value="hours" @selected(old('meter_type', 'hours') === 'hours')>Hours</option>
+                            <option value="km" @selected(old('meter_type') === 'km')>KM</option>
                         </select>
                     </div>
 
-                    {{-- Used At --}}
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Used At <span class="text-danger">*</span></label>
-                        <input type="date" name="used_at" value="{{ date('Y-m-d') }}" class="form-control" required>
-                    </div>
-
-                    {{-- Quantity --}}
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold d-flex align-items-center gap-1">
-                            Quantity Used
-                            <span class="text-danger">*</span>
-                            <span class="ms-1 text-muted" style="font-size:.78rem;"
-                                title="How many units of this product were consumed in this usage event">
-                                <i class="bi bi-info-circle" data-bs-toggle="tooltip"
-                                    title="Units of the product consumed in this usage event (e.g. bags of cement used)"></i>
-                            </span>
-                        </label>
-                        <input type="number" step="0.01" min="0.01" name="quantity" id="quantity" class="form-control"
-                            required placeholder="e.g. 5">
-                    </div>
-
-                    {{-- Life Hours --}}
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold d-flex align-items-center gap-1">
-                            Life Hours
-                            <span class="ms-1 text-muted" style="font-size:.78rem;">
-                                <i class="bi bi-info-circle" data-bs-toggle="tooltip"
-                                    title="Total hours this product was in active use (e.g. machine running hours)"></i>
-                            </span>
-                        </label>
-                        <input type="number" step="0.01" min="0" name="life_hours" id="life_hours" class="form-control"
-                            placeholder="e.g. 48">
-                        <div id="life_hours_hint" class="form-text text-muted d-none">
-                            <i class="bi bi-clock-history me-1"></i>Last entry: <strong id="last_life_hours">—</strong> hrs
+                        <label class="form-label fw-semibold">Previous reading (pichli change)</label>
+                        <input type="number" step="0.01" min="0" name="previous_reading" id="previous_reading"
+                            value="{{ old('previous_reading') }}" class="form-control bg-light"
+                            placeholder="Last change pe meter">
+                        <div class="form-text" id="previous_reading_hint">
+                            Last time isi type pe change kiya tha uska KM/hrs
                         </div>
                     </div>
 
-                    {{-- Usage Count --}}
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold d-flex align-items-center gap-1">
-                            Usage Count
-                            <span class="ms-1 text-muted" style="font-size:.78rem;">
-                                <i class="bi bi-info-circle" data-bs-toggle="tooltip"
-                                    title="Number of times used within this entry (e.g. 3 cycles)"></i>
-                            </span>
+                        <label class="form-label fw-semibold">
+                            Current reading (abhi) <span class="text-danger">*</span>
+                            <span class="text-muted" id="meter_unit_label">(hrs)</span>
                         </label>
-                        <input type="number" min="1" name="usage_count" id="usage_count" value="1" class="form-control">
+                        <input type="number" step="0.01" min="0" name="current_reading" id="current_reading"
+                            value="{{ old('current_reading') }}"
+                            class="form-control @error('current_reading') is-invalid @enderror"
+                            required placeholder="e.g. 45200">
+                        @error('current_reading')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div id="life_used_hint" class="form-text text-primary fw-semibold d-none">
+                            Previous item life used: <strong id="life_used_value">—</strong>
+                            <span id="life_used_item" class="text-muted fw-normal"></span>
+                        </div>
                     </div>
 
-                    {{-- Notes --}}
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            Quantity Used <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" step="0.01" min="0.01" name="quantity" id="quantity"
+                            value="{{ old('quantity', '1') }}" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Usage Count</label>
+                        <input type="number" min="1" name="usage_count" id="usage_count"
+                            value="{{ old('usage_count', '1') }}" class="form-control">
+                    </div>
+
                     <div class="col-12">
                         <label class="form-label fw-semibold">Notes</label>
-                        <textarea name="notes" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Optional remarks...">{{ old('notes') }}</textarea>
                     </div>
                 </div>
                 <div class="d-flex gap-2 mt-4">
@@ -108,12 +145,11 @@
             </form>
         </div>
 
-        {{-- Last Entry Reference Card --}}
         <div class="col-lg-4">
             <div id="last_entry_card" class="admin-card admin-card-body d-none">
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <i class="bi bi-clock-history text-primary fs-5"></i>
-                    <h6 class="mb-0 fw-semibold">Previous Entry (Reference)</h6>
+                    <h6 class="mb-0 fw-semibold">Pichli change (ye vehicle + item type)</h6>
                 </div>
                 <table class="table table-sm mb-0">
                     <tbody>
@@ -122,16 +158,16 @@
                             <td id="ref_used_at" class="fw-semibold">—</td>
                         </tr>
                         <tr>
-                            <td class="text-muted">Quantity</td>
-                            <td id="ref_quantity">—</td>
+                            <td class="text-muted">Us time pe fitted item</td>
+                            <td id="ref_product" class="fw-semibold text-danger">—</td>
                         </tr>
                         <tr>
-                            <td class="text-muted">Life Hours</td>
-                            <td id="ref_life_hours">—</td>
+                            <td class="text-muted">Meter</td>
+                            <td id="ref_meter_type">—</td>
                         </tr>
                         <tr>
-                            <td class="text-muted">Usage Count</td>
-                            <td id="ref_usage_count">—</td>
+                            <td class="text-muted">Us time ka reading</td>
+                            <td id="ref_current_reading" class="fw-semibold">—</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Item Type</td>
@@ -143,69 +179,188 @@
                         </tr>
                     </tbody>
                 </table>
-                <div class="mt-3">
-                    <button type="button" id="btn_prefill" class="btn btn-sm btn-outline-primary w-100">
-                        <i class="bi bi-arrow-down-circle me-1"></i>Use Previous Life Hours
-                    </button>
-                </div>
+                <p class="small text-muted mt-3 mb-0">
+                    Ab current reading daalo → <strong>current − previous = previous item kitna use hua</strong>.
+                </p>
             </div>
             <div id="last_entry_empty" class="admin-card admin-card-body text-muted text-center d-none">
                 <i class="bi bi-journal-x fs-3 d-block mb-2 opacity-50"></i>
-                No previous entry found for this product.
+                Is vehicle pe is item type ki pehli change hai. Previous reading blank / 0 rakh sakte ho.
             </div>
             <div id="last_entry_loading" class="admin-card admin-card-body text-center text-muted d-none">
-                <div class="spinner-border spinner-border-sm me-2"></div>Loading previous entry...
+                <div class="spinner-border spinner-border-sm me-2"></div>Loading previous change...
             </div>
             <div class="admin-card admin-card-body text-muted small" id="last_entry_placeholder">
-                <i class="bi bi-info-circle me-1"></i>Select a product to see its last usage entry as a reference.
+                <i class="bi bi-info-circle me-1"></i>Vehicle + Item Type (jaise Tyre) select karo.
                 <hr class="my-2">
                 <ul class="ps-3 mb-0" style="line-height:1.8;">
-                    <li><strong>Quantity</strong> — units consumed (e.g. bags, kg, pcs)</li>
-                    <li><strong>Life Hours</strong> — machine/equipment running hours during this usage</li>
-                    <li><strong>Usage Count</strong> — how many times used in this event</li>
+                    <li><strong>Example:</strong> Tyre last change 40,000 km pe thi</li>
+                    <li>Ab change 45,200 km pe → previous = 40,000, current = 45,200</li>
+                    <li><strong>Previous tyre life used</strong> = 5,200 km</li>
                 </ul>
             </div>
         </div>
     </div>
 
     <script>
-        const lastEntryUrl = "{{ route('ho.product-life.last-entry') }}";
+        const lastEntryUrl = @json(route('ho.product-life.last-entry'));
         let lastEntry = null;
 
-        document.getElementById('product_id').addEventListener('change', function () {
-            const productId = this.value;
-            if (!productId) { showPlaceholder(); return; }
+        const categorySelect = document.getElementById('category_id');
+        const vehicleSelect = document.getElementById('vehicle_id');
+        const subCategorySelect = document.getElementById('sub_category_id');
+        const productSelect = document.getElementById('product_id');
+        const meterTypeSelect = document.getElementById('meter_type');
+        const previousReadingInput = document.getElementById('previous_reading');
+        const currentReadingInput = document.getElementById('current_reading');
+
+        const originalVehicleOptions = Array.from(vehicleSelect.options);
+        const originalSubCategoryOptions = Array.from(subCategorySelect.options);
+        const originalProductOptions = Array.from(productSelect.options);
+
+        function filterOptions(select, originalOptions, matcher, keepValue) {
+            const current = keepValue || select.value;
+            select.innerHTML = '';
+            originalOptions.forEach(function (option) {
+                if (!option.value) {
+                    select.appendChild(option.cloneNode(true));
+                    return;
+                }
+                if (matcher(option)) {
+                    select.appendChild(option.cloneNode(true));
+                }
+            });
+            if (current && Array.from(select.options).some(function (o) { return o.value === String(current); })) {
+                select.value = String(current);
+            } else {
+                select.value = '';
+            }
+        }
+
+        function filterByCategory(select, originalOptions, categoryId, keepValue) {
+            filterOptions(select, originalOptions, function (option) {
+                return !categoryId || option.getAttribute('data-category-id') === String(categoryId);
+            }, keepValue);
+        }
+
+        function filterProducts() {
+            const categoryId = categorySelect.value;
+            const subCategoryId = subCategorySelect.value;
+            filterOptions(productSelect, originalProductOptions, function (option) {
+                if (categoryId && option.getAttribute('data-category-id') !== String(categoryId)) {
+                    return false;
+                }
+                if (subCategoryId && option.getAttribute('data-sub-category-id')
+                    && option.getAttribute('data-sub-category-id') !== String(subCategoryId)) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        function meterUnit() {
+            return meterTypeSelect.value === 'km' ? 'km' : 'hrs';
+        }
+
+        function updateMeterLabels() {
+            document.getElementById('meter_unit_label').textContent = '(' + meterUnit() + ')';
+            updateLifeUsedHint();
+        }
+
+        function updateLifeUsedHint() {
+            const prev = parseFloat(previousReadingInput.value);
+            const curr = parseFloat(currentReadingInput.value);
+            const hint = document.getElementById('life_used_hint');
+            const itemEl = document.getElementById('life_used_item');
+            if (!isNaN(prev) && !isNaN(curr) && curr >= prev) {
+                document.getElementById('life_used_value').textContent =
+                    (curr - prev).toFixed(2) + ' ' + meterUnit();
+                itemEl.textContent = lastEntry && lastEntry.product_name
+                    ? ' (' + lastEntry.product_name + ')'
+                    : '';
+                hint.classList.remove('d-none');
+            } else {
+                hint.classList.add('d-none');
+            }
+        }
+
+        function applyPreviousReadingFromLast(data) {
+            if (data.current_reading !== null && data.current_reading !== undefined) {
+                // Always overwrite when slot (vehicle + item type) changes
+                previousReadingInput.value = data.current_reading;
+            }
+            if (data.meter_type) {
+                meterTypeSelect.value = data.meter_type;
+            }
+            const hint = document.getElementById('previous_reading_hint');
+            const unit = data.meter_type === 'km' ? 'km' : 'hrs';
+            hint.textContent = (data.product_name || 'Previous item')
+                + ' fitted at ' + data.current_reading + ' ' + unit
+                + ' on ' + (data.used_at || '—');
+            document.getElementById('replaced_item_hint').textContent =
+                'Replaced item: ' + (data.product_name || '—')
+                + ' — iska use = current reading − ' + data.current_reading + ' ' + unit;
+            updateMeterLabels();
+        }
+
+        function loadLastEntry() {
+            const vehicleId = vehicleSelect.value;
+            const subCategoryId = subCategorySelect.value;
+
+            if (!vehicleId || !subCategoryId) {
+                previousReadingInput.value = '';
+                document.getElementById('previous_reading_hint').textContent =
+                    'Last time isi type pe change kiya tha uska KM/hrs';
+                document.getElementById('replaced_item_hint').textContent =
+                    'Pichla fitted item save pe “replaced” me track hoga';
+                showPlaceholder();
+                updateLifeUsedHint();
+                return;
+            }
 
             showLoading();
+            const params = new URLSearchParams({
+                vehicle_id: vehicleId,
+                sub_category_id: subCategoryId,
+            });
 
-            fetch(`${lastEntryUrl}?product_id=${productId}`)
-                .then(r => r.json())
-                .then(data => {
+            fetch(lastEntryUrl + '?' + params.toString())
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
                     lastEntry = data;
                     if (data) {
                         showCard(data);
+                        applyPreviousReadingFromLast(data);
+                        updateLifeUsedHint();
                     } else {
+                        previousReadingInput.value = '';
+                        document.getElementById('previous_reading_hint').textContent =
+                            'Pehli change — previous blank/0 rakh sakte ho';
+                        document.getElementById('replaced_item_hint').textContent =
+                            'Is type pe pehli fitment — koi replaced item nahi';
                         showEmpty();
+                        updateLifeUsedHint();
                     }
                 })
-                .catch(() => showPlaceholder());
+                .catch(function () { showPlaceholder(); });
+        }
+
+        categorySelect.addEventListener('change', function () {
+            const categoryId = categorySelect.value;
+            filterByCategory(vehicleSelect, originalVehicleOptions, categoryId);
+            filterByCategory(subCategorySelect, originalSubCategoryOptions, categoryId);
+            filterProducts();
+            loadLastEntry();
         });
 
-        document.getElementById('btn_prefill').addEventListener('click', function () {
-            if (lastEntry) {
-                document.getElementById('life_hours').value = lastEntry.life_hours ?? '';
-                document.getElementById('last_life_hours').textContent = lastEntry.life_hours ?? '—';
-                document.getElementById('life_hours_hint').classList.remove('d-none');
-
-                // Pre-select sub_category if it matches
-                const subSel = document.getElementById('sub_category_id');
-                if (lastEntry.sub_category_id) {
-                    for (let opt of subSel.options) {
-                        if (opt.value == lastEntry.sub_category_id) { opt.selected = true; break; }
-                    }
-                }
-            }
+        vehicleSelect.addEventListener('change', loadLastEntry);
+        subCategorySelect.addEventListener('change', function () {
+            filterProducts();
+            loadLastEntry();
         });
+        meterTypeSelect.addEventListener('change', updateMeterLabels);
+        previousReadingInput.addEventListener('input', updateLifeUsedHint);
+        currentReadingInput.addEventListener('input', updateLifeUsedHint);
 
         function showCard(data) {
             document.getElementById('last_entry_card').classList.remove('d-none');
@@ -213,10 +368,13 @@
             document.getElementById('last_entry_loading').classList.add('d-none');
             document.getElementById('last_entry_placeholder').classList.add('d-none');
 
+            const unit = data.meter_type === 'km' ? 'km' : 'hrs';
             document.getElementById('ref_used_at').textContent = data.used_at ?? '—';
-            document.getElementById('ref_quantity').textContent = data.quantity ?? '—';
-            document.getElementById('ref_life_hours').textContent = (data.life_hours ?? '—') + (data.life_hours ? ' hrs' : '');
-            document.getElementById('ref_usage_count').textContent = data.usage_count ?? '—';
+            document.getElementById('ref_product').textContent = data.product_name ?? '—';
+            document.getElementById('ref_meter_type').textContent = data.meter_type === 'km' ? 'KM' : 'Hours';
+            document.getElementById('ref_current_reading').textContent =
+                (data.current_reading != null ? data.current_reading : '—')
+                + (data.current_reading != null ? ' ' + unit : '');
             document.getElementById('ref_sub_category').textContent = data.sub_category ?? '—';
 
             const notesRow = document.getElementById('ref_notes_row');
@@ -226,10 +384,6 @@
             } else {
                 notesRow.classList.add('d-none');
             }
-
-            // Show life hours hint
-            document.getElementById('last_life_hours').textContent = data.life_hours ?? '—';
-            document.getElementById('life_hours_hint').classList.remove('d-none');
         }
 
         function showEmpty() {
@@ -237,7 +391,6 @@
             document.getElementById('last_entry_empty').classList.remove('d-none');
             document.getElementById('last_entry_loading').classList.add('d-none');
             document.getElementById('last_entry_placeholder').classList.add('d-none');
-            document.getElementById('life_hours_hint').classList.add('d-none');
         }
 
         function showLoading() {
@@ -252,7 +405,13 @@
             document.getElementById('last_entry_empty').classList.add('d-none');
             document.getElementById('last_entry_loading').classList.add('d-none');
             document.getElementById('last_entry_placeholder').classList.remove('d-none');
-            document.getElementById('life_hours_hint').classList.add('d-none');
+            lastEntry = null;
+        }
+
+        if (categorySelect.value) {
+            categorySelect.dispatchEvent(new Event('change'));
+        } else {
+            updateMeterLabels();
         }
     </script>
 @endsection

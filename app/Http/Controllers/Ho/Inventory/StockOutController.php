@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Ho\Inventory;
 use App\Enums\StockReferenceType;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
-use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Plant;
+use App\Models\SubCategory;
+use App\Models\Vehicle;
 use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,13 +31,17 @@ class StockOutController extends Controller
             'products' => Product::with('unit:id,name,abbreviation')
                 ->where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'name', 'sku', 'category_id', 'unit_id']),
+                ->get(['id', 'name', 'sku', 'category_id', 'sub_category_id', 'unit_id']),
             'subCategories' => SubCategory::where('is_active', true)
                 ->orderBy('name')
-                ->get(),
+                ->get(['id', 'name', 'category_id']),
+            'vehicles' => Vehicle::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'registration_no', 'category_id']),
             'plantId' => $plantId,
             'selectedProductId' => $request->integer('product_id') ?: old('product_id'),
             'selectedCategoryId' => $request->integer('category_id') ?: old('category_id'),
+            'selectedSubCategoryId' => $request->integer('sub_category_id') ?: old('filter_sub_category_id'),
         ]);
     }
 
@@ -45,10 +50,10 @@ class StockOutController extends Controller
         $data = $request->validate([
             'plant_id' => ['required', 'exists:plants,id'],
             'product_id' => ['required', 'exists:products,id'],
-            'usage_type' => ['required', 'in:subcategory,other'],
-            'sub_category_id' => [
+            'usage_type' => ['required', 'in:vehicle,other'],
+            'vehicle_id' => [
                 'nullable',
-                'exists:sub_categories,id',
+                'exists:vehicles,id',
             ],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'photo_confirmed' => ['required', 'boolean'],
@@ -68,16 +73,16 @@ class StockOutController extends Controller
             ]);
         }
 
-        if ($data['usage_type'] === 'subcategory' && blank($data['sub_category_id'] ?? null)) {
+        if ($data['usage_type'] === 'vehicle' && blank($data['vehicle_id'] ?? null)) {
             return back()->withInput()->withErrors([
-                'sub_category_id' => 'Please select a subcategory.',
+                'vehicle_id' => 'Please select a vehicle.',
             ]);
         }
 
-        $subCategoryId = $data['usage_type'] === 'subcategory' ? ($data['sub_category_id'] ?? null) : null;
+        $vehicleId = $data['usage_type'] === 'vehicle' ? ($data['vehicle_id'] ?? null) : null;
 
         $meta = [
-            'sub_category_id' => $subCategoryId,
+            'vehicle_id' => $vehicleId,
             'photo_confirmed' => $request->boolean('photo_confirmed'),
             'reason' => $data['reason'] ?? null,
         ];

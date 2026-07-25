@@ -1,4 +1,4 @@
-@props(['plants' => null, 'products' => null, 'showStatus' => false, 'showDates' => false, 'showFinancialYear' => false, 'clearRoute' => null])
+@props(['plants' => null, 'products' => null, 'vehicles' => null, 'showStatus' => false, 'showDates' => false, 'showFinancialYear' => false, 'clearRoute' => null])
 
 @php
     $dateFrom = request('date_from', $financialYear->dateFrom ?? null);
@@ -6,6 +6,7 @@
     $filterKeys = array_filter([
         'plant_id',
         'product_id',
+        'vehicle_id',
         'status',
         'fy',
         'date_from',
@@ -28,6 +29,19 @@
                     <option value="">All plants</option>
                     @foreach($plants as $plant)
                         <option value="{{ $plant->id }}" @selected(request('plant_id') == $plant->id)>{{ $plant->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
+        @if($vehicles)
+            <div class="col-6 col-md-3">
+                <label class="form-label">Vehicle</label>
+                <select name="vehicle_id" class="form-select form-select-sm">
+                    <option value="">All vehicles</option>
+                    @foreach($vehicles as $vehicle)
+                        <option value="{{ $vehicle->id }}" @selected(request('vehicle_id') == $vehicle->id)>
+                            {{ method_exists($vehicle, 'displayLabel') ? $vehicle->displayLabel() : $vehicle->name }}
+                        </option>
                     @endforeach
                 </select>
             </div>

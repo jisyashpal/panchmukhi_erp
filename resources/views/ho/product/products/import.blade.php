@@ -66,7 +66,7 @@
                         <li class="mb-2"><strong>Reorder Level</strong>: Minimum quantity count to trigger low-stock alerts (defaults to <em>10</em>).</li>
                     </ul>
                     <div class="alert alert-warning small mt-3 mb-0 py-2 border-0">
-                        <i class="bi bi-exclamation-triangle me-1"></i> <strong>SKU Generation:</strong> The system automatically creates clean SKUs in the format <code>Category_SubCategory_Size_ItemName</code> (last 3 letters of name) and ensures they are unique.
+                        <i class="bi bi-exclamation-triangle me-1"></i> <strong>SKU Generation:</strong> The system automatically creates clean SKUs in the format <code>Category_SubCategory_Size_Brand_ItemName</code> (first 3 of brand, last 3 of name) and ensures they are unique.
                     </div>
                 </div>
             </div>

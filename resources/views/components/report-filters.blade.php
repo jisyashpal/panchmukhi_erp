@@ -2,6 +2,7 @@
     'plants',
     'categories' => null,
     'products' => null,
+    'vehicles' => null,
     'showDates' => false,
     'searchPlaceholder' => 'Search...',
     'clearRoute',
@@ -16,6 +17,7 @@
         $plants ? 'plant_id' : null,
         $categories ? 'category_id' : null,
         $products ? 'product_id' : null,
+        $vehicles ? 'vehicle_id' : null,
         $showDates ? 'date_from' : null,
         $showDates ? 'date_to' : null,
     ]);
@@ -41,6 +43,19 @@
                     <option value="">All plants</option>
                     @foreach($plants as $plant)
                         <option value="{{ $plant->id }}" @selected(request('plant_id') == $plant->id)>{{ $plant->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
+        @if($vehicles)
+            <div class="col-6 col-md-2">
+                <label class="form-label small">Vehicle</label>
+                <select name="vehicle_id" class="form-select form-select-sm">
+                    <option value="">All vehicles</option>
+                    @foreach($vehicles as $vehicle)
+                        <option value="{{ $vehicle->id }}" @selected(request('vehicle_id') == $vehicle->id)>
+                            {{ method_exists($vehicle, 'displayLabel') ? $vehicle->displayLabel() : $vehicle->name }}
+                        </option>
                     @endforeach
                 </select>
             </div>

@@ -30,6 +30,7 @@
             @include('plant.request-po.product-requests.partials.item-lines', [
                 'products' => $products,
                 'subCategories' => $subCategories,
+                'categories' => $categories,
             ])
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2 pt-2 border-top">

@@ -14,6 +14,7 @@ class StockMovement extends Model
         'product_id',
         'supplier_id',
         'sub_category_id',
+        'vehicle_id',
         'type',
         'quantity',
         'reference_type',
@@ -55,6 +56,11 @@ class StockMovement extends Model
     public function subCategory(): BelongsTo
     {
         return $this->belongsTo(SubCategory::class);
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function performer(): BelongsTo

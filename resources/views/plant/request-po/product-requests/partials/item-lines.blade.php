@@ -57,6 +57,7 @@
         border-bottom: none !important;
     }
     </style>
+    @include('partials.infinite-suggestions')
     <script type="application/json" id="plant-request-products-data">@json($productCatalog)</script>
     <script>
     (function () {
@@ -74,8 +75,69 @@
         portal.className = 'autocomplete-suggestions shadow border rounded-bottom bg-white';
         document.body.appendChild(portal);
 
+        const infinite = window.PanchmukhiInfiniteSuggestions.create(portal, {
+            pageSize: 25,
+            renderItem: function (product) {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
+                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">'
+                    + product.name
+                    + '</span> <span class="text-muted small">'
+                    + (product.sku || 'No SKU')
+                    + '</span>';
+                div.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    if (activeRow) {
+                        applyProductSelection(activeRow, product);
+                    }
+                });
+                return div;
+            },
+            renderTail: function () {
+                @if(auth()->user()->canManagePlantProducts())
+                if (!activeInput || !activeRow) {
+                    return null;
+                }
+                const subCatSelect = activeRow.querySelector('.item-subcategory-select');
+                const subCatId = subCatSelect ? subCatSelect.value : '';
+                const catSelect = activeRow.querySelector('.item-category-select');
+                const addProduct = document.createElement('a');
+                addProduct.href = @json(route('plant.products.create'));
+                const params = new URLSearchParams();
+                if (activeInput.value.trim()) {
+                    params.set('name', activeInput.value.trim());
+                }
+                if (subCatId) {
+                    params.set('sub_category_id', subCatId);
+                }
+                if (catSelect && catSelect.value) {
+                    params.set('category_id', catSelect.value);
+                }
+                const sizeInput = activeRow.querySelector('.item-size-input');
+                if (sizeInput && sizeInput.value.trim()) {
+                    params.set('size', sizeInput.value.trim());
+                }
+                const qs = params.toString();
+                if (qs) {
+                    addProduct.href += '?' + qs;
+                }
+                addProduct.target = '_blank';
+                addProduct.className = 'suggestion-item px-3 py-2 border-top text-primary text-decoration-none d-flex align-items-center gap-1';
+                addProduct.innerHTML = '<i class="bi bi-plus-circle"></i><span class="fw-semibold">Add Product</span>';
+                addProduct.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    window.open(addProduct.href, '_blank');
+                    hideSuggestions();
+                });
+                return addProduct;
+                @else
+                return null;
+                @endif
+            },
+        });
+
         function hideSuggestions() {
-            portal.innerHTML = '';
+            infinite.reset();
             portal.classList.remove('is-open');
             activeInput = null;
             activeRow = null;
@@ -102,7 +164,6 @@
                 sizeInput.value = product.size;
             }
 
-            // Auto-select Category and Item Type of the product
             if (product.category_id && catSelect) {
                 catSelect.value = String(product.category_id);
                 if (subCatSelect) {
@@ -127,42 +188,35 @@
 
             activeInput = input;
             activeRow = row;
-            portal.innerHTML = '';
 
             const subCatSelect = row.querySelector('.item-subcategory-select');
             const subCatId = subCatSelect ? subCatSelect.value : '';
 
-            // Filter products by selected subcategory and query
             const filtered = products.filter(function (product) {
                 if (subCatId && String(product.sub_category_id) !== String(subCatId)) {
                     return false;
                 }
                 if (!val) {
-                    return true; // Show all if empty query
+                    return true;
                 }
                 return product.name.toLowerCase().includes(val)
                     || (product.sku && product.sku.toLowerCase().includes(val));
-            }).slice(0, 15);
+            });
 
             if (filtered.length === 0) {
+                infinite.setResults([]);
+                const empty = document.createElement('div');
+                empty.className = 'px-3 py-2 text-muted small';
+                empty.textContent = 'No matching product in catalog';
+                portal.insertBefore(empty, portal.firstChild);
+            } else {
+                infinite.setResults(filtered);
+            }
+
+            if (portal.children.length === 0) {
                 hideSuggestions();
                 return;
             }
-
-            filtered.forEach(function (product) {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">'
-                    + product.name
-                    + '</span> <span class="text-muted small">'
-                    + (product.sku || 'No SKU')
-                    + '</span>';
-                div.addEventListener('mousedown', function (event) {
-                    event.preventDefault();
-                    applyProductSelection(row, product);
-                });
-                portal.appendChild(div);
-            });
 
             positionPortal(input);
             portal.classList.add('is-open');
@@ -196,10 +250,14 @@
             hideSuggestions();
         });
 
-        window.addEventListener('scroll', function () {
-            if (activeInput && portal.classList.contains('is-open')) {
-                positionPortal(activeInput);
+        window.addEventListener('scroll', function (event) {
+            if (!activeInput || !portal.classList.contains('is-open')) {
+                return;
             }
+            if (portal.contains(event.target)) {
+                return;
+            }
+            positionPortal(activeInput);
         }, true);
 
         window.addEventListener('resize', function () {

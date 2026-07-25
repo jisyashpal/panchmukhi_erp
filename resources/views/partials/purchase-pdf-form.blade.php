@@ -3,7 +3,7 @@
         <h2 class="mb-0"><i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF</h2>
     </div>
     <div class="admin-card-body">
-        <p class="small text-muted mb-3">Customize the letterhead shown at the top of the purchase order PDF.</p>
+        <p class="small text-muted mb-3">Customize the letterhead and terms shown on the purchase order export.</p>
         <form action="{{ $pdfRoute }}" method="GET" target="_blank" id="purchase_pdf_form">
             <div class="mb-2">
                 <label class="form-label small mb-1" for="pdf_company_name">Company name</label>
@@ -14,14 +14,33 @@
                 <label class="form-label small mb-1" for="pdf_company_address">Address</label>
                 <textarea name="company_address" id="pdf_company_address" class="form-control form-control-sm" rows="3" maxlength="1000">{{ old('company_address', $pdfDefaults['company_address']) }}</textarea>
             </div>
-            <div class="mb-3">
+            <div class="mb-2">
                 <label class="form-label small mb-1" for="pdf_company_gstin">GSTIN</label>
                 <input type="text" name="company_gstin" id="pdf_company_gstin" class="form-control form-control-sm"
                     value="{{ old('company_gstin', $pdfDefaults['company_gstin']) }}" maxlength="20" placeholder="e.g. 22AAAAA0000A1Z5">
             </div>
-            <button type="submit" class="btn btn-primary btn-sm w-100 mb-3">
+            <div class="mb-3">
+                <label class="form-label small mb-1" for="pdf_terms_and_conditions">Terms and conditions</label>
+                <textarea name="terms_and_conditions" id="pdf_terms_and_conditions" class="form-control form-control-sm" rows="5" maxlength="5000"
+                    placeholder="Add terms and conditions for this purchase order…">{{ old('terms_and_conditions', $pdfDefaults['terms_and_conditions'] ?? '') }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm w-100 mb-2">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i>Download / View PDF
             </button>
+            @isset($excelRoute, $wordRoute)
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <button type="submit" class="btn btn-outline-success btn-sm w-100" formaction="{{ $excelRoute }}" formtarget="_self">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100" formaction="{{ $wordRoute }}" formtarget="_self">
+                        <i class="bi bi-file-earmark-word me-1"></i>Word
+                    </button>
+                </div>
+            </div>
+            @endisset
         </form>
 
         @isset($shareLinksRoute)
@@ -68,6 +87,7 @@
             company_name: document.getElementById('pdf_company_name').value,
             company_address: document.getElementById('pdf_company_address').value,
             company_gstin: document.getElementById('pdf_company_gstin').value,
+            terms_and_conditions: document.getElementById('pdf_terms_and_conditions')?.value || '',
         };
     }
 

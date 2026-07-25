@@ -8,7 +8,6 @@ use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
 use App\Models\ProductRequest;
 use App\Models\Purchase;
-use App\Models\PurchaseRequest;
 use App\Models\StockBalance;
 use Illuminate\View\View;
 
@@ -41,8 +40,11 @@ class DashboardController extends Controller
             'lowStock' => $lowStock,
             'submittedProductRequests' => ProductRequest::where('plant_id', $plantId)
                 ->where('status', RequestStatus::Submitted)->count(),
-            'submittedPurchaseRequests' => PurchaseRequest::where('plant_id', $plantId)
-                ->where('status', RequestStatus::Submitted)->count(),
+            'totalPurchases' => Purchase::where('plant_id', $plantId)->count(),
+            'totalStockLines' => StockBalance::where('plant_id', $plantId)
+                ->where('quantity', '>', 0)
+                ->count(),
+            'totalStockQty' => (float) StockBalance::where('plant_id', $plantId)->sum('quantity'),
             'awaitingDispatch' => Purchase::where('plant_id', $plantId)
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNull('dispatched_at')

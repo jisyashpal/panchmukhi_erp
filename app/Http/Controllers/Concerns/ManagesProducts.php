@@ -61,27 +61,32 @@ trait ManagesProducts
         $items = $request->input('products');
         $skus = [];
 
-        // Pre-fetch categories and subcategories to avoid N+1 queries during SKU generation
+        // Pre-fetch categories, subcategories and brands to avoid N+1 queries during SKU generation
         $categoryIds = collect($items)->pluck('category_id')->filter()->unique()->all();
         $subCategoryIds = collect($items)->pluck('sub_category_id')->filter()->unique()->all();
+        $brandIds = collect($items)->pluck('brand_id')->filter()->unique()->all();
 
         $categories = \App\Models\Category::whereIn('id', $categoryIds)->pluck('name', 'id');
         $subCategories = \App\Models\SubCategory::whereIn('id', $subCategoryIds)->pluck('name', 'id');
+        $brands = \App\Models\Brand::whereIn('id', $brandIds)->pluck('name', 'id');
 
         $validatedData = [];
 
         foreach ($items as $index => $item) {
             $categoryName = $categories[$item['category_id']] ?? '';
             $subCategoryName = $subCategories[$item['sub_category_id'] ?? ''] ?? '';
+            $brandName = $brands[$item['brand_id'] ?? ''] ?? '';
 
             $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $categoryName);
             $cleanSubCategory = preg_replace('/[^A-Za-z0-9]/', '', $subCategoryName);
             $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $item['size'] ?? '');
+            $cleanBrand = preg_replace('/[^A-Za-z0-9]/', '', $brandName);
             $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $item['name'] ?? '');
 
             $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
             $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
             $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+            $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
             $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 
             $sku = $categoryPart;
@@ -90,6 +95,9 @@ trait ManagesProducts
             }
             if ($sizePart !== '') {
                 $sku .= '_' . $sizePart;
+            }
+            if ($brandPart !== '') {
+                $sku .= '_' . $brandPart;
             }
             if ($namePart !== '') {
                 $sku .= '_' . $namePart;
@@ -118,8 +126,33 @@ trait ManagesProducts
             ];
         }
 
+        $createdProducts = [];
         foreach ($validatedData as $data) {
-            Product::create($data);
+            $createdProducts[] = Product::create($data);
+        }
+
+        if (
+            $this->catalogPortal() === 'plant'
+            && $request->filled('product_request_item_id')
+            && ! empty($createdProducts)
+        ) {
+            $item = \App\Models\ProductRequestItem::with('productRequest')->find($request->integer('product_request_item_id'));
+            $product = $createdProducts[0];
+
+            if ($item && ! $item->product_id) {
+                $item->update([
+                    'product_id' => $product->id,
+                    'item_name' => null,
+                    'size' => $item->size ?: $product->size,
+                    'sub_category_id' => $item->sub_category_id ?: $product->sub_category_id,
+                ]);
+
+                $requestId = $request->integer('product_request_id') ?: $item->product_request_id;
+
+                return redirect()
+                    ->route('plant.product-requests.show', $requestId)
+                    ->with('success', 'Product created and linked to the request item.');
+            }
         }
 
         return redirect()->route($this->catalogPortal().'.products.index')->with('success', 'Products created successfully.');
@@ -294,11 +327,13 @@ trait ManagesProducts
                 $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $category->name);
                 $cleanSubCategory = $subCategory ? preg_replace('/[^A-Za-z0-9]/', '', $subCategory->name) : '';
                 $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $size);
+                $cleanBrand = $brand ? preg_replace('/[^A-Za-z0-9]/', '', $brand->name) : '';
                 $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $prodName);
 
                 $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
                 $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
                 $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+                $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
                 $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 
                 // Generate SKU
@@ -308,6 +343,9 @@ trait ManagesProducts
                 }
                 if ($sizePart !== '') {
                     $sku .= '_' . $sizePart;
+                }
+                if ($brandPart !== '') {
+                    $sku .= '_' . $brandPart;
                 }
                 if ($namePart !== '') {
                     $sku .= '_' . $namePart;

@@ -5,8 +5,6 @@
         subtitle="{{ $productRequest->plant->name }} · {{ $productRequest->displayRequesterName() }}">
         <div class="d-flex gap-2">
             <x-status-badge :status="$productRequest->status" />
-            <a href="{{ route('ho.product-requests.edit', $productRequest) }}" class="btn btn-primary btn-sm">Edit
-                billing</a>
             <a href="{{ route('ho.product-requests.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
         </div>
     </x-admin-page-header>

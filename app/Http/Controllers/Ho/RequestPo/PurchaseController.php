@@ -58,6 +58,8 @@ class PurchaseController extends Controller
             'purchase' => $purchase,
             'pdfDefaults' => $this->purchasePdfDefaults($purchase),
             'pdfRoute' => route('ho.purchases.pdf', $purchase),
+            'excelRoute' => route('ho.purchases.excel', $purchase),
+            'wordRoute' => route('ho.purchases.word', $purchase),
             'emailRoute' => route('ho.purchases.email', $purchase),
             'shareLinksRoute' => route('ho.purchases.share-links', $purchase),
             'pdfFilename' => $this->purchasePdfFilename($purchase),
@@ -68,6 +70,16 @@ class PurchaseController extends Controller
     public function pdf(Request $request, Purchase $purchase): Response
     {
         return $this->streamPurchasePdf($request, $purchase);
+    }
+
+    public function excel(Request $request, Purchase $purchase): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        return $this->streamPurchaseExcel($request, $purchase);
+    }
+
+    public function word(Request $request, Purchase $purchase): Response
+    {
+        return $this->streamPurchaseWord($request, $purchase);
     }
 
     public function sharedPdf(Request $request, Purchase $purchase): Response

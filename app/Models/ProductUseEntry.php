@@ -12,8 +12,13 @@ class ProductUseEntry extends Model
 
     protected $fillable = [
         'plant_id',
+        'vehicle_id',
         'product_id',
+        'replaced_product_id',
         'sub_category_id',
+        'meter_type',
+        'current_reading',
+        'previous_reading',
         'quantity',
         'life_hours',
         'usage_count',
@@ -27,6 +32,8 @@ class ProductUseEntry extends Model
         return [
             'quantity' => 'decimal:2',
             'life_hours' => 'decimal:2',
+            'current_reading' => 'decimal:2',
+            'previous_reading' => 'decimal:2',
             'usage_count' => 'integer',
             'used_at' => 'datetime',
         ];
@@ -37,9 +44,19 @@ class ProductUseEntry extends Model
         return $this->belongsTo(Plant::class);
     }
 
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function replacedProduct(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'replaced_product_id');
     }
 
     public function subCategory(): BelongsTo
@@ -50,5 +67,10 @@ class ProductUseEntry extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function meterUnitLabel(): string
+    {
+        return $this->meter_type === 'km' ? 'km' : 'hrs';
     }
 }

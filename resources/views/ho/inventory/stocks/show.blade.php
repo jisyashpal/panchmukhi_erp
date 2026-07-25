@@ -121,6 +121,8 @@
                                     @if($m->supplier)
                                         <br><span class="text-muted small">Supplier: {{ $m->supplier->name }}</span>
                                     @endif
+                                @elseif($m->vehicle)
+                                    Vehicle: {{ $m->vehicle->displayLabel() }}
                                 @elseif($m->subCategory)
                                     Item Type: {{ $m->subCategory->name }}
                                 @elseif(filled($m->reason))

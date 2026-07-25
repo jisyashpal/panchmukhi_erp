@@ -144,6 +144,11 @@ class User extends Authenticatable
         return $this->hasPermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
     }
 
+    public function canManagePlantProducts(): bool
+    {
+        return $this->hasPermission(PermissionSlug::PLANT_MANAGE_PRODUCTS);
+    }
+
     public function canManagePlantStocks(): bool
     {
         return $this->hasPermission(PermissionSlug::PLANT_MANAGE_STOCKS);

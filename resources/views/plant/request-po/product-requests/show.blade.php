@@ -53,7 +53,20 @@
                                 @if($item->product?->sku)
                                     <span class="d-block small text-muted text-uppercase">SKU: {{ $item->product->sku }}</span>
                                 @elseif(!$item->product_id)
-                                    <span class="d-block small text-muted">Custom item</span>
+                                    <span class="d-block small text-muted">Not in catalog</span>
+                                    @if(auth()->user()->canManagePlantProducts())
+                                        <a href="{{ route('plant.products.create', [
+                                            'name' => $item->displayName(),
+                                            'size' => $item->size,
+                                            'category_id' => $item->subCategory?->category_id ?? $item->product?->category_id,
+                                            'sub_category_id' => $item->sub_category_id,
+                                            'product_request_id' => $productRequest->id,
+                                            'product_request_item_id' => $item->id,
+                                        ]) }}"
+                                            class="d-inline-flex align-items-center gap-1 small text-primary mt-1">
+                                            <i class="bi bi-plus-circle"></i>Add Product
+                                        </a>
+                                    @endif
                                 @endif
                             </td>
                             <td>{{ $item->size ?? $item->product?->size ?? '—' }}</td>

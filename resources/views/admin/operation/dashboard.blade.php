@@ -13,36 +13,36 @@
 </x-admin-page-header>
 
 <div class="admin-stat-grid">
-    <div class="admin-stat-card stat-accent-blue">
+    <a href="{{ route('admin.plants.index') }}" class="admin-stat-card stat-accent-blue">
         <div class="stat-icon stat-icon-blue"><i class="bi bi-building"></i></div>
         <div class="stat-label">Active Plants</div>
         <div class="stat-value">{{ $activePlants }}</div>
-    </div>
-    <div class="admin-stat-card stat-accent-violet">
+    </a>
+    <a href="{{ route('admin.users.index') }}" class="admin-stat-card stat-accent-violet">
         <div class="stat-icon stat-icon-violet"><i class="bi bi-people"></i></div>
         <div class="stat-label">Active Users</div>
         <div class="stat-value">{{ $usersCount }}</div>
-    </div>
-    <div class="admin-stat-card stat-accent-emerald">
+    </a>
+    <a href="{{ route('admin.products.index') }}" class="admin-stat-card stat-accent-emerald">
         <div class="stat-icon stat-icon-emerald"><i class="bi bi-box"></i></div>
         <div class="stat-label">Products</div>
         <div class="stat-value">{{ $productsCount }}</div>
-    </div>
-    <div class="admin-stat-card stat-accent-amber">
+    </a>
+    <a href="{{ route('ho.stocks.index', array_filter(['plant_id' => $plantId ?: null])) }}" class="admin-stat-card stat-accent-amber">
         <div class="stat-icon stat-icon-amber"><i class="bi bi-boxes"></i></div>
         <div class="stat-label">Stock Lines</div>
         <div class="stat-value">{{ $totalStockLines }}</div>
-    </div>
-    <div class="admin-stat-card stat-accent-blue">
+    </a>
+    <a href="{{ route('ho.purchases.index', array_filter(['plant_id' => $plantId ?: null, 'status' => 'ordered'])) }}" class="admin-stat-card stat-accent-blue">
         <div class="stat-icon stat-icon-blue"><i class="bi bi-cart"></i></div>
         <div class="stat-label">Pending Orders</div>
         <div class="stat-value">{{ $pendingOrders }}</div>
-    </div>
-    <div class="admin-stat-card stat-accent-emerald">
+    </a>
+    <a href="{{ route('ho.purchases.index', array_filter(['plant_id' => $plantId ?: null, 'status' => 'delivered'])) }}" class="admin-stat-card stat-accent-emerald">
         <div class="stat-icon stat-icon-emerald"><i class="bi bi-check2-circle"></i></div>
         <div class="stat-label">Delivered Purchases</div>
         <div class="stat-value">{{ $deliveredPurchases }}</div>
-    </div>
+    </a>
 </div>
 
 <div class="row g-4 mt-1">
@@ -54,13 +54,17 @@
                 <a href="{{ route('ho.dashboard') }}" class="btn btn-admin-outline btn-sm">HO Dashboard</a>
                 <a href="{{ route('ho.product-requests.index') }}" class="btn btn-admin-outline btn-sm">Product Requests</a>
                 <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Stocks</a>
+                <a href="{{ route('ho.product-life.index') }}" class="btn btn-admin-outline btn-sm">Product Life</a>
                 <a href="{{ route('ho.reports.index') }}" class="btn btn-admin-outline btn-sm">Reports</a>
             </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="admin-card admin-table-card h-100">
-            <div class="admin-card-header"><h2>Low Stock</h2></div>
+            <div class="admin-card-header d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Low Stock</h2>
+                <a href="{{ route('ho.stocks.index', array_filter(['plant_id' => $plantId ?: null])) }}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
             <div class="table-responsive">
                 <table class="table mb-0">
                     <thead><tr><th>Plant</th><th>Product</th><th class="text-end">Qty</th></tr></thead>
@@ -68,7 +72,15 @@
                         @forelse($lowStock as $row)
                         <tr>
                             <td>{{ $row->plant->name }}</td>
-                            <td>{{ $row->product->name }}</td>
+                            <td>
+                                @if($row->product && $row->plant_id)
+                                    <a href="{{ route('ho.stocks.show', ['plant_id' => $row->plant_id, 'product_id' => $row->product_id]) }}">
+                                        {{ $row->product->name }}
+                                    </a>
+                                @else
+                                    {{ $row->product->name ?? '' }}
+                                @endif
+                            </td>
                             <td class="text-end text-danger fw-semibold">{{ $row->quantity }}</td>
                         </tr>
                         @empty
@@ -81,7 +93,10 @@
     </div>
     <div class="col-lg-4">
         <div class="admin-card admin-table-card h-100">
-            <div class="admin-card-header"><h2>Recent Purchases</h2></div>
+            <div class="admin-card-header d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Recent Purchases</h2>
+                <a href="{{ route('ho.purchases.index', array_filter(['plant_id' => $plantId ?: null])) }}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
             <div class="table-responsive">
                 <table class="table mb-0">
                     <thead><tr><th>Ref</th><th>Plant</th><th>Status</th></tr></thead>

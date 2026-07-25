@@ -9,6 +9,7 @@
     :plants="$plants"
     :categories="$categories"
     :products="$products"
+    :vehicles="$vehicles"
     :show-dates="true"
     search-placeholder="Product name..."
     :clear-route="route('ho.reports.multiple-usage')"
@@ -34,7 +35,7 @@
     </div>
     <div class="admin-stat-card stat-accent-emerald">
         <div class="stat-icon stat-icon-emerald"><i class="bi bi-clock-history"></i></div>
-        <div class="stat-label">Total Life Hours</div>
+        <div class="stat-label">Total Life Used</div>
         <div class="stat-value">{{ number_format($rows->sum('total_life_hours'), 0) }}</div>
     </div>
 </div>
@@ -51,9 +52,10 @@
                     <th class="text-end">Use Count</th>
                     <th class="text-end">Total Qty</th>
                     <th class="text-end">Avg Qty/Use</th>
-                    <th class="text-end">Total Life Hrs</th>
-                    <th class="text-end">Avg Life Hrs</th>
+                    <th class="text-end">Total Life Used</th>
+                    <th class="text-end">Avg Life Used</th>
                     <th class="text-end">Plants</th>
+                    <th class="text-end">Vehicles</th>
                     <th>Last Used</th>
                     <th class="text-end">Action</th>
                 </tr>
@@ -75,9 +77,10 @@
                         </td>
                         <td class="text-end fw-semibold">{{ number_format($r->total_qty, 0) }}</td>
                         <td class="text-end text-muted">{{ number_format($r->avg_qty_per_use, 1) }}</td>
-                        <td class="text-end">{{ number_format($r->total_life_hours, 0) }} hrs</td>
-                        <td class="text-end text-muted">{{ number_format($r->avg_life_hours, 1) }} hrs</td>
+                        <td class="text-end">{{ number_format($r->total_life_hours, 0) }}</td>
+                        <td class="text-end text-muted">{{ number_format($r->avg_life_hours, 1) }}</td>
                         <td class="text-end">{{ number_format($r->plant_count, 0) }}</td>
+                        <td class="text-end">{{ number_format($r->vehicle_count ?? 0, 0) }}</td>
                         <td class="text-muted text-nowrap">
                             {{ $r->last_used_at ? \Carbon\Carbon::parse($r->last_used_at)->format('d M Y') : '—' }}
                         </td>
@@ -91,7 +94,7 @@
                     </tr>
                 @empty
                     @include('partials.table-empty', [
-                        'colspan' => 11,
+                        'colspan' => 12,
                         'icon'    => 'bi-exclamation-diamond',
                         'message' => 'No products with multiple usage found for the selected filters.',
                     ])
@@ -104,8 +107,9 @@
                     <td class="text-end">{{ number_format($rows->sum('use_count'), 0) }}</td>
                     <td class="text-end">{{ number_format($rows->sum('total_qty'), 0) }}</td>
                     <td class="text-end text-muted">—</td>
-                    <td class="text-end">{{ number_format($rows->sum('total_life_hours'), 0) }} hrs</td>
+                    <td class="text-end">{{ number_format($rows->sum('total_life_hours'), 0) }}</td>
                     <td class="text-end text-muted">—</td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>

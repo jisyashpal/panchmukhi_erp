@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\Product\CategoryController;
 use App\Http\Controllers\Admin\Product\ProductController;
 use App\Http\Controllers\Admin\Product\SubCategoryController;
 use App\Http\Controllers\Admin\Product\UnitController;
+use App\Http\Controllers\Admin\Product\VehicleController;
 use App\Support\PermissionSlug;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,7 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::ADMIN_ACCESS])
             Route::resource('sub-categories', SubCategoryController::class)->except(['show']);
             Route::resource('brands', BrandController::class)->except(['show']);
             Route::resource('units', UnitController::class)->except(['show']);
+            Route::resource('vehicles', VehicleController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);
         });
 

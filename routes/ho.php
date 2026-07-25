@@ -10,6 +10,7 @@ use App\Http\Controllers\Ho\Product\CategoryController;
 use App\Http\Controllers\Ho\Product\ProductController;
 use App\Http\Controllers\Ho\Product\SubCategoryController;
 use App\Http\Controllers\Ho\Product\UnitController;
+use App\Http\Controllers\Ho\Product\VehicleController;
 use App\Http\Controllers\Ho\RequestPo\ProductRequestController;
 use App\Http\Controllers\Ho\RequestPo\PurchaseController;
 use App\Http\Controllers\Ho\RequestPo\PurchaseListController;
@@ -40,6 +41,7 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS])
             Route::resource('sub-categories', SubCategoryController::class)->except(['show']);
             Route::resource('brands', BrandController::class)->except(['show']);
             Route::resource('units', UnitController::class)->except(['show']);
+            Route::resource('vehicles', VehicleController::class)->except(['show']);
             Route::get('products/import-template', [ProductController::class, 'downloadTemplate'])->name('products.import-template');
             Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import-form');
             Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
@@ -57,8 +59,6 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS])
                 Route::get('product-requests/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
                 Route::post('product-requests', [ProductRequestController::class, 'store'])->name('product-requests.store');
                 Route::get('product-requests/{product_request}', [ProductRequestController::class, 'show'])->name('product-requests.show');
-                Route::get('product-requests/{product_request}/edit', [ProductRequestController::class, 'edit'])->name('product-requests.edit');
-                Route::put('product-requests/{product_request}', [ProductRequestController::class, 'update'])->name('product-requests.update');
                 Route::post('product-requests/{product_request}/status', [ProductRequestController::class, 'updateStatus'])->name('product-requests.status');
             });
 
@@ -67,6 +67,8 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS])
                 Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
                 Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
                 Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
+                Route::get('purchases/{purchase}/excel', [PurchaseController::class, 'excel'])->name('purchases.excel');
+                Route::get('purchases/{purchase}/word', [PurchaseController::class, 'word'])->name('purchases.word');
                 Route::get('purchases/{purchase}/share-links', [PurchaseController::class, 'shareLinks'])->name('purchases.share-links');
                 Route::post('purchases/{purchase}/email', [PurchaseController::class, 'email'])->name('purchases.email');
                 Route::post('purchases/{purchase}/comments', [PurchaseController::class, 'storeComment'])->name('purchases.comments.store');

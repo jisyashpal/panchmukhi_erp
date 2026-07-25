@@ -151,6 +151,7 @@ class StockService
             'product_id' => $productId,
             'supplier_id' => $meta['supplier_id'] ?? null,
             'sub_category_id' => $meta['sub_category_id'] ?? null,
+            'vehicle_id' => $meta['vehicle_id'] ?? null,
             'type' => $type,
             'quantity' => $quantity,
             'reference_type' => $referenceType,

@@ -12,6 +12,7 @@ class ReportFilters
         public ?string $dateTo = null,
         public ?int $categoryId = null,
         public ?int $productId = null,
+        public ?int $vehicleId = null,
         public ?string $search = null,
         public ?string $financialYear = null,
     ) {}
@@ -26,6 +27,7 @@ class ReportFilters
             dateTo: $request->filled('date_to') ? $request->string('date_to')->toString() : $range->dateTo,
             categoryId: $request->integer('category_id') ?: null,
             productId: $request->integer('product_id') ?: null,
+            vehicleId: $request->integer('vehicle_id') ?: null,
             search: $request->filled('search') ? trim($request->string('search')->toString()) : null,
             financialYear: $range->label,
         );
@@ -41,6 +43,7 @@ class ReportFilters
             'date_to' => $this->dateTo,
             'category_id' => $this->categoryId,
             'product_id' => $this->productId,
+            'vehicle_id' => $this->vehicleId,
             'search' => $this->search,
         ], fn ($value) => $value !== null && $value !== '');
     }

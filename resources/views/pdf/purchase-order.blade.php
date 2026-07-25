@@ -332,6 +332,12 @@
         </tr>
     </table>
 
+    @if(!empty($header['terms']))
+        <div class="section-gap">&nbsp;</div>
+        <div class="box-label">Terms and Conditions</div>
+        <div class="small">{!! nl2br(e($header['terms'])) !!}</div>
+    @endif
+
     <div class="footer">
         Computer-generated purchase order &mdash; {{ $purchase->reference_no }} &mdash; {{ now()->format('d-m-Y H:i') }}
     </div>

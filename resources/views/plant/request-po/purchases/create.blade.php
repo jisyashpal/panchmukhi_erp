@@ -235,7 +235,7 @@
                                 <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no') }}" class="form-control form-control-sm">
                             </div>
                             <div class="col-6">
-                                <label class="form-label small" for="supplier_invoice_date">Invoice date</label>
+                                <label class="form-label small" for="supplier_invoice_date">Quotation date</label>
                                 <input type="date" name="supplier_invoice_date" id="supplier_invoice_date" value="{{ old('supplier_invoice_date') }}" class="form-control form-control-sm">
                             </div>
                         </div>
@@ -326,6 +326,7 @@
     background-color: #f8f9fa;
 }
 </style>
+@include('partials.infinite-suggestions')
 <script type="application/json" id="purchase-product-catalog-data">@json($purchaseProductCatalog)</script>
 <script>
     const supplierNames = @json($supplierNames);
@@ -445,16 +446,38 @@
 
         const products = JSON.parse(catalogEl.textContent);
         let activeInput = null;
+        let activeRow = null;
 
         const portal = document.createElement('div');
         portal.id = 'purchase-item-autocomplete-portal';
         portal.className = 'autocomplete-suggestions shadow border rounded-bottom bg-white';
         document.body.appendChild(portal);
 
+        const infinite = window.PanchmukhiInfiniteSuggestions.create(portal, {
+            pageSize: 25,
+            renderItem: function (product) {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
+                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
+                    + product.name
+                    + '</span> <span class="text-muted small">'
+                    + (product.sku || 'No SKU')
+                    + '</span>';
+                div.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    if (activeRow) {
+                        applyProductSelection(activeRow, product);
+                    }
+                });
+                return div;
+            },
+        });
+
         function hideSuggestions() {
-            portal.innerHTML = '';
+            infinite.reset();
             portal.classList.remove('is-open');
             activeInput = null;
+            activeRow = null;
         }
 
         function positionPortal(input) {
@@ -484,8 +507,8 @@
             const val = input.value.trim().toLowerCase();
 
             activeInput = input;
+            activeRow = row;
             productIdInput.value = '';
-            portal.innerHTML = '';
 
             if (!val) {
                 hideSuggestions();
@@ -495,27 +518,12 @@
             const filtered = products.filter(function (product) {
                 return product.name.toLowerCase().includes(val)
                     || (product.sku && product.sku.toLowerCase().includes(val));
-            }).slice(0, 10);
+            });
 
-            if (filtered.length === 0) {
+            if (!infinite.setResults(filtered)) {
                 hideSuggestions();
                 return;
             }
-
-            filtered.forEach(function (product) {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
-                    + product.name
-                    + '</span> <span class="text-muted small">'
-                    + (product.sku || 'No SKU')
-                    + '</span>';
-                div.addEventListener('mousedown', function (event) {
-                    event.preventDefault();
-                    applyProductSelection(row, product);
-                });
-                portal.appendChild(div);
-            });
 
             positionPortal(input);
             portal.classList.add('is-open');

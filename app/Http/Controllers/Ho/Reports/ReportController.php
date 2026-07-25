@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Plant;
 use App\Models\Supplier;
+use App\Models\Vehicle;
 use App\Services\ReportService;
 use App\Support\ReportFilters;
 use App\Support\SpreadsheetDownload;
@@ -117,13 +118,14 @@ class ReportController extends Controller
         ]);
     }
 
-    /** @return array{plants: \Illuminate\Database\Eloquent\Collection, categories: \Illuminate\Database\Eloquent\Collection, products: \Illuminate\Database\Eloquent\Collection} */
+    /** @return array{plants: \Illuminate\Database\Eloquent\Collection, categories: \Illuminate\Database\Eloquent\Collection, products: \Illuminate\Database\Eloquent\Collection, vehicles: \Illuminate\Database\Eloquent\Collection} */
     private function filterOptions(): array
     {
         return [
             'plants' => Plant::orderBy('name')->get(['id', 'name']),
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'products' => Product::orderBy('name')->get(['id', 'name']),
+            'vehicles' => Vehicle::where('is_active', true)->orderBy('name')->get(['id', 'name', 'registration_no']),
         ];
     }
 
@@ -134,26 +136,40 @@ class ReportController extends Controller
         return SpreadsheetDownload::csv('product-life-report.csv', [
             'Date',
             'Plant',
-            'Product',
+            'Vehicle',
+            'Current Item',
+            'Replaced Item',
             'Category',
             'Item Type',
+            'Meter',
+            'Previous Reading',
+            'Current Reading',
+            'Life Used',
             'Qty',
             'Usage Count',
-            'Life hrs',
             'Recorded By',
             'Notes',
-        ], $entries->map(fn($e) => [
-                        $e->used_at->format('d M Y'),
-                        $e->plant->name,
-                        $e->product->name,
-                        $e->product->category?->name ?? '',
-                        $e->subCategory?->name ?? '',
-                        $e->quantity,
-                        $e->usage_count,
-                        $e->life_hours,
-                        $e->recorder->name ?? '',
-                        $e->notes ?? '',
-                    ]));
+        ], $entries->map(function ($e) {
+            $unit = $e->meterUnitLabel();
+
+            return [
+                $e->used_at->format('d M Y'),
+                $e->plant->name,
+                $e->vehicle?->displayLabel() ?? '',
+                $e->product->name,
+                $e->replacedProduct?->name ?? '',
+                $e->product->category?->name ?? '',
+                $e->subCategory?->name ?? '',
+                $e->meter_type === 'km' ? 'KM' : 'Hours',
+                $e->previous_reading !== null ? $e->previous_reading.' '.$unit : '',
+                $e->current_reading !== null ? $e->current_reading.' '.$unit : '',
+                $e->life_hours.' '.$unit,
+                $e->quantity,
+                $e->usage_count,
+                $e->recorder->name ?? '',
+                $e->notes ?? '',
+            ];
+        }));
     }
 
     private function exportCategoryPurchase(ReportFilters $filters): StreamedResponse
@@ -162,10 +178,16 @@ class ReportController extends Controller
 
         return SpreadsheetDownload::csv('category-purchase-report.csv', [
             'Category',
-            'Qty',
-            'Amount',
+            'Items Purchased',
+            'Products',
+            'Orders',
+            'Total Qty',
+            'Total Amount',
         ], $rows->map(fn($r) => [
                         $r->category_name,
+                        $r->top_items ?? '',
+                        $r->product_count,
+                        $r->order_count,
                         $r->total_qty,
                         $r->total_amount,
                     ]));
@@ -181,9 +203,10 @@ class ReportController extends Controller
             'Use Count',
             'Total Qty',
             'Avg Qty/Use',
-            'Total Life Hours',
-            'Avg Life Hours',
+            'Total Life Used',
+            'Avg Life Used',
             'Plants',
+            'Vehicles',
             'Last Used',
         ], $rows->map(fn($r) => [
                         $r->product_name,
@@ -194,6 +217,7 @@ class ReportController extends Controller
                         $r->total_life_hours,
                         $r->avg_life_hours,
                         $r->plant_count,
+                        $r->vehicle_count ?? 0,
                         $r->last_used_at ? \Carbon\Carbon::parse($r->last_used_at)->format('d M Y') : '',
                     ]));
     }
@@ -207,13 +231,15 @@ class ReportController extends Controller
             'Total Qty Used',
             'Usage Count',
             'Products',
-            'Total Life Hours',
-            'Avg Life Hours/Entry',
+            'Vehicles',
+            'Total Life Used',
+            'Avg Life Used/Entry',
         ], $rows->map(fn($r) => [
                         $r->category_name,
                         $r->total_qty,
                         $r->usage_count,
                         $r->product_count,
+                        $r->vehicle_count ?? 0,
                         $r->total_life_hours,
                         $r->avg_life_hours,
                     ]));

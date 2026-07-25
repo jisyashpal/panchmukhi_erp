@@ -10,14 +10,24 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    private function categoryTopItemsAggregate(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => 'REPLACE(GROUP_CONCAT(DISTINCT products.name), ",", ", ")',
+            'pgsql' => 'STRING_AGG(DISTINCT products.name, ", " ORDER BY products.name)',
+            default => 'GROUP_CONCAT(DISTINCT products.name ORDER BY products.name SEPARATOR ", ")',
+        };
+    }
+
     public function productLifeUsage(?ReportFilters $filters = null, bool $forExport = false): \Illuminate\Support\Collection
     {
         $filters ??= new ReportFilters;
 
         return ProductUseEntry::query()
-            ->with(['plant', 'product.category', 'subCategory', 'recorder'])
+            ->with(['plant', 'vehicle', 'product.category', 'replacedProduct', 'subCategory', 'recorder'])
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
             ->when($filters->productId, fn ($q) => $q->where('product_id', $filters->productId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->whereHas(
                 'product',
                 fn ($pq) => $pq->where('category_id', $filters->categoryId)
@@ -28,8 +38,13 @@ class ReportService
                 $term = '%'.$filters->search.'%';
                 $q->where(function ($q) use ($term) {
                     $q->whereHas('product', fn ($pq) => $pq->where('name', 'like', $term))
+                        ->orWhereHas('replacedProduct', fn ($pq) => $pq->where('name', 'like', $term))
                         ->orWhereHas('subCategory', fn ($sq) => $sq->where('name', 'like', $term))
-                        ->orWhereHas('plant', fn ($sq) => $sq->where('name', 'like', $term));
+                        ->orWhereHas('plant', fn ($sq) => $sq->where('name', 'like', $term))
+                        ->orWhereHas('vehicle', function ($vq) use ($term) {
+                            $vq->where('name', 'like', $term)
+                                ->orWhere('registration_no', 'like', $term);
+                        });
                 });
             })
             ->latest('used_at')
@@ -40,6 +55,8 @@ class ReportService
     public function categoryWisePurchaseAmount(?ReportFilters $filters = null): \Illuminate\Support\Collection
     {
         $filters ??= new ReportFilters;
+
+        $topItemsAggregate = $this->categoryTopItemsAggregate();
 
         return PurchaseItem::query()
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
@@ -58,7 +75,7 @@ class ReportService
                  SUM(purchase_items.quantity) as total_qty,
                  COUNT(DISTINCT purchases.id) as order_count,
                  COUNT(DISTINCT purchase_items.product_id) as product_count,
-                 GROUP_CONCAT(DISTINCT products.name ORDER BY products.name SEPARATOR ", ") as top_items'
+                  '.$topItemsAggregate.' as top_items'
             )
             ->orderByDesc('total_amount')
             ->get();
@@ -115,6 +132,7 @@ class ReportService
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->when($filters->plantId, fn ($q) => $q->where('product_use_entries.plant_id', $filters->plantId))
             ->when($filters->productId, fn ($q) => $q->where('product_use_entries.product_id', $filters->productId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('product_use_entries.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('product_use_entries.used_at', '>=', $filters->dateFrom))
             ->when($filters->dateTo, fn ($q) => $q->whereDate('product_use_entries.used_at', '<=', $filters->dateTo))
@@ -136,7 +154,8 @@ class ReportService
                  SUM(product_use_entries.life_hours) as total_life_hours,
                  ROUND(AVG(product_use_entries.life_hours), 1) as avg_life_hours,
                  MAX(product_use_entries.used_at) as last_used_at,
-                 COUNT(DISTINCT product_use_entries.plant_id) as plant_count'
+                 COUNT(DISTINCT product_use_entries.plant_id) as plant_count,
+                 COUNT(DISTINCT product_use_entries.vehicle_id) as vehicle_count'
             )
             ->having('use_count', '>', 1)
             ->orderByDesc('use_count')
@@ -152,6 +171,7 @@ class ReportService
             ->join('products', 'products.id', '=', 'product_use_entries.product_id')
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->when($filters->plantId, fn ($q) => $q->where('product_use_entries.plant_id', $filters->plantId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('product_use_entries.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('product_use_entries.used_at', '>=', $filters->dateFrom))
             ->when($filters->dateTo, fn ($q) => $q->whereDate('product_use_entries.used_at', '<=', $filters->dateTo))
@@ -164,7 +184,8 @@ class ReportService
                  SUM(product_use_entries.life_hours) as total_life_hours,
                  COUNT(product_use_entries.id) as usage_count,
                  ROUND(AVG(product_use_entries.life_hours), 1) as avg_life_hours,
-                 COUNT(DISTINCT product_use_entries.product_id) as product_count'
+                 COUNT(DISTINCT product_use_entries.product_id) as product_count,
+                 COUNT(DISTINCT product_use_entries.vehicle_id) as vehicle_count'
             )
             ->orderByDesc('total_qty')
             ->get();

@@ -2,8 +2,13 @@
 @section('title', 'Add Products')
 @section('content')
     <x-admin-page-header title="Add Products" subtitle="Add new products to the catalog">
-        <a href="{{ route('plant.products.index') }}" class="btn btn-admin-outline btn-sm"><i
-                class="bi bi-arrow-left me-1"></i>Back</a>
+        @if(request('product_request_id'))
+            <a href="{{ route('plant.product-requests.show', request('product_request_id')) }}" class="btn btn-admin-outline btn-sm"><i
+                    class="bi bi-arrow-left me-1"></i>Back to Request</a>
+        @else
+            <a href="{{ route('plant.products.index') }}" class="btn btn-admin-outline btn-sm"><i
+                    class="bi bi-arrow-left me-1"></i>Back</a>
+        @endif
     </x-admin-page-header>
 
     <div class="admin-card">
@@ -18,8 +23,20 @@
                 </div>
             @endif
 
+            @if(request('product_request_item_id'))
+                <div class="alert alert-info py-2 small mb-3">
+                    Creating a catalog product for an unlisted request item. After save it will be linked automatically.
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('plant.products.store') }}">
                 @csrf
+                @if(request('product_request_id'))
+                    <input type="hidden" name="product_request_id" value="{{ request('product_request_id') }}">
+                @endif
+                @if(request('product_request_item_id'))
+                    <input type="hidden" name="product_request_item_id" value="{{ request('product_request_item_id') }}">
+                @endif
                 <div id="products-container" class="mb-3">
                     <!-- Rows injected via javascript -->
                 </div>
@@ -197,6 +214,7 @@
                     const sizeInput = row.querySelector('.product-size');
                     const categorySelect = row.querySelector('.product-category');
                     const subCategorySelect = row.querySelector('.product-subcategory');
+                    const brandSelect = row.querySelector('.product-brand');
                     const skuInput = row.querySelector('.product-sku');
 
                     if (!nameInput || !sizeInput || !categorySelect || !subCategorySelect || !skuInput) return;
@@ -205,15 +223,19 @@
                     const categoryName = (categoryOption && categoryOption.value) ? categoryOption.text : '';
                     const subCategoryOption = subCategorySelect.options[subCategorySelect.selectedIndex];
                     const subCategoryName = (subCategoryOption && subCategoryOption.value) ? subCategoryOption.text : '';
+                    const brandOption = brandSelect ? brandSelect.options[brandSelect.selectedIndex] : null;
+                    const brandName = (brandOption && brandOption.value) ? brandOption.text : '';
 
                     const cleanCategory = categoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
                     const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
                     const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
                     const sizePart = cleanSize ? cleanSize.substring(0, 3) : '';
+                    const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
                     const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
 
                     let sku = catPart;
@@ -222,6 +244,9 @@
                     }
                     if (sizePart) {
                         sku += '_' + sizePart;
+                    }
+                    if (brandPart) {
+                        sku += '_' + brandPart;
                     }
                     if (namePart) {
                         sku += '_' + namePart;
@@ -233,6 +258,7 @@
                 function initializeRow(row) {
                     const categorySelect = row.querySelector('.product-category');
                     const subCategorySelect = row.querySelector('.product-subcategory');
+                    const brandSelect = row.querySelector('.product-brand');
                     const nameInput = row.querySelector('.product-name');
                     const sizeInput = row.querySelector('.product-size');
 
@@ -246,6 +272,12 @@
 
                     if (subCategorySelect) {
                         subCategorySelect.addEventListener('change', function () {
+                            generateRowSku(row);
+                        });
+                    }
+
+                    if (brandSelect) {
+                        brandSelect.addEventListener('change', function () {
                             generateRowSku(row);
                         });
                     }
@@ -292,6 +324,36 @@
 
                 // Add first row on load
                 addRow();
+
+                // Prefill from product-request "Add Product" link
+                const prefill = {
+                    name: @json(request('name')),
+                    size: @json(request('size')),
+                    category_id: @json(request('category_id')),
+                    sub_category_id: @json(request('sub_category_id')),
+                };
+                const firstRow = container.querySelector('.product-row-group');
+                if (firstRow) {
+                    const nameInput = firstRow.querySelector('.product-name');
+                    const sizeInput = firstRow.querySelector('.product-size');
+                    const categorySelect = firstRow.querySelector('.product-category');
+                    const subCategorySelect = firstRow.querySelector('.product-subcategory');
+
+                    if (prefill.name && nameInput) {
+                        nameInput.value = prefill.name;
+                    }
+                    if (prefill.size && sizeInput) {
+                        sizeInput.value = prefill.size;
+                    }
+                    if (prefill.category_id && categorySelect) {
+                        categorySelect.value = String(prefill.category_id);
+                        filterSubCategories(firstRow);
+                    }
+                    if (prefill.sub_category_id && subCategorySelect) {
+                        subCategorySelect.value = String(prefill.sub_category_id);
+                    }
+                    generateRowSku(firstRow);
+                }
             });
         </script>
     @endpush

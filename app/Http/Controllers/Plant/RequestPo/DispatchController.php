@@ -31,7 +31,7 @@ class DispatchController extends Controller
         return view('plant.request-po.dispatch.index', compact('purchases', 'isPurchaser'));
     }
 
-    public function dispatch(Purchase $purchase): RedirectResponse
+    public function dispatch(Request $request, Purchase $purchase): RedirectResponse
     {
         $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
         $this->authorizePlantAccess($purchase);
@@ -40,8 +40,12 @@ class DispatchController extends Controller
             return back()->with('error', 'Order already dispatched.');
         }
 
+        $data = $request->validate([
+            'dispatched_at' => ['required', 'date'],
+        ]);
+
         $purchase->update([
-            'dispatched_at' => now(),
+            'dispatched_at' => $data['dispatched_at'],
             'dispatched_by' => auth()->id(),
         ]);
 

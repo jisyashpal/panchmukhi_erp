@@ -20,7 +20,7 @@
                     <th>Supplier</th>
                     <th>Status</th>
                     <th>Dispatched</th>
-                    <th></th>
+                    <th class="text-end"> Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,8 +35,13 @@
                     <td>{{ $p->dispatched_at?->format('d M Y') ?? '—' }}</td>
                     <td class="text-end">
                         @if(!$p->dispatched_at && $p->status->value === 'ordered')
-                        <form method="POST" action="{{ route('plant.dispatch.store', $p) }}" class="d-inline">@csrf
-                            <button class="btn btn-success btn-sm">Dispatch</button>
+                        <form method="POST" action="{{ route('plant.dispatch.store', $p) }}"
+                            class="d-inline-flex align-items-center gap-2 justify-content-end flex-wrap">
+                            @csrf
+                            <input type="date" name="dispatched_at" value="{{ old('dispatched_at', now()->format('Y-m-d')) }}"
+                                class="form-control form-control-sm" style="width: auto;" required
+                                title="Dispatch date">
+                            <button type="submit" class="btn btn-success btn-sm">Dispatch</button>
                         </form>
                         @endif
                     </td>
