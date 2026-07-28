@@ -85,7 +85,7 @@ trait ManagesProducts
 
             $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
             $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
-            $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+            $sizePart = $cleanSize !== '' ? strtoupper($cleanSize) : '';
             $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
             $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 
@@ -332,7 +332,7 @@ trait ManagesProducts
 
                 $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
                 $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
-                $sizePart = $cleanSize !== '' ? strtoupper(substr($cleanSize, 0, 3)) : '';
+                $sizePart = $cleanSize !== '' ? strtoupper($cleanSize) : '';    
                 $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
                 $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
 

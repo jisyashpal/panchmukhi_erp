@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
         const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
-        const sizePart = cleanSize ? cleanSize.substring(0, 3) : '';
+        const sizePart = cleanSize || '';   
         const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
         const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
 

@@ -148,7 +148,7 @@
                     </div>
                     <select name="products[__INDEX__][unit_id]" class="form-select form-select-sm product-unit" required>
                         @foreach ($units as $u)
-                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->abbreviation }})</option>
+                            <option value="{{ $u->id }}" @selected(strtolower((string) $u->abbreviation) === 'nos')>{{ $u->name }} ({{ $u->abbreviation }})</option>
                         @endforeach
                     </select>
                 </div>
@@ -234,7 +234,7 @@
 
                     const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
                     const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
-                    const sizePart = cleanSize ? cleanSize.substring(0, 3) : '';
+                    const sizePart = cleanSize || '';
                     const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
                     const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
 
