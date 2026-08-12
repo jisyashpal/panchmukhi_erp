@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Purchases')
 @section('content')
 <x-admin-page-header title="Purchases" subtitle="Track purchase orders — status, supplier and amounts" />

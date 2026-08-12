@@ -22,10 +22,10 @@ class PlantPortalTest extends TestCase
         ]);
     }
 
-    protected function purchaser(Plant $plant): User
+    protected function purchaser(?Plant $plant = null): User
     {
         return User::factory()->create([
-            'plant_id' => $plant->id,
+            'plant_id' => null,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
     }
@@ -698,5 +698,175 @@ class PlantPortalTest extends TestCase
         $this->assertEquals($initialCount + 1, $purchaser->fresh()->notifications()->count());
         $notification = $purchaser->fresh()->notifications()->first();
         $this->assertEquals('product_request_new', $notification->data['type']);
+    }
+
+    public function test_purchaser_can_filter_product_requests_by_plant(): void
+    {
+        $plantA = Plant::factory()->create(['name' => 'Piska', 'code' => 'PISKA']);
+        $plantB = Plant::factory()->create(['name' => 'Other Site', 'code' => 'OTHER']);
+        $purchaser = $this->purchaser();
+        $product = Product::factory()->create();
+
+        $requestA = \App\Models\ProductRequest::create([
+            'plant_id' => $plantA->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'A',
+            'status' => RequestStatus::Submitted,
+        ]);
+        \App\Models\ProductRequestItem::create([
+            'product_request_id' => $requestA->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $requestB = \App\Models\ProductRequest::create([
+            'plant_id' => $plantB->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'B',
+            'status' => RequestStatus::Submitted,
+        ]);
+        \App\Models\ProductRequestItem::create([
+            'product_request_id' => $requestB->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.index', ['plant_id' => $plantA->id]))
+            ->assertOk()
+            ->assertSee('Piska')
+            ->assertSee('#'.$requestA->id)
+            ->assertDontSee('#'.$requestB->id);
+    }
+
+    public function test_purchaser_can_bulk_convert_same_plant_requests_for_quotation(): void
+    {
+        $plant = Plant::factory()->create(['name' => 'Piska', 'code' => 'PISKA']);
+        $purchaser = $this->purchaser();
+        $product = Product::factory()->create();
+
+        $requests = collect([1, 2])->map(function () use ($plant, $purchaser, $product) {
+            $pr = \App\Models\ProductRequest::create([
+                'plant_id' => $plant->id,
+                'requested_by' => $purchaser->id,
+                'requester_name' => 'Site',
+                'status' => RequestStatus::Submitted,
+            ]);
+            \App\Models\ProductRequestItem::create([
+                'product_request_id' => $pr->id,
+                'product_id' => $product->id,
+                'quantity' => 2,
+            ]);
+
+            return $pr;
+        });
+
+        $response = $this->actingAs($purchaser)
+            ->post(route('plant.product-requests.bulk-convert'), [
+                'product_request_ids' => $requests->pluck('id')->all(),
+            ]);
+
+        $purchaseRequest = \App\Models\PurchaseRequest::first();
+        $this->assertNotNull($purchaseRequest);
+        $response->assertRedirect(route('plant.purchases.create', [
+            'purchase_request_id' => $purchaseRequest->id,
+        ]));
+
+        $this->assertEquals(2, $purchaseRequest->items()->count());
+        $this->assertEquals(
+            [RequestStatus::Completed->value, RequestStatus::Completed->value],
+            $requests->map(fn ($r) => $r->fresh()->status->value)->all()
+        );
+    }
+
+    public function test_bulk_convert_rejects_requests_from_different_plants(): void
+    {
+        $plantA = Plant::factory()->create();
+        $plantB = Plant::factory()->create();
+        $purchaser = $this->purchaser();
+        $product = Product::factory()->create();
+
+        $requestA = \App\Models\ProductRequest::create([
+            'plant_id' => $plantA->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'A',
+            'status' => RequestStatus::Submitted,
+        ]);
+        \App\Models\ProductRequestItem::create([
+            'product_request_id' => $requestA->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $requestB = \App\Models\ProductRequest::create([
+            'plant_id' => $plantB->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'B',
+            'status' => RequestStatus::Submitted,
+        ]);
+        \App\Models\ProductRequestItem::create([
+            'product_request_id' => $requestB->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->actingAs($purchaser)
+            ->from(route('plant.product-requests.index'))
+            ->post(route('plant.product-requests.bulk-convert'), [
+                'product_request_ids' => [$requestA->id, $requestB->id],
+            ])
+            ->assertRedirect(route('plant.product-requests.index'))
+            ->assertSessionHas('error');
+    }
+
+    public function test_quotation_number_is_plant_wise_like_piska_01(): void
+    {
+        $plant = Plant::factory()->create(['name' => 'Piska', 'code' => 'PISKA']);
+        $purchaser = $this->purchaser();
+        $supplier = \App\Models\Supplier::factory()->create();
+        $product = Product::factory()->create();
+
+        $this->actingAs($purchaser)
+            ->post(route('plant.purchases.store'), [
+                'plant_id' => $plant->id,
+                'is_interstate' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'supplier_id' => $supplier->id,
+                        'quantity' => 1,
+                        'unit_price' => 100,
+                        'gst_rate' => 18,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('purchases', [
+            'plant_id' => $plant->id,
+            'reference_no' => 'piska-01',
+            'supplier_invoice_no' => 'piska-01',
+        ]);
+
+        $this->actingAs($purchaser)
+            ->post(route('plant.purchases.store'), [
+                'plant_id' => $plant->id,
+                'is_interstate' => 0,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'supplier_id' => $supplier->id,
+                        'quantity' => 1,
+                        'unit_price' => 50,
+                        'gst_rate' => 0,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('purchases', [
+            'plant_id' => $plant->id,
+            'reference_no' => 'piska-02',
+        ]);
     }
 }

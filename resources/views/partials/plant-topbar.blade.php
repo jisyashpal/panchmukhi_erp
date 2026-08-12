@@ -10,12 +10,6 @@
             <i class="bi bi-list fs-5"></i>
         </button>
 
-        <div class="admin-topbar-brand d-none d-md-flex align-items-center gap-2 flex-shrink-0">
-            <a href="{{ route('plant.dashboard') }}" class="admin-topbar-logo" title="Dashboard">
-                <i class="bi bi-building"></i>
-            </a>
-        </div>
-
         <div class="admin-topbar-heading min-w-0">
             <nav class="admin-topbar-breadcrumb" aria-label="Breadcrumb">
                 <a href="{{ route('plant.dashboard') }}">Plant</a>
@@ -23,7 +17,11 @@
                 <span>{{ $pageTitle }}</span>
             </nav>
             <h1 class="admin-topbar-title text-truncate">{{ $pageTitle }}</h1>
-            @if($user->plant)
+            @if($user->role?->slug === 'purchaser')
+                <small class="text-muted d-block text-truncate" style="font-size: .75rem;">
+                    All Plants
+                </small>
+            @elseif($user->plant)
                 <small class="text-muted d-block text-truncate" style="font-size: .75rem;">
                     {{ $user->plant->name }} · {{ $user->plant->code }}
                 </small>
@@ -52,7 +50,11 @@
                 <li class="px-3 py-2 border-bottom">
                     <div class="small fw-semibold">{{ $user->name }}</div>
                     <div class="text-muted text-truncate" style="font-size: .75rem;">{{ $user->email }}</div>
-                    @if($user->plant)
+                    @if($user->role?->slug === 'purchaser')
+                        <div class="text-muted mt-1" style="font-size: .7rem;">
+                            <i class="bi bi-buildings me-1"></i>All Plants
+                        </div>
+                    @elseif($user->plant)
                         <div class="text-muted mt-1" style="font-size: .7rem;">
                             <i class="bi bi-geo-alt me-1"></i>{{ $user->plant->name }}
                         </div>

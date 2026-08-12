@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Dashboard')
 @section('content')
 @php
@@ -37,36 +37,6 @@
         <div class="stat-icon stat-icon-violet"><i class="bi bi-currency-rupee"></i></div>
         <div class="stat-label">Total Purchase Amount</div>
         <div class="stat-value">₹{{ number_format($totalPurchaseAmount, 0) }}</div>
-    </a>
-</div>
-
-{{-- Row 2: Stock In / Out Stats --}}
-<div class="admin-stat-grid mt-3">
-    <a href="{{ route('ho.reports.category-stock-in-out', $plantQuery) }}" class="admin-stat-card stat-accent-emerald">
-        <div class="stat-icon stat-icon-emerald"><i class="bi bi-box-arrow-in-down"></i></div>
-        <div class="stat-label">Stock In — Qty</div>
-        <div class="stat-value">{{ number_format($stockInQty, 0) }}</div>
-        <div class="stat-sub text-muted" style="font-size:.78rem;">{{ $stockInCount }} movements</div>
-    </a>
-    <a href="{{ route('ho.reports.category-stock-in-out', $plantQuery) }}" class="admin-stat-card stat-accent-emerald">
-        <div class="stat-icon stat-icon-emerald"><i class="bi bi-currency-rupee"></i></div>
-        <div class="stat-label">Stock In — Amount</div>
-        <div class="stat-value">₹{{ number_format($stockInAmount, 0) }}</div>
-        <div class="stat-sub text-muted" style="font-size:.78rem;">from PO receipts</div>
-    </a>
-    <a href="{{ route('ho.stocks.stock-out', $plantQuery) }}" class="admin-stat-card stat-accent-amber">
-        <div class="stat-icon stat-icon-amber"><i class="bi bi-box-arrow-up"></i></div>
-        <div class="stat-label">Stock Out — Qty</div>
-        <div class="stat-value">{{ number_format($stockOutQty, 0) }}</div>
-        <div class="stat-sub text-muted" style="font-size:.78rem;">{{ $stockOutCount }} movements</div>
-    </a>
-    <a href="{{ route('ho.reports.category-stock-in-out', $plantQuery) }}" class="admin-stat-card stat-accent-blue">
-        <div class="stat-icon stat-icon-blue"><i class="bi bi-graph-up-arrow"></i></div>
-        <div class="stat-label">Net Stock Movement</div>
-        <div class="stat-value {{ $stockInQty - $stockOutQty >= 0 ? 'text-success' : 'text-danger' }}">
-            {{ number_format($stockInQty - $stockOutQty, 0) }}
-        </div>
-        <div class="stat-sub text-muted" style="font-size:.78rem;">In − Out</div>
     </a>
 </div>
 

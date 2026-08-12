@@ -22,7 +22,7 @@ use App\Http\Controllers\Ho\Reports\ReportController;
 use App\Support\PermissionSlug;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS])
+Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_portal_layout'])
     ->prefix('ho')
     ->name('ho.')
     ->group(function () {
@@ -64,6 +64,7 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS])
 
             Route::middleware('permission:'.PermissionSlug::HO_VIEW_PURCHASES)->group(function () {
                 Route::get('purchase-list', [PurchaseListController::class, 'index'])->name('purchase-list.index');
+                Route::post('purchase-list/{supplier}/payments', [PurchaseListController::class, 'storePayment'])->name('purchase-list.payments.store');
                 Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
                 Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
                 Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');

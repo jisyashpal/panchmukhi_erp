@@ -1,13 +1,13 @@
 <aside class="sidebar-admin bg-dark text-white d-none d-lg-flex flex-column flex-shrink-0">
     <div class="sidebar-brand px-3 py-3 border-bottom border-secondary">
         <a href="{{ route('plant.dashboard') }}" class="text-white text-decoration-none d-flex align-items-center gap-2">
-            <span class="sidebar-brand-icon rounded bg-success d-flex align-items-center justify-content-center">
-                <i class="bi bi-building"></i>
+            <span class="sidebar-brand-icon rounded d-flex align-items-center justify-content-center">
+                <img src="{{ asset('img/PMCMPL.png') }}" alt="Panchmukhi" class="img-fluid rounded flex-shrink-0">
             </span>
-            <span>
+            <!-- <span>
                 <strong class="d-block lh-sm">Panchmukhi</strong>
-                <small class="text-white-50">{{ auth()->user()->plant?->name ?? 'Plant Portal' }}</small>
-            </span>
+                <small class="text-white-50">{{ auth()->user()->role?->slug === 'purchaser' ? 'All Plants' : (auth()->user()->plant?->name ?? 'Plant Portal') }}</small>
+            </span> -->
         </a>
     </div>
 

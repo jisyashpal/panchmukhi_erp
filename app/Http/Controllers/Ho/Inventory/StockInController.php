@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Ho\Inventory;
 
+use App\Enums\PurchaseItemDispatchStatus;
 use App\Enums\PurchaseStatus;
-use App\Enums\StockReferenceType;
+use App\Http\Controllers\Concerns\CreatesPurchaseOrders;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -15,10 +16,13 @@ use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StockInController extends Controller
 {
+    use CreatesPurchaseOrders;
+
     public function __construct(
         protected StockService $stockService,
         protected PurchasePricingService $pricing
@@ -27,12 +31,17 @@ class StockInController extends Controller
     public function create(Request $request): View|RedirectResponse
     {
         $selectedPurchase = $request->filled('purchase_id')
-            ? Purchase::with(['items.product', 'plant', 'supplier'])->find($request->integer('purchase_id'))
+            ? Purchase::with(['items.product', 'items.originalProduct', 'plant', 'supplier'])->find($request->integer('purchase_id'))
             : null;
 
         if ($selectedPurchase?->status === PurchaseStatus::Delivered) {
             return redirect()->route('ho.purchases.show', $selectedPurchase)
                 ->with('info', 'This purchase order is already fully received.');
+        }
+
+        if ($selectedPurchase && ! $selectedPurchase->isDispatched()) {
+            return redirect()->route('ho.stocks.stock-in')
+                ->with('error', 'Purchaser has not dispatched PO '.$selectedPurchase->reference_no.' yet. Stock in is blocked until product-wise dispatch is submitted.');
         }
 
         return view('ho.inventory.stocks.stock-in', [
@@ -41,6 +50,7 @@ class StockInController extends Controller
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'purchases' => Purchase::with(['plant', 'supplier', 'items'])
                 ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
+                ->whereNotNull('dispatched_at')
                 ->latest()
                 ->limit(50)
                 ->get(),
@@ -196,39 +206,108 @@ class StockInController extends Controller
             return $this->storeFromPurchase($request);
         }
 
+        return $this->storeManual($request);
+    }
+
+    protected function storeManual(Request $request): RedirectResponse
+    {
         $data = $request->validate([
             'plant_id' => ['required', 'exists:plants,id'],
-            'supplier_id' => ['nullable', 'exists:suppliers,id'],
-            'product_id' => ['required', 'exists:products,id'],
-            'quantity' => ['required', 'numeric', 'min:0.01'],
-            'photo_confirmed' => ['nullable', 'boolean'],
-            'reason' => ['nullable', 'string', 'max:1000'],
+            'supplier_id' => ['required', 'exists:suppliers,id'],
+            'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
+            'supplier_invoice_date' => ['nullable', 'date'],
+            'is_interstate' => ['boolean'],
             'notes' => ['nullable', 'string'],
+            'photo_confirmed' => ['required', 'boolean'],
+            'reason' => [
+                Rule::requiredIf(! $request->boolean('photo_confirmed')),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
             'photo' => ['nullable', 'image', 'max:5120'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        $meta = $this->buildStockMeta($request, $data, photoConfirmed: $request->boolean('photo_confirmed'));
+        $seenProductIds = [];
+        foreach ($data['items'] as $item) {
+            $productId = (int) $item['product_id'];
+            if (in_array($productId, $seenProductIds, true)) {
+                return back()->with('error', 'Duplicate product on purchase order.')->withInput();
+            }
+            $seenProductIds[] = $productId;
+        }
 
-        $this->stockService->recordIn(
-            (int) $data['plant_id'],
-            (int) $data['product_id'],
-            (float) $data['quantity'],
-            (int) auth()->id(),
-            StockReferenceType::StockIn,
-            null,
-            $meta
-        );
+        $items = collect($data['items'])->map(fn (array $item) => [
+            'product_id' => (int) $item['product_id'],
+            'quantity' => (float) $item['quantity'],
+            'unit_price' => (float) $item['unit_price'],
+            'gst_rate' => (float) ($item['gst_rate'] ?? 18),
+        ]);
 
-        return redirect()->route('ho.stocks.index', ['plant_id' => $data['plant_id']])
-            ->with('success', 'Stock in recorded.');
+        $purchase = DB::transaction(function () use ($request, $data, $items) {
+            $purchase = $this->createPurchaseForSupplier(
+                $this->pricing,
+                (int) $data['plant_id'],
+                (int) $data['supplier_id'],
+                $items,
+                $request->boolean('is_interstate'),
+                null,
+                null,
+                $data['supplier_invoice_no'] ?? null,
+                $data['supplier_invoice_date'] ?? null,
+                $data['notes'] ?? null,
+                false,
+            );
+
+            $meta = $this->buildStockMeta($request, $data, $purchase);
+            $lines = $items->map(fn (array $item) => [
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity'],
+            ])->all();
+
+            $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta);
+
+            $purchase->load('items');
+            foreach ($purchase->items as $item) {
+                $item->update([
+                    'dispatch_status' => PurchaseItemDispatchStatus::Dispatched,
+                    'dispatched_at' => now()->toDateString(),
+                    'dispatched_quantity' => $item->quantity,
+                ]);
+            }
+
+            $purchase->update([
+                'status' => PurchaseStatus::Delivered,
+                'dispatched_at' => now(),
+                'dispatched_by' => auth()->id(),
+                'received_by' => auth()->id(),
+                'received_at' => now(),
+                'delivered_at' => now(),
+            ]);
+
+            return $purchase->fresh(['items.product', 'plant', 'supplier']);
+        });
+
+        return redirect()->route('ho.purchases.show', $purchase)
+            ->with('success', 'PO '.$purchase->reference_no.' created and stock in recorded.');
     }
 
     protected function storeFromPurchase(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'purchase_id' => ['required', 'exists:purchases,id'],
-            'photo_confirmed' => ['accepted'],
-            'reason' => ['nullable', 'string', 'max:1000'],
+            'photo_confirmed' => ['required', 'boolean'],
+            'reason' => [
+                Rule::requiredIf(! $request->boolean('photo_confirmed')),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
             'notes' => ['nullable', 'string'],
             'photo' => ['nullable', 'image', 'max:5120'],
             'lines' => ['required', 'array', 'min:1'],
@@ -240,6 +319,10 @@ class StockInController extends Controller
 
         if ($purchase->status === PurchaseStatus::Delivered) {
             return back()->with('error', 'This purchase order is already fully received.');
+        }
+
+        if (! $purchase->isDispatched()) {
+            return back()->with('error', 'Purchaser has not dispatched this PO yet. Stock in is blocked until dispatch is submitted.');
         }
 
         $lines = collect($data['lines'])
@@ -257,9 +340,13 @@ class StockInController extends Controller
                 return back()->with('error', 'Invalid product for this purchase order.');
             }
 
-            $pending = (float) $item->quantity - (float) $item->received_quantity;
+            if (! $item->isReceivableForStockIn()) {
+                return back()->with('error', ($item->product->name ?? 'Item').' was marked not provided by supplier and cannot be stocked in.');
+            }
+
+            $pending = $item->receivableQuantity();
             if ((float) $line['quantity'] > $pending + 0.0001) {
-                return back()->with('error', 'Receive quantity cannot exceed pending quantity for '.$item->product->name.'.');
+                return back()->with('error', 'Receive quantity cannot exceed dispatched pending quantity for '.$item->product->name.'.');
             }
         }
 
@@ -268,9 +355,15 @@ class StockInController extends Controller
         $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta);
 
         $purchase->refresh()->load('items');
-        $fullyReceived = $purchase->items->every(
-            fn ($item) => (float) $item->received_quantity >= (float) $item->quantity
-        );
+        $fullyReceived = $purchase->items->every(function (PurchaseItem $item) {
+            if ($item->dispatch_status === PurchaseItemDispatchStatus::NotProvided) {
+                return true;
+            }
+
+            $target = (float) ($item->dispatched_quantity ?? $item->quantity);
+
+            return (float) $item->received_quantity >= $target - 0.0001;
+        });
 
         $purchase->update([
             'status' => $fullyReceived ? PurchaseStatus::Delivered : PurchaseStatus::Partial,
@@ -281,14 +374,14 @@ class StockInController extends Controller
 
         return redirect()->route('ho.purchases.show', $purchase)
             ->with('success', $fullyReceived
-                ? 'All items received and stock in recorded.'
+                ? 'All receivable items stocked in.'
                 : 'Partial stock in recorded for this purchase order.');
     }
 
-    protected function buildStockMeta(Request $request, array $data, ?Purchase $purchase = null, bool $photoConfirmed = true): array
+    protected function buildStockMeta(Request $request, array $data, ?Purchase $purchase = null): array
     {
         $meta = [
-            'photo_confirmed' => $photoConfirmed,
+            'photo_confirmed' => $request->boolean('photo_confirmed'),
             'reason' => $data['reason'] ?? null,
             'notes' => $data['notes'] ?? ($purchase
                 ? 'Stock in from PO '.$purchase->reference_no

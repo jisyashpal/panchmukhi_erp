@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Concerns;
 use App\Enums\PurchaseStatus;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Services\PlantDocumentNumberService;
 use App\Services\PurchasePricingService;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 trait CreatesPurchaseOrders
 {
@@ -42,7 +42,10 @@ trait CreatesPurchaseOrders
         }
 
         $totals = $pricing->sumLines($lineCalcs);
-        $referenceNo = $this->resolvePurchaseReferenceNo($referencePrefix, $supplierId, $multiSupplier);
+        $referenceNo = $this->resolvePurchaseReferenceNo($plantId, $referencePrefix, $multiSupplier);
+
+        // Quotation no. follows the same plant-wise series when left blank.
+        $quotationNo = filled($supplierInvoiceNo) ? $supplierInvoiceNo : $referenceNo;
 
         $purchase = Purchase::create([
             'plant_id' => $plantId,
@@ -51,7 +54,7 @@ trait CreatesPurchaseOrders
             'reference_no' => $referenceNo,
             'status' => PurchaseStatus::Ordered,
             'is_interstate' => $isInterstate,
-            'supplier_invoice_no' => $supplierInvoiceNo,
+            'supplier_invoice_no' => $quotationNo,
             'supplier_invoice_date' => $supplierInvoiceDate,
             'notes' => $notes,
             'subtotal' => $totals['subtotal'],
@@ -81,20 +84,16 @@ trait CreatesPurchaseOrders
         return $purchase;
     }
 
-    protected function resolvePurchaseReferenceNo(?string $prefix, int $supplierId, bool $multiSupplier): string
+    protected function resolvePurchaseReferenceNo(int $plantId, ?string $prefix, bool $multiSupplier): string
     {
-        if ($prefix && ! $multiSupplier) {
-            $referenceNo = $prefix;
-        } elseif ($prefix && $multiSupplier) {
-            $referenceNo = $prefix.'-S'.$supplierId;
-        } else {
-            $referenceNo = 'PO-'.Str::upper(Str::random(8));
+        $numbers = app(PlantDocumentNumberService::class);
+
+        if ($prefix && ! $multiSupplier && ! Purchase::where('reference_no', $prefix)->exists()) {
+            return $prefix;
         }
 
-        while (Purchase::where('reference_no', $referenceNo)->exists()) {
-            $referenceNo = 'PO-'.Str::upper(Str::random(8));
-        }
-
-        return $referenceNo;
+        // Always allocate the next plant-wise number (piska-01, piska-02, …).
+        // Multi-supplier splits each get their own sequential number.
+        return $numbers->nextReferenceNo($plantId);
     }
 }

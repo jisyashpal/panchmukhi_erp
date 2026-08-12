@@ -38,12 +38,13 @@ body.auth-page {
 }
 
 .auth-logo-wrap {
-    width: 52px;
+    width: 100%;
     height: 52px;
     flex-shrink: 0;
-    background: #fff;
-    padding: 6px;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+    /* background: #fff; */
+    padding: 2px;
+    /* box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); */
+    filter: drop-shadow(1px 1px 0.5px rgba(0, 0, 0, 1));
 }
 
 .auth-logo-img {
@@ -65,15 +66,22 @@ body.auth-page {
 .auth-mobile-header {
     flex-shrink: 0;
     padding-top: max(1rem, env(safe-area-inset-top));
-    padding-bottom: 1rem;
+    padding-bottom: 0.5rem;
 }
 
-/* Form column */
+/* Form column — map background */
 .auth-form-column {
+    /* position: relative; */
     min-height: 100vh;
     min-height: 100dvh;
-    background: #f8fafc;
+    /* background-color: #000; */
+    background-image: url('../img/map.png');
+    /* background-repeat: no-repeat; */
+    background-position: center center;
+    /* background-size: cover; */
+    z-index: 0;
 }
+
 
 .auth-form-inner {
     width: 100%;
@@ -84,12 +92,12 @@ body.auth-page {
 
 .auth-card {
     border-radius: 1rem;
-    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.5);
     border: 1px solid rgba(15, 23, 42, 0.06) !important;
 }
 
 .auth-card .card-body {
-    padding: clamp(1.25rem, 4vw, 2rem);
+    padding: clamp(1.25rem, 4vw, 1.5rem);
 }
 
 .auth-form-title {
@@ -102,9 +110,10 @@ body.auth-page {
 }
 
 .auth-form-logo .auth-logo-img {
-    max-width: 100px;
+    max-width: 50%;
     width: 100%;
     height: auto;
+    filter: drop-shadow(1px 1px 0.5px rgba(0, 0, 0, 1));
 }
 
 .auth-link {
@@ -299,7 +308,7 @@ body.auth-page {
 /* Phones */
 @media (max-width: 575.98px) {
     .auth-mobile-header .auth-logo-wrap {
-        width: 44px;
+        width: 100%;
         height: 44px;
     }
 

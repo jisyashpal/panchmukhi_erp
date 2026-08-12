@@ -7,12 +7,6 @@
             <i class="bi bi-list fs-5"></i>
         </button>
 
-        <div class="admin-topbar-brand d-none d-md-flex align-items-center gap-2 flex-shrink-0">
-            <a href="{{ route('ho.dashboard') }}" class="admin-topbar-logo" title="Dashboard">
-                <i class="bi bi-database-gear"></i>
-            </a>
-        </div>
-
         <div class="admin-topbar-heading min-w-0">
             <nav class="admin-topbar-breadcrumb" aria-label="Breadcrumb">
                 <a href="{{ route('ho.dashboard') }}">Home</a>

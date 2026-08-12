@@ -42,7 +42,7 @@ class PurchaseGstCalculationTest extends TestCase
     {
         $plant = Plant::factory()->create();
         $purchaser = User::factory()->create([
-            'plant_id' => $plant->id,
+            'plant_id' => null,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
         $supplier = Supplier::factory()->create();
@@ -83,7 +83,7 @@ class PurchaseGstCalculationTest extends TestCase
     {
         $plant = Plant::factory()->create();
         $purchaser = User::factory()->create([
-            'plant_id' => $plant->id,
+            'plant_id' => null,
             'role_id' => Role::where('slug', Role::SLUG_PURCHASER)->value('id'),
         ]);
         $supplierA = Supplier::factory()->create(['name' => 'Supplier A']);

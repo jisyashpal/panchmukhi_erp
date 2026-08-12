@@ -6,12 +6,6 @@
         <button class="admin-menu-btn d-lg-none flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminSidebarOffcanvas" aria-label="Open menu">
             <i class="bi bi-list fs-5"></i>
         </button>
-    
-        <div class="admin-topbar-brand d-none d-md-flex align-items-center gap-2 flex-shrink-0">
-            <a href="{{ route('admin.dashboard') }}" class="admin-topbar-logo" title="Dashboard">
-                <i class="bi bi-grid-1x2-fill"></i>
-            </a>
-        </div>
 
         <div class="admin-topbar-heading min-w-0">
             <nav class="admin-topbar-breadcrumb" aria-label="Breadcrumb">
@@ -31,6 +25,16 @@
     </div>
 
     <div class="admin-topbar-end">
+        @isset($financialYear)
+            <div class="d-none d-lg-flex align-items-center gap-2 me-2">
+                <x-financial-year-select
+                    compact
+                    :form-action="route('ho.financial-year.set')"
+                    style="min-width: 8rem;"
+                />
+            </div>
+        @endisset
+
         <span class="admin-topbar-date d-none d-xl-inline-flex">
             <i class="bi bi-calendar3"></i>
             {{ now()->format('l, d M Y') }}

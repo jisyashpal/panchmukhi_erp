@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Edit Unit')
 @section('content')
 <x-admin-page-header title="Edit Unit" subtitle="Update measurement unit">

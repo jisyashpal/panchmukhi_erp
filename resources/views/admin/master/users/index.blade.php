@@ -7,10 +7,10 @@
     </a>
 </x-admin-page-header>
 
-<div class="admin-filters mb-0">
-    <div class="d-flex flex-wrap gap-2 mb-3">
+<div class="admin-filters mb-3">
+    <!-- <div class="d-flex flex-wrap gap-2 mb-2">
         <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-admin-primary">All users</a>
-    </div>
+    </div> -->
     <form method="GET" class="row g-3 align-items-end">
         <div class="col-md-3">
             <label class="form-label" for="filter_plant_id">Plant</label>

@@ -1,7 +1,7 @@
 @extends('layouts.plant')
 @section('title', 'Order Dispatch')
 @section('content')
-<x-admin-page-header title="Order Dispatch" subtitle="Mark purchase orders as dispatched">
+<x-admin-page-header title="Order Dispatch" subtitle="Set product-wise dispatch date, mark not-provided items, or choose alternatives">
     <div class="btn-group btn-group-sm">
         <a href="{{ route('plant.dispatch.index') }}" class="btn btn-admin-outline @if(!request('filter')) active @endif">All</a>
         <a href="{{ route('plant.dispatch.index', ['filter' => 'pending']) }}" class="btn btn-admin-outline @if(request('filter')==='pending') active @endif">Pending</a>
@@ -18,9 +18,10 @@
                         <th>Plant</th>
                     @endif
                     <th>Supplier</th>
+                    <th>Items</th>
                     <th>Status</th>
                     <th>Dispatched</th>
-                    <th class="text-end"> Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -31,23 +32,24 @@
                         <td>{{ $p->plant->name }}</td>
                     @endif
                     <td>{{ $p->supplier->name }}</td>
+                    <td>{{ $p->items->count() }}</td>
                     <td><x-status-badge :status="$p->status" /></td>
-                    <td>{{ $p->dispatched_at?->format('d M Y') ?? '—' }}</td>
-                    <td class="text-end">
-                        @if(!$p->dispatched_at && $p->status->value === 'ordered')
-                        <form method="POST" action="{{ route('plant.dispatch.store', $p) }}"
-                            class="d-inline-flex align-items-center gap-2 justify-content-end flex-wrap">
-                            @csrf
-                            <input type="date" name="dispatched_at" value="{{ old('dispatched_at', now()->format('Y-m-d')) }}"
-                                class="form-control form-control-sm" style="width: auto;" required
-                                title="Dispatch date">
-                            <button type="submit" class="btn btn-success btn-sm">Dispatch</button>
-                        </form>
+                    <td>
+                        @if($p->dispatched_at)
+                            <span class="text-success">{{ $p->dispatched_at->format('d M Y') }}</span>
+                        @else
+                            <span class="text-muted">Pending</span>
                         @endif
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a href="{{ route('plant.dispatch.show', $p) }}" class="btn btn-sm {{ $p->dispatched_at ? 'btn-admin-outline' : 'btn-success' }}">
+                            <i class="bi bi-{{ $p->dispatched_at ? 'eye' : 'truck' }} me-1"></i>
+                            {{ $p->dispatched_at ? 'View' : 'Dispatch' }}
+                        </a>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="{{ $isPurchaser ? 6 : 5 }}"><div class="admin-empty">No orders</div></td></tr>
+                <tr><td colspan="{{ $isPurchaser ? 7 : 6 }}"><div class="admin-empty">No orders</div></td></tr>
                 @endforelse
             </tbody>
         </table>

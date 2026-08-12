@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Product Request #' . $productRequest->id)
 @section('content')
     <x-admin-page-header title="Product Request #{{ $productRequest->id }}"

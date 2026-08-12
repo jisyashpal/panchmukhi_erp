@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Product Life Report')
 @section('content')
     <x-admin-page-header title="Product Life Usage Report" subtitle="Vehicle-wise part changes with meter readings and life used">

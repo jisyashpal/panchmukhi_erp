@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Purchase Ledger — ' . $category->name)
 @section('content')
 <x-admin-page-header

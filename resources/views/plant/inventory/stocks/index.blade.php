@@ -1,11 +1,22 @@
 @extends('layouts.plant')
 @section('title', 'Stocks')
 @section('content')
-<x-admin-page-header title="Stock Balances" subtitle="Current inventory in this plant">
+<x-admin-page-header title="Stock Balances" subtitle="{{ ($isPurchaser ?? false) ? 'Inventory across all plants' : 'Current inventory in this plant' }}">
 </x-admin-page-header>
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
+        @if($isPurchaser ?? false)
+        <div class="col-12 col-md-3">
+            <label class="form-label small">Plant</label>
+            <select name="plant_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All plants</option>
+                @foreach($plants as $plant)
+                    <option value="{{ $plant->id }}" @selected(request('plant_id') == $plant->id)>{{ $plant->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
         <div class="col-12 col-md-4 position-relative">
             <label class="form-label small">Search Item Name / SKU</label>
             <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter item name or SKU..." autocomplete="off">
@@ -22,7 +33,7 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['product_id', 'search']))
+            @if(request()->anyFilled(['product_id', 'search', 'plant_id']))
                 <a href="{{ route('plant.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
@@ -34,6 +45,9 @@
         <table class="table mb-0">
             <thead>
                 <tr>
+                    @if($isPurchaser ?? false)
+                    <th>Plant</th>
+                    @endif
                     <th>Product</th>
                     <th>SKU</th>
                     <th class="text-end">Reorder Level</th>
@@ -47,6 +61,9 @@
                     $isLow = $b->quantity <= ($b->product->reorder_level ?? 0);
                 @endphp
                 <tr @if($isLow) class="table-warning" @endif>
+                    @if($isPurchaser ?? false)
+                    <td class="small">{{ $b->plant?->name ?? '—' }}</td>
+                    @endif
                     <td class="fw-semibold">
                         {{ $b->product->name }}
                         @if($isLow)
@@ -62,6 +79,9 @@
                 @endforeach
                 @elseif($selectedProduct)
                 <tr>
+                    @if($isPurchaser ?? false)
+                    <td class="small text-muted">—</td>
+                    @endif
                     <td class="fw-semibold">{{ $selectedProduct->name }}</td>
                     <td><code class="small text-muted">{{ $selectedProduct->sku }}</code></td>
                     <td class="text-end text-muted">{{ $selectedProduct->reorder_level }} {{ $selectedProduct->unit->abbreviation ?? '' }}</td>
@@ -69,7 +89,7 @@
                 </tr>
                 @else
                 <tr>
-                    <td colspan="4">
+                    <td colspan="{{ ($isPurchaser ?? false) ? 5 : 4 }}">
                         <div class="admin-empty"><i class="bi bi-boxes d-block"></i>No stock records found</div>
                     </td>
                 </tr>

@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Usage by Category')
 @section('content')
 <x-admin-page-header title="Product Usage by Category" subtitle="Consumption grouped by product category">

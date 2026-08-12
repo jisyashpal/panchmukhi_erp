@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Add Item Type')
 @section('content')
     <x-admin-page-header title="Add Item Type" subtitle="Create a Item Type under a parent category">

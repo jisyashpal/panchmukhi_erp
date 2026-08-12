@@ -225,18 +225,19 @@
                         @endif
 
                         <div>
-                            <label class="form-label small" for="reference_no">PO reference</label>
-                            <input type="text" name="reference_no" id="reference_no" value="{{ old('reference_no') }}" class="form-control form-control-sm" placeholder="Auto if empty">
+                            <label class="form-label small" for="reference_no">PO / Quotation no.</label>
+                            <input type="text" name="reference_no" id="reference_no" value="{{ old('reference_no', $nextQuotationNo ?? '') }}" class="form-control form-control-sm" placeholder="{{ $nextQuotationNo ?? 'Auto plant-wise (e.g. piska-01)' }}">
+                            <div class="form-text">Uses plant name + serial (e.g. piska-01, piska-02).</div>
                         </div>
 
                         <div class="row g-2">
                             <div class="col-6">
-                                <label class="form-label small" for="supplier_invoice_no">Quotation no.</label>
-                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no') }}" class="form-control form-control-sm">
+                                <label class="form-label small" for="supplier_invoice_no">Supplier quotation no.</label>
+                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no') }}" class="form-control form-control-sm" placeholder="Optional — defaults to PO no.">
                             </div>
                             <div class="col-6">
                                 <label class="form-label small" for="supplier_invoice_date">Quotation date</label>
-                                <input type="date" name="supplier_invoice_date" id="supplier_invoice_date" value="{{ old('supplier_invoice_date') }}" class="form-control form-control-sm">
+                                <input type="date" name="supplier_invoice_date" id="supplier_invoice_date" value="{{ old('supplier_invoice_date', now()->toDateString()) }}" class="form-control form-control-sm">
                             </div>
                         </div>
 

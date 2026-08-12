@@ -120,7 +120,7 @@ class UserController extends Controller
             ->where('is_active', true)
             ->first();
 
-        $plantRequired = $role?->requires_plant ?? false;
+        $plantRequired = ($role?->requires_plant ?? false) && $role?->slug !== Role::SLUG_PURCHASER;
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -136,7 +136,7 @@ class UserController extends Controller
     {
         $role = Role::find($data['role_id']);
 
-        if (! $role?->requires_plant) {
+        if (! $role?->requires_plant || $role?->slug === Role::SLUG_PURCHASER) {
             $data['plant_id'] = null;
         }
 

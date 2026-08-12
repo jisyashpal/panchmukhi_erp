@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Stocks')
 @section('content')
 <x-admin-page-header title="Stocks" subtitle="Current balances and {{ $financialYearRange->displayLabel() }} movement summary">
@@ -12,12 +12,21 @@
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
             <label class="form-label small">Plant</label>
             <select name="plant_id" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">All plants</option>
                 @foreach($plants as $s)
                     <option value="{{ $s->id }}" @selected(request('plant_id') == $s->id)>{{ $s->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-12 col-md-2">
+            <label class="form-label small">Category</label>
+            <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All categories</option>
+                @foreach($categories as $c)
+                    <option value="{{ $c->id }}" @selected(request('category_id') == $c->id)>{{ $c->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -37,7 +46,7 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['plant_id', 'product_id', 'search']))
+            @if(request()->anyFilled(['plant_id', 'product_id', 'search', 'category_id']))
                 <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
@@ -50,6 +59,7 @@
             <thead>
                 <tr>
                     <th>Plant</th>
+                    <th>Category</th>
                     <th>Item Name</th>
                     <th class="text-end">Current Qty</th>
                     <th class="text-end">FY Stock In</th>
@@ -61,6 +71,7 @@
                 @forelse($balances as $b)
                 <tr>
                     <td>{{ $b->plant->name }}</td>
+                    <td>{{ $b->product->category?->name ?? '—' }}</td>
                     <td class="fw-semibold">{{ $b->product->name }}</td>
                     <td class="text-end">{{ $b->quantity }} {{ $b->product->unit->abbreviation ?? '' }}</td>
                     <td class="text-end text-success">{{ $b->fy_stock_in }} {{ $b->product->unit->abbreviation ?? '' }}</td>
@@ -74,7 +85,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="admin-empty"><i class="bi bi-boxes d-block"></i>No stock activity found for {{ $financialYearRange->displayLabel() }}</div>
                     </td>
                 </tr>

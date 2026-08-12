@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Purchase ' . $purchase->reference_no)
 @section('content')
 <x-admin-page-header title="Purchase {{ $purchase->reference_no }}" subtitle="{{ $purchase->plant->name }}">

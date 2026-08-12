@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ProductUseEntry;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\SupplierPayment;
 use App\Support\ReportFilters;
 use Illuminate\Support\Facades\DB;
 
@@ -195,7 +196,7 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
-        return Purchase::query()
+        $rows = Purchase::query()
             ->with('supplier')
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('ordered_at', '>=', $filters->dateFrom))
@@ -208,13 +209,34 @@ class ReportService
             ->groupBy('supplier_id')
             ->orderByDesc('total_amount')
             ->get();
+
+        if ($rows->isEmpty()) {
+            return $rows;
+        }
+
+        $paidBySupplier = SupplierPayment::query()
+            ->whereIn('supplier_id', $rows->pluck('supplier_id'))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $filters->dateTo))
+            ->selectRaw('supplier_id, SUM(amount) as paid_amount')
+            ->groupBy('supplier_id')
+            ->pluck('paid_amount', 'supplier_id');
+
+        return $rows->map(function ($row) use ($paidBySupplier) {
+            $paid = (float) ($paidBySupplier[$row->supplier_id] ?? 0);
+            $total = (float) $row->total_amount;
+            $row->paid_amount = $paid;
+            $row->balance = $total - $paid;
+
+            return $row;
+        });
     }
 
     public function supplierLedger(int $supplierId, ?ReportFilters $filters = null): \Illuminate\Support\Collection
     {
         $filters ??= new ReportFilters;
 
-        return Purchase::query()
+        $purchases = Purchase::query()
             ->with(['plant', 'items.product'])
             ->where('supplier_id', $supplierId)
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
@@ -227,68 +249,156 @@ class ReportService
                         ->orWhereHas('items.product', fn ($pq) => $pq->where('name', 'like', $term));
                 });
             })
-            ->orderByDesc('ordered_at')
-            ->get();
+            ->get()
+            ->map(fn (Purchase $p) => (object) [
+                'type' => 'purchase',
+                'date' => $p->ordered_at,
+                'reference' => $p->reference_no,
+                'plant' => $p->plant?->name,
+                'particulars' => $p->items->map(fn ($item) => $item->product->name.' x '.$item->quantity)->implode(', '),
+                'items' => $p->items,
+                'debit' => (float) $p->grand_total,
+                'credit' => 0.0,
+                'subtotal' => (float) $p->subtotal,
+                'total_gst' => (float) $p->total_gst,
+                'status' => $p->status,
+                'purchase' => $p,
+                'payment' => null,
+                'notes' => $p->notes,
+            ]);
+
+        $paymentsQuery = SupplierPayment::query()
+            ->with('payer')
+            ->where('supplier_id', $supplierId)
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $filters->dateTo));
+
+        if ($filters->search) {
+            $term = '%'.$filters->search.'%';
+            $paymentsQuery->where(function ($q) use ($term) {
+                $q->where('notes', 'like', $term);
+            });
+        }
+
+        // Plant filter applies to purchases only; payments are party-level.
+        $payments = $paymentsQuery->get()->map(fn (SupplierPayment $payment) => (object) [
+            'type' => 'payment',
+            'date' => $payment->payment_date?->startOfDay(),
+            'reference' => 'Payment',
+            'plant' => null,
+            'particulars' => $payment->notes ?: 'Payment to party',
+            'items' => collect(),
+            'debit' => 0.0,
+            'credit' => (float) $payment->amount,
+            'subtotal' => 0.0,
+            'total_gst' => 0.0,
+            'status' => null,
+            'purchase' => null,
+            'payment' => $payment,
+            'notes' => $payment->notes,
+        ]);
+
+        $entries = $purchases->concat($payments)
+            ->sortBy(fn ($row) => [$row->date?->timestamp ?? 0, $row->type === 'purchase' ? 0 : 1])
+            ->values();
+
+        $running = 0.0;
+
+        return $entries->map(function ($row) use (&$running) {
+            $running += $row->debit - $row->credit;
+            $row->balance = $running;
+
+            return $row;
+        });
     }
 
     /**
-     * Category-wise Stock In (qty + amount from PO) and Stock Out (qty) summary.
+     * Product-wise Stock In (qty + amount from PO) and Stock Out (qty) summary.
      */
     public function categoryStockInOut(?ReportFilters $filters = null): array
     {
         $filters ??= new ReportFilters;
 
+        $applyCommon = function ($q) use ($filters) {
+            return $q
+                ->when($filters->plantId, fn ($q) => $q->where('sm.plant_id', $filters->plantId))
+                ->when($filters->categoryId, fn ($q) => $q->where('c.id', $filters->categoryId))
+                ->when($filters->productId, fn ($q) => $q->where('p.id', $filters->productId))
+                ->when($filters->dateFrom, fn ($q) => $q->whereDate('sm.moved_at', '>=', $filters->dateFrom))
+                ->when($filters->dateTo, fn ($q) => $q->whereDate('sm.moved_at', '<=', $filters->dateTo))
+                ->when($filters->search, fn ($q) => $q->where(function ($q) use ($filters) {
+                    $q->where('p.name', 'like', '%'.$filters->search.'%')
+                        ->orWhere('p.sku', 'like', '%'.$filters->search.'%')
+                        ->orWhere('c.name', 'like', '%'.$filters->search.'%');
+                }));
+        };
+
         // --- Stock In (from Purchase receipts) ---
-        $inRows = DB::table('stock_movements as sm')
-            ->join('products as p', 'p.id', '=', 'sm.product_id')
-            ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->join('purchase_items as pi', fn ($j) => $j
-                ->on('pi.purchase_id', '=', 'sm.reference_id')
-                ->on('pi.product_id', '=', 'sm.product_id')
-            )
-            ->where('sm.type', 'in')
-            ->where('sm.reference_type', 'purchase')
-            ->when($filters->plantId, fn ($q) => $q->where('sm.plant_id', $filters->plantId))
-            ->when($filters->categoryId, fn ($q) => $q->where('c.id', $filters->categoryId))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('sm.moved_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('sm.moved_at', '<=', $filters->dateTo))
-            ->when($filters->search, fn ($q) => $q->where('c.name', 'like', '%'.$filters->search.'%'))
-            ->select('c.id as category_id', 'c.name as category',
+        $inRows = $applyCommon(
+            DB::table('stock_movements as sm')
+                ->join('products as p', 'p.id', '=', 'sm.product_id')
+                ->join('categories as c', 'c.id', '=', 'p.category_id')
+                ->leftJoin('units as u', 'u.id', '=', 'p.unit_id')
+                ->join('purchase_items as pi', fn ($j) => $j
+                    ->on('pi.purchase_id', '=', 'sm.reference_id')
+                    ->on('pi.product_id', '=', 'sm.product_id')
+                )
+                ->where('sm.type', 'in')
+                ->where('sm.reference_type', 'purchase')
+        )
+            ->select(
+                'p.id as product_id',
+                'p.name as product',
+                'p.sku',
+                'c.id as category_id',
+                'c.name as category',
+                DB::raw('COALESCE(u.abbreviation, u.name) as unit'),
                 DB::raw('SUM(sm.quantity) as in_qty'),
-                DB::raw('SUM(pi.line_total) as in_amount'))
-            ->groupBy('c.id', 'c.name')
+                DB::raw('SUM(sm.quantity * pi.unit_price) as in_amount')
+            )
+            ->groupBy('p.id', 'p.name', 'p.sku', 'c.id', 'c.name', 'u.abbreviation', 'u.name')
             ->orderByDesc('in_amount')
             ->get()
-            ->keyBy('category_id');
+            ->keyBy('product_id');
 
         // --- Stock Out ---
-        $outRows = DB::table('stock_movements as sm')
-            ->join('products as p', 'p.id', '=', 'sm.product_id')
-            ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->where('sm.type', 'out')
-            ->when($filters->plantId, fn ($q) => $q->where('sm.plant_id', $filters->plantId))
-            ->when($filters->categoryId, fn ($q) => $q->where('c.id', $filters->categoryId))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('sm.moved_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('sm.moved_at', '<=', $filters->dateTo))
-            ->when($filters->search, fn ($q) => $q->where('c.name', 'like', '%'.$filters->search.'%'))
-            ->select('c.id as category_id', 'c.name as category',
-                DB::raw('SUM(sm.quantity) as out_qty'))
-            ->groupBy('c.id', 'c.name')
+        $outRows = $applyCommon(
+            DB::table('stock_movements as sm')
+                ->join('products as p', 'p.id', '=', 'sm.product_id')
+                ->join('categories as c', 'c.id', '=', 'p.category_id')
+                ->leftJoin('units as u', 'u.id', '=', 'p.unit_id')
+                ->where('sm.type', 'out')
+        )
+            ->select(
+                'p.id as product_id',
+                'p.name as product',
+                'p.sku',
+                'c.id as category_id',
+                'c.name as category',
+                DB::raw('COALESCE(u.abbreviation, u.name) as unit'),
+                DB::raw('SUM(sm.quantity) as out_qty')
+            )
+            ->groupBy('p.id', 'p.name', 'p.sku', 'c.id', 'c.name', 'u.abbreviation', 'u.name')
             ->get()
-            ->keyBy('category_id');
+            ->keyBy('product_id');
 
         // Merge
         $merged = $inRows->map(function ($row) use ($outRows) {
-            $out = $outRows->get($row->category_id);
+            $out = $outRows->get($row->product_id);
             $row->out_qty = $out?->out_qty ?? 0;
+
             return $row;
         });
 
         foreach ($outRows as $id => $out) {
             if (! $merged->has($id)) {
                 $merged->put($id, (object) [
-                    'category_id' => $id,
+                    'product_id'  => $id,
+                    'product'     => $out->product,
+                    'sku'         => $out->sku,
+                    'category_id' => $out->category_id,
                     'category'    => $out->category,
+                    'unit'        => $out->unit,
                     'in_qty'      => 0,
                     'in_amount'   => 0,
                     'out_qty'     => $out->out_qty,
@@ -297,10 +407,10 @@ class ReportService
         }
 
         return [
-            'rows'     => $merged->values(),
-            'in_qty'   => $merged->sum('in_qty'),
-            'in_amount'=> $merged->sum('in_amount'),
-            'out_qty'  => $merged->sum('out_qty'),
+            'rows' => $merged->values()->sortBy('product', SORT_NATURAL | SORT_FLAG_CASE)->values(),
+            'in_qty' => $merged->sum('in_qty'),
+            'in_amount' => $merged->sum('in_amount'),
+            'out_qty' => $merged->sum('out_qty'),
         ];
     }
 }

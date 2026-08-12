@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'plant_user' => \App\Http\Middleware\EnsurePlantUser::class,
             'plant_role' => \App\Http\Middleware\EnsurePlantRole::class,
             'share_financial_year' => \App\Http\Middleware\ShareFinancialYear::class,
+            'share_portal_layout' => \App\Http\Middleware\SharePortalLayout::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

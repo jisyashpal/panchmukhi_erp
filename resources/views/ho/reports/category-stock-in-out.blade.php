@@ -1,9 +1,9 @@
-@extends('layouts.ho')
-@section('title', 'Category Stock In / Out')
+@extends($portalLayout ?? 'layouts.ho')
+@section('title', 'Product Stock In / Out')
 @section('content')
 <x-admin-page-header
-    title="Category-wise Stock In / Out"
-    subtitle="Stock received (from POs) and issued, grouped by product category"
+    title="Product-wise Stock In / Out"
+    subtitle="Stock received (from POs) and issued, listed by product"
 >
     <x-report-export-button />
 </x-admin-page-header>
@@ -12,7 +12,7 @@
     :plants="$plants"
     :categories="$categories"
     :show-dates="true"
-    search-placeholder="Category name..."
+    search-placeholder="Product, SKU, or category..."
     :clear-route="route('ho.reports.category-stock-in-out')"
 />
 
@@ -48,7 +48,10 @@
             <thead>
                 <tr>
                     <th>#</th>
+                    <th>Product</th>
+                    <th>SKU</th>
                     <th>Category</th>
+                    <th>Unit</th>
                     <th class="text-end">Stock In Qty</th>
                     <th class="text-end">Stock In Amount (₹)</th>
                     <th class="text-end">Stock Out Qty</th>
@@ -60,7 +63,10 @@
                     @php $net = $row->in_qty - $row->out_qty; @endphp
                     <tr>
                         <td class="text-muted">{{ $i + 1 }}</td>
-                        <td class="fw-semibold">{{ $row->category }}</td>
+                        <td class="fw-semibold">{{ $row->product }}</td>
+                        <td class="text-muted">{{ $row->sku ?: '—' }}</td>
+                        <td>{{ $row->category }}</td>
+                        <td class="text-muted">{{ $row->unit ?: '—' }}</td>
                         <td class="text-end text-success fw-semibold">{{ number_format($row->in_qty, 0) }}</td>
                         <td class="text-end">₹{{ number_format($row->in_amount, 2) }}</td>
                         <td class="text-end text-danger fw-semibold">{{ number_format($row->out_qty, 0) }}</td>
@@ -70,7 +76,7 @@
                     </tr>
                 @empty
                     @include('partials.table-empty', [
-                        'colspan' => 6,
+                        'colspan' => 9,
                         'icon'    => 'bi-bar-chart',
                         'message' => 'No stock movements found for the selected filters.',
                     ])
@@ -79,7 +85,7 @@
             @if($rows->isNotEmpty())
             <tfoot class="table-light fw-bold">
                 <tr>
-                    <td colspan="2">Total</td>
+                    <td colspan="5">Total</td>
                     <td class="text-end text-success">{{ number_format($totalInQty, 0) }}</td>
                     <td class="text-end">₹{{ number_format($totalInAmt, 2) }}</td>
                     <td class="text-end text-danger">{{ number_format($totalOutQty, 0) }}</td>

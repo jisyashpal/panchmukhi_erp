@@ -95,4 +95,23 @@ class Purchase extends Model
     {
         return $this->hasOne(PurchaseComment::class)->latestOfMany();
     }
+
+    public function isDispatched(): bool
+    {
+        return $this->dispatched_at !== null;
+    }
+
+    public function allItemsDispatchResolved(): bool
+    {
+        if ($this->items->isEmpty()) {
+            return false;
+        }
+
+        return $this->items->every(fn (PurchaseItem $item) => $item->isDispatchResolved());
+    }
+
+    public function receivableItems()
+    {
+        return $this->items->filter(fn (PurchaseItem $item) => $item->isReceivableForStockIn());
+    }
 }

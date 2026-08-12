@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Ho\Inventory;
 use App\Enums\StockMovementType;
 use App\Enums\StockReferenceType;
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -39,7 +40,7 @@ class StockController extends Controller
             ->when($request->filled('product_id'), fn ($q) => $q->where('product_id', $request->integer('product_id')))
             ->groupBy('plant_id', 'product_id');
 
-        $balances = StockBalance::with(['plant', 'product.unit'])
+        $balances = StockBalance::with(['plant', 'product.unit', 'product.category'])
             ->joinSub($movementSub, 'fy_movements', function ($join) {
                 $join->on('stock_balances.plant_id', '=', 'fy_movements.plant_id')
                     ->on('stock_balances.product_id', '=', 'fy_movements.product_id');
@@ -52,6 +53,9 @@ class StockController extends Controller
                         ->orWhere('sku', 'like', '%'.$search.'%');
                 });
             })
+            ->when($request->filled('category_id'), function ($q) use ($request) {
+                $q->whereHas('product', fn ($pq) => $pq->where('category_id', $request->integer('category_id')));
+            })
             ->orderBy('stock_balances.plant_id')
             ->paginate(30)
             ->withQueryString();
@@ -60,6 +64,7 @@ class StockController extends Controller
             'balances' => $balances,
             'plants' => Plant::orderBy('name')->get(),
             'products' => Product::orderBy('name')->get(),
+            'categories' => Category::orderBy('name')->get(),
             'financialYearRange' => $range,
         ]);
     }

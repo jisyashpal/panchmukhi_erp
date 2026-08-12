@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', $product->name . ' — Stock Movements')
 @section('content')
     @php

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Plant\Inventory;
 
 use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Controller;
+use App\Models\Plant;
 use App\Models\Product;
 use App\Models\StockBalance;
 use Illuminate\Http\Request;
@@ -15,11 +16,14 @@ class StockController extends Controller
 
     public function index(Request $request): View
     {
-        $plantId = $this->plantId();
+        $isPurchaser = $this->purchaserSeesAllPlants();
+        $plantId = $isPurchaser
+            ? ($request->filled('plant_id') ? $request->integer('plant_id') : null)
+            : $this->plantId();
         $selectedProductId = $request->filled('product_id') ? $request->integer('product_id') : null;
 
-        $balances = StockBalance::with(['product.unit'])
-            ->where('plant_id', $plantId)
+        $balances = StockBalance::with(['product.unit', 'plant'])
+            ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
             ->when($selectedProductId, fn ($q) => $q->where('product_id', $selectedProductId))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->string('search');
@@ -40,6 +44,8 @@ class StockController extends Controller
             'balances' => $balances,
             'products' => Product::orderBy('name')->get(),
             'selectedProduct' => $selectedProduct,
+            'isPurchaser' => $isPurchaser,
+            'plants' => $isPurchaser ? Plant::orderBy('name')->get() : collect(),
         ]);
     }
 }

@@ -42,7 +42,7 @@ class UserSeeder extends Seeder
                 'email' => 'purchaser@gmail.com',
                 'name' => 'Purchaser Demo',
                 'role' => Role::SLUG_PURCHASER,
-                'plant_id' => $mainPlant->id,
+                'plant_id' => null,
                 'approval_status' => UserApprovalStatus::Approved,
             ],
             [

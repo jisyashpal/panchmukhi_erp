@@ -62,6 +62,7 @@ Route::middleware(['auth', 'plant_portal'])
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
             Route::post('product-requests/{product_request}/convert', [ProductRequestController::class, 'convertToPurchaseRequest'])->name('product-requests.convert');
+            Route::post('product-requests/bulk-convert', [ProductRequestController::class, 'bulkConvertToPurchaseRequest'])->name('product-requests.bulk-convert');
         });
 
         Route::middleware('permission:'.PermissionSlug::PLANT_VIEW_PURCHASES.','.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
@@ -101,6 +102,7 @@ Route::middleware(['auth', 'plant_portal'])
 
         Route::middleware('permission:'.PermissionSlug::PLANT_DISPATCH_ORDERS)->group(function () {
             Route::get('dispatch', [DispatchController::class, 'index'])->name('dispatch.index');
+            Route::get('dispatch/{purchase}', [DispatchController::class, 'show'])->name('dispatch.show');
             Route::post('dispatch/{purchase}', [DispatchController::class, 'dispatch'])->name('dispatch.store');
         });
 

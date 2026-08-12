@@ -253,10 +253,14 @@ class ReportController extends Controller
             'Party (Supplier)',
             'Orders',
             'Amount',
+            'Paid',
+            'Balance',
         ], $rows->map(fn($r) => [
                         $r->supplier?->name ?? 'Unknown',
                         $r->order_count,
                         $r->total_amount,
+                        $r->paid_amount,
+                        $r->balance,
                     ]));
     }
 
@@ -266,23 +270,21 @@ class ReportController extends Controller
 
         return SpreadsheetDownload::csv("party-ledger-{$supplier->id}.csv", [
             'Date',
-            'PO Ref',
-            'Plant',
-            'Items',
-            'Subtotal',
-            'GST',
-            'Grand Total',
-            'Status',
-        ], $rows->map(fn($p) => [
-                        $p->ordered_at?->format('d M Y') ?? '',
-                        $p->reference_no,
-                        $p->plant->name,
-                        $p->items->map(fn($item) => "{$item->product->name} (x{$item->quantity})")->implode(', '),
-                        $p->subtotal,
-                        $p->total_gst,
-                        $p->grand_total,
-                        $p->status->label(),
-                    ]));
+            'Type',
+            'Reference',
+            'Particulars',
+            'Debit',
+            'Credit',
+            'Balance',
+        ], $rows->map(fn ($row) => [
+            $row->date?->format('d M Y') ?? '',
+            $row->type === 'payment' ? 'Payment' : 'Purchase',
+            $row->reference.($row->plant ? ' / '.$row->plant : ''),
+            $row->particulars,
+            $row->debit,
+            $row->credit,
+            $row->balance,
+        ]));
     }
 
     public function categoryStockInOut(Request $request): View|StreamedResponse
@@ -291,17 +293,25 @@ class ReportController extends Controller
         $data = $this->reports->categoryStockInOut($filters);
 
         if ($request->query('export') === 'excel') {
-            return SpreadsheetDownload::csv('category-stock-in-out.csv', [
+            return SpreadsheetDownload::csv('product-stock-in-out.csv', [
+                'Product',
+                'SKU',
                 'Category',
+                'Unit',
                 'Stock In Qty',
                 'Stock In Amount (₹)',
                 'Stock Out Qty',
-            ], collect($data['rows'])->map(fn($r) => [
-                            $r->category,
-                            $r->in_qty,
-                            number_format($r->in_amount, 2),
-                            $r->out_qty,
-                        ]));
+                'Net (In − Out)',
+            ], collect($data['rows'])->map(fn ($r) => [
+                $r->product,
+                $r->sku ?? '',
+                $r->category,
+                $r->unit ?? '',
+                $r->in_qty,
+                number_format((float) $r->in_amount, 2, '.', ''),
+                $r->out_qty,
+                $r->in_qty - $r->out_qty,
+            ]));
         }
 
         return view('ho.reports.category-stock-in-out', [

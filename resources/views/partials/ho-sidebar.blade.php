@@ -1,13 +1,13 @@
 <aside class="sidebar-admin bg-dark text-white d-none d-lg-flex flex-column flex-shrink-0">
     <div class="sidebar-brand px-3 py-3 border-bottom border-secondary">
         <a href="{{ route('ho.dashboard') }}" class="text-white text-decoration-none d-flex align-items-center gap-2">
-            <span class="sidebar-brand-icon rounded bg-white d-flex align-items-center justify-content-center">
-                <img src="{{ asset('img/p.png') }}" alt="Panchmukhi" class="img-fluid rounded flex-shrink-0">
+            <span class="sidebar-brand-icon rounded  d-flex align-items-center justify-content-center">
+                <img src="{{ asset('img/PMCMPL.png') }}" alt="Panchmukhi" class="img-fluid rounded flex-shrink-0">
             </span>
-            <span>
+            <!-- <span>
                 <strong class="d-block lh-sm">Panchmukhi</strong>
                 <small class="text-white-50">HO Data Operator</small>
-            </span>
+            </span> -->
         </a>
     </div>
 

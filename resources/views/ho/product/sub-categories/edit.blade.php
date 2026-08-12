@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Edit Item Type')
 @section('content')
     <x-admin-page-header title="Edit Item Type" subtitle="Update Item Type details">

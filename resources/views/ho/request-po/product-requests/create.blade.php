@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'New Product Request')
 @section('content')
 <x-admin-page-header title="New Product Request" subtitle="Create product request for a plant">

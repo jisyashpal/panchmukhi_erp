@@ -10,6 +10,11 @@ class PermissionSeeder extends Seeder
 {
     public function run(): void
     {
+        Role::where('slug', Role::SLUG_PURCHASER)->update([
+            'requires_plant' => false,
+            'description' => 'Purchaser — all plants, suppliers, PO dispatch',
+        ]);
+
         $roleIds = Role::pluck('id', 'slug');
 
         foreach (config('permissions.defaults', []) as $definition) {

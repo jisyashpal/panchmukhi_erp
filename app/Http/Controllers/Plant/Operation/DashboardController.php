@@ -17,39 +17,50 @@ class DashboardController extends Controller
 
     public function __invoke(): View
     {
-        $plantId = $this->plantId();
         $user = auth()->user();
         $user->loadMissing('plant');
+        $isPurchaser = $this->purchaserSeesAllPlants();
+        $plantId = $isPurchaser ? null : $this->plantId();
 
-        $lowStock = StockBalance::query()
-            ->with(['product'])
-            ->where('plant_id', $plantId)
+        $lowStockQuery = StockBalance::query()
+            ->with(['product', 'plant'])
+            ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
             ->join('products', 'products.id', '=', 'stock_balances.product_id')
             ->whereColumn('stock_balances.quantity', '<=', 'products.reorder_level')
             ->select('stock_balances.*')
-            ->limit(10)
-            ->get();
+            ->limit(10);
+
+        $stockLinesQuery = StockBalance::with(['product.unit', 'plant'])
+            ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
+            ->orderByDesc('quantity')
+            ->limit(8);
 
         $data = [
-            'plant' => $user->plant,
-            'stockLines' => StockBalance::with(['product.unit'])
-                ->where('plant_id', $plantId)
-                ->orderByDesc('quantity')
-                ->limit(8)
-                ->get(),
-            'lowStock' => $lowStock,
-            'submittedProductRequests' => ProductRequest::where('plant_id', $plantId)
-                ->where('status', RequestStatus::Submitted)->count(),
-            'totalPurchases' => Purchase::where('plant_id', $plantId)->count(),
-            'totalStockLines' => StockBalance::where('plant_id', $plantId)
+            'plant' => $isPurchaser ? null : $user->plant,
+            'isPurchaser' => $isPurchaser,
+            'stockLines' => $stockLinesQuery->get(),
+            'lowStock' => $lowStockQuery->get(),
+            'submittedProductRequests' => ProductRequest::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
+                ->where('status', RequestStatus::Submitted)
+                ->count(),
+            'totalPurchases' => Purchase::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
+                ->count(),
+            'totalStockLines' => StockBalance::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->where('quantity', '>', 0)
                 ->count(),
-            'totalStockQty' => (float) StockBalance::where('plant_id', $plantId)->sum('quantity'),
-            'awaitingDispatch' => Purchase::where('plant_id', $plantId)
+            'totalStockQty' => (float) StockBalance::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
+                ->sum('quantity'),
+            'awaitingDispatch' => Purchase::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNull('dispatched_at')
                 ->count(),
-            'awaitingDelivery' => Purchase::where('plant_id', $plantId)
+            'awaitingDelivery' => Purchase::query()
+                ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNotNull('dispatched_at')
                 ->count(),

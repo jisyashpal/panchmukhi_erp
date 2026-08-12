@@ -74,18 +74,22 @@ class NotificationService
 
     public function notifyPlantStaff(int $plantId, Notification $notification, ?int $excludeUserId = null): void
     {
-        $users = User::query()
+        $plantUsers = User::query()
             ->where('plant_id', $plantId)
             ->where('is_active', true)
             ->where('approval_status', 'approved')
-            ->whereHas('role', fn ($q) => $q->whereIn('slug', [
-                Role::SLUG_PLANT_IN_CHARGE,
-                Role::SLUG_PURCHASER,
-            ]))
+            ->whereHas('role', fn ($q) => $q->where('slug', Role::SLUG_PLANT_IN_CHARGE))
             ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
             ->get();
 
-        $this->notifyUsers($users, $notification);
+        $purchasers = User::query()
+            ->where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->whereHas('role', fn ($q) => $q->where('slug', Role::SLUG_PURCHASER))
+            ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
+            ->get();
+
+        $this->notifyUsers($plantUsers->merge($purchasers)->unique('id'), $notification);
     }
 
     public function notifyPlantStockUpdated(

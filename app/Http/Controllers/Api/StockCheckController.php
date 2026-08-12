@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Plant;
+use App\Models\Role;
 use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,13 @@ class StockCheckController extends Controller
     public function __invoke(Request $request, Plant $plant, Product $product, StockService $stockService): JsonResponse
     {
         $user = $request->user();
-        if ($user && ! $user->isSuperAdmin() && ! $user->isHoDataOperator() && (int) $user->plant_id !== $plant->id) {
+        if (
+            $user
+            && ! $user->isSuperAdmin()
+            && ! $user->isHoDataOperator()
+            && $user->role?->slug !== Role::SLUG_PURCHASER
+            && (int) $user->plant_id !== $plant->id
+        ) {
             abort(403);
         }
 

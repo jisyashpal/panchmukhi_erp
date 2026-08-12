@@ -8,7 +8,7 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="theme-color" content="#0f172a">
     <title>@yield('title', 'Sign in') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/p.png') }}">
+    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ filemtime(public_path('css/auth.css')) }}">
 </head>
@@ -30,7 +30,7 @@
                                 @yield('content')
                             </div>
                         </div>
-                        <p class="auth-footer-note text-center text-muted small mt-3 mb-0">
+                        <p class="auth-footer-note text-center fw-bold small mt-3 mb-0">
                             Secure access for authorized personnel only
                         </p>
                     </div>

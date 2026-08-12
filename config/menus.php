@@ -197,7 +197,7 @@ return [
                     ['label' => 'Multiple Usage', 'route' => 'ho.reports.multiple-usage', 'icon' => 'bi-exclamation-diamond', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.multiple-usage']],
                     ['label' => 'Usage by Category', 'route' => 'ho.reports.usage-by-category', 'icon' => 'bi-diagram-3', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.usage-by-category']],
                     ['label' => 'Party Purchase Summary', 'route' => 'ho.reports.party-purchase', 'icon' => 'bi-building', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.party-purchase', 'ho.reports.party-ledger']],
-                    ['label' => 'Stock In / Out', 'route' => 'ho.reports.category-stock-in-out', 'icon' => 'bi-arrow-left-right', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.category-stock-in-out']],
+                    ['label' => 'Product Stock In / Out', 'route' => 'ho.reports.category-stock-in-out', 'icon' => 'bi-arrow-left-right', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.category-stock-in-out']],
                 ],
             ],
             ['type' => 'link', 'label' => 'Notifications', 'route' => 'ho.notifications.index', 'icon' => 'bi-bell', 'permission' => PermissionSlug::HO_ACCESS, 'routes' => ['ho.notifications.*']],

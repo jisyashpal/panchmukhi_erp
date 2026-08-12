@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Category Purchase Report')
 @section('content')
 <x-admin-page-header title="Category-wise Purchase Amount" subtitle="Purchase amount grouped by category">

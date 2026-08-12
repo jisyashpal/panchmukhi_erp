@@ -94,7 +94,8 @@ class User extends Authenticatable
 
     public function hasPlantRole(): bool
     {
-        return $this->role?->requires_plant ?? false;
+        return ($this->role?->requires_plant ?? false)
+            || $this->role?->slug === Role::SLUG_PURCHASER;
     }
 
     public function hasPermission(string $slug): bool
@@ -126,7 +127,16 @@ class User extends Authenticatable
 
     public function canAccessPlant(): bool
     {
-        return $this->hasPermission(PermissionSlug::PLANT_ACCESS) && $this->plant_id !== null;
+        if (! $this->hasPermission(PermissionSlug::PLANT_ACCESS)) {
+            return false;
+        }
+
+        // Purchaser works across all plants — no fixed plant assignment.
+        if ($this->role?->slug === Role::SLUG_PURCHASER) {
+            return true;
+        }
+
+        return $this->plant_id !== null;
     }
 
     public function canCreateProductRequests(): bool

@@ -75,7 +75,7 @@ class UserManagementTest extends TestCase
         $admin = User::factory()->superAdmin()->create();
         $plantA = Plant::factory()->create(['name' => 'Alpha Plant']);
         $plantB = Plant::factory()->create(['name' => 'Beta Plant']);
-        $roleId = Role::where('slug', Role::SLUG_PURCHASER)->value('id');
+        $roleId = Role::where('slug', Role::SLUG_PLANT_IN_CHARGE)->value('id');
 
         User::factory()->create(['plant_id' => $plantA->id, 'role_id' => $roleId, 'name' => 'User Alpha']);
         User::factory()->create(['plant_id' => $plantB->id, 'role_id' => $roleId, 'name' => 'User Beta']);
@@ -85,6 +85,29 @@ class UserManagementTest extends TestCase
             ->assertOk()
             ->assertSee('User Alpha')
             ->assertDontSee('User Beta');
+    }
+
+    public function test_purchaser_user_clears_plant_assignment(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $plant = Plant::factory()->create();
+        $purchaserRoleId = Role::where('slug', Role::SLUG_PURCHASER)->value('id');
+
+        $this->actingAs($admin)->post(route('admin.users.store'), [
+            'name' => 'Purchaser User',
+            'email' => 'purchaser-user@test.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role_id' => $purchaserRoleId,
+            'plant_id' => $plant->id,
+            'is_active' => 1,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'purchaser-user@test.com',
+            'plant_id' => null,
+            'role_id' => $purchaserRoleId,
+        ]);
     }
 
     public function test_plant_user_can_access_plant_routes(): void

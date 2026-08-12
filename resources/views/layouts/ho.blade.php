@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>@yield('title', 'HO Operations') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/p.png') }}">
+    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
 </head>
@@ -32,12 +32,12 @@
         <div class="offcanvas-header border-bottom border-secondary border-opacity-25">
             <div class="d-flex align-items-center gap-2" id="hoSidebarOffcanvasLabel">
                 <span class="sidebar-brand-icon rounded d-flex align-items-center justify-content-center">
-                    <i class="bi bi-database-gear"></i>
+                    <img src="{{ asset('img/PMCMPL.png') }}" alt="Panchmukhi" class="img-fluid rounded flex-shrink-0">
                 </span>
-                <div>
+                <!-- <div>
                     <strong class="d-block">Panchmukhi</strong>
                     <small class="text-white-50">HO Data Operator</small>
-                </div>
+                </div> -->
             </div>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>

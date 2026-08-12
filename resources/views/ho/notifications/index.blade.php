@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Notifications')
 @section('content')
 <x-admin-page-header title="Notifications">

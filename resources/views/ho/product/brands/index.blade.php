@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Brands')
 @section('content')
 <x-admin-page-header title="Brands" subtitle="Product brands in the catalog">

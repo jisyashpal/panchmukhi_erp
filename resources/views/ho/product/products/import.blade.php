@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Import Products')
 @section('content')
     <x-admin-page-header title="Import Products" subtitle="Bulk import products using a CSV file">

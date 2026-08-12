@@ -4,7 +4,7 @@
     <div>
         <h1>{{ $title }}</h1>
         @if($subtitle)
-            <p class="text-muted small mb-0 mt-1">{{ $subtitle }}</p>
+            <p class="fw-semibold text-shadow-sm  mb-0 mt-1">{{ $subtitle }}</p>
         @endif
     </div>
     @if(trim($slot))

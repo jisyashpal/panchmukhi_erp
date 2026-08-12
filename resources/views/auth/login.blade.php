@@ -3,10 +3,10 @@
 @section('content')
 <div class="auth-form-header text-center mb-4">
     <div class="auth-form-logo d-none d-md-flex justify-content-center ">
-        <img src="{{ asset('img/p.png') }}" alt="Panchmukhi" class="auth-logo-img rounded flex-shrink-0">
+        <img src="{{ asset('img/PMCMPL.png') }}" alt="Panchmukhi" class="auth-logo-img rounded flex-shrink-0">
     </div>
-    <h1 class="auth-form-title h4 fw-bold mb-2">Welcome back</h1>
-    <p class="auth-form-subtitle text-muted small mb-0">Sign in to your Head Office account</p>
+    <!-- <h1 class="auth-form-title h4 fw-bold mb-2">Welcome back</h1> -->
+    <p class="auth-form-subtitle fw-bold  mb-0">Sign in to your account</p>
 </div>
 
 @if (session('status'))

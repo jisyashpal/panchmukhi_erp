@@ -18,6 +18,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Notifications\ErpDatabaseNotification;
 use App\Services\NotificationService;
+use App\Services\PlantDocumentNumberService;
 use App\Services\PurchasePricingService;
 use App\Services\StockService;
 use App\Support\PermissionSlug;
@@ -107,6 +108,9 @@ class PurchaseController extends Controller
                 ->latest()
                 ->get(),
             'purchaseRequest' => $purchaseRequest,
+            'nextQuotationNo' => $purchaseRequest
+                ? app(PlantDocumentNumberService::class)->peekNextReferenceNo((int) $purchaseRequest->plant_id)
+                : null,
         ]);
     }
 
@@ -354,7 +358,12 @@ class PurchaseController extends Controller
                 ->with('error', 'Purchase already received.');
         }
 
-        $purchase->load(['items.product', 'supplier']);
+        if (! $purchase->isDispatched()) {
+            return redirect()->route('plant.purchases.index')
+                ->with('error', 'Purchaser has not dispatched this PO yet. Stock in is blocked until dispatch is submitted.');
+        }
+
+        $purchase->load(['items.product', 'items.originalProduct', 'supplier']);
 
         return view('plant.request-po.purchases.receive', compact('purchase'));
     }
@@ -368,11 +377,17 @@ class PurchaseController extends Controller
             return back()->with('error', 'Purchase already received.');
         }
 
+        if (! $purchase->isDispatched()) {
+            return back()->with('error', 'Purchaser has not dispatched this PO yet.');
+        }
+
         $data = $request->validate([
             'lines' => ['required', 'array'],
             'lines.*.product_id' => ['required', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
         ]);
+
+        $purchase->load('items.product');
 
         $lines = collect($data['lines'])->filter(fn ($l) => (float) $l['quantity'] > 0)->values()->all();
 
@@ -380,11 +395,31 @@ class PurchaseController extends Controller
             return back()->with('error', 'Enter at least one quantity to receive.');
         }
 
+        foreach ($lines as $line) {
+            $item = $purchase->items->firstWhere('product_id', (int) $line['product_id']);
+            if (! $item || ! $item->isReceivableForStockIn()) {
+                return back()->with('error', 'One or more items are not dispatched / receivable.');
+            }
+            if ((float) $line['quantity'] > $item->receivableQuantity() + 0.0001) {
+                return back()->with('error', 'Receive quantity exceeds dispatched qty for '.$item->product?->name.'.');
+            }
+        }
+
         $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id());
 
+        $purchase->refresh()->load('items');
+        $fullyReceived = $purchase->items->every(function ($item) {
+            if ($item->dispatch_status === \App\Enums\PurchaseItemDispatchStatus::NotProvided) {
+                return true;
+            }
+            $target = (float) ($item->dispatched_quantity ?? $item->quantity);
+
+            return (float) $item->received_quantity >= $target - 0.0001;
+        });
+
         $purchase->update([
-            'status' => PurchaseStatus::Delivered,
-            'delivered_at' => now(),
+            'status' => $fullyReceived ? PurchaseStatus::Delivered : PurchaseStatus::Partial,
+            'delivered_at' => $fullyReceived ? now() : $purchase->delivered_at,
             'received_by' => auth()->id(),
             'received_at' => now(),
         ]);

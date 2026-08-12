@@ -1,7 +1,10 @@
 @extends('layouts.plant')
 @section('title', 'Dashboard')
 @section('content')
-<x-admin-page-header title="Plant Dashboard" subtitle="{{ $plant->name }} — plant-specific summary" />
+<x-admin-page-header
+    title="{{ $isPurchaser ? 'Purchaser Dashboard' : 'Plant Dashboard' }}"
+    subtitle="{{ $isPurchaser ? 'All plants — requests, purchases & stock overview' : ($plant->name.' — plant-specific summary') }}"
+/>
 
 <div class="admin-stat-grid">
     <a href="{{ route('plant.product-requests.index') }}" class="admin-stat-card stat-accent-amber">
@@ -48,7 +51,15 @@
                     <thead><tr><th>Product</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
                         @forelse($lowStock as $row)
-                        <tr><td>{{ $row->product->name }}</td><td class="text-end text-danger fw-semibold">{{ $row->quantity }}</td></tr>
+                        <tr>
+                            <td>
+                                {{ $row->product->name }}
+                                @if($isPurchaser && $row->plant)
+                                    <span class="text-muted small d-block">{{ $row->plant->name }}</span>
+                                @endif
+                            </td>
+                            <td class="text-end text-danger fw-semibold">{{ $row->quantity }}</td>
+                        </tr>
                         @empty
                         <tr><td colspan="2"><div class="admin-empty">No low stock</div></td></tr>
                         @endforelse
@@ -68,7 +79,15 @@
                     <thead><tr><th>Product</th><th class="text-end">Qty</th></tr></thead>
                     <tbody>
                         @forelse($stockLines as $row)
-                        <tr><td>{{ $row->product->name }}</td><td class="text-end">{{ $row->quantity }} {{ $row->product->unit?->abbreviation }}</td></tr>
+                        <tr>
+                            <td>
+                                {{ $row->product->name }}
+                                @if($isPurchaser && $row->plant)
+                                    <span class="text-muted small d-block">{{ $row->plant->name }}</span>
+                                @endif
+                            </td>
+                            <td class="text-end">{{ $row->quantity }} {{ $row->product->unit?->abbreviation }}</td>
+                        </tr>
                         @empty
                         <tr><td colspan="2"><div class="admin-empty">No stock</div></td></tr>
                         @endforelse

@@ -26,7 +26,7 @@ return new class extends Migration
             ['name' => 'Super Admin', 'slug' => 'super_admin', 'description' => 'Head office — full system access', 'requires_plant' => false, 'is_system' => true, 'sort_order' => 1],
             ['name' => 'HO Data Operator', 'slug' => 'ho_data_operator', 'description' => 'Head office operations — stock, PO, reports', 'requires_plant' => false, 'is_system' => true, 'sort_order' => 2],
             ['name' => 'Plant In-Charge', 'slug' => 'plant_in_charge', 'description' => 'Plant manager — requests and tracking', 'requires_plant' => true, 'is_system' => true, 'sort_order' => 3],
-            ['name' => 'Purchaser', 'slug' => 'purchaser', 'description' => 'Plant purchaser — suppliers, PO dispatch', 'requires_plant' => true, 'is_system' => true, 'sort_order' => 4],
+            ['name' => 'Purchaser', 'slug' => 'purchaser', 'description' => 'Purchaser — all plants, suppliers, PO dispatch', 'requires_plant' => false, 'is_system' => true, 'sort_order' => 4],
         ];
 
         foreach ($roles as $role) {

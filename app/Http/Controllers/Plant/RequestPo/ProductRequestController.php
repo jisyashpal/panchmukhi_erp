@@ -35,6 +35,7 @@ class ProductRequestController extends Controller
             ->withCount('items')
             ->withSum('items', 'quantity')
             ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
+            ->when($isPurchaser && $request->filled('plant_id'), fn ($q) => $q->where('plant_id', $request->integer('plant_id')))
             ->latest();
 
         if ($request->filled('status')) {
@@ -207,39 +208,136 @@ class ProductRequestController extends Controller
 
         if ($productRequest->purchaseRequest) {
             return redirect()->route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id])
-                ->with('info', 'Purchase request already exists. Complete the purchase order below.');
+                ->with('info', 'Purchase request already exists. Complete the quotation below.');
         }
 
-        $purchaseRequest = PurchaseRequest::create([
-            'plant_id' => $productRequest->plant_id,
-            'product_request_id' => $productRequest->id,
-            'requested_by' => auth()->id(),
-            'plant_status' => RequestStatus::Completed,
-            'status' => RequestStatus::Submitted,
-            'remarks' => $productRequest->remarks,
-        ]);
-
-        foreach ($productRequest->items as $item) {
-            PurchaseRequestItem::create([
-                'purchase_request_id' => $purchaseRequest->id,
-                'product_request_item_id' => $item->id,
-                'product_id' => $item->product_id,
-                'item_name' => $item->product_id ? null : $item->displayName(),
-                'size' => $item->size,
-                'sub_category_id' => $item->sub_category_id,
-                'supplier_id' => $item->supplier_id,
-                'quantity' => $item->quantity,
-                'unit_price' => $item->unit_price ?? 0,
-            ]);
+        if ($productRequest->status === RequestStatus::Cancelled) {
+            return redirect()->route('plant.product-requests.index')
+                ->with('error', 'Cancelled product requests cannot be converted.');
         }
 
-        $productRequest->update([
-            'status' => RequestStatus::Completed,
-            'reviewed_by' => auth()->id(),
-            'reviewed_at' => now(),
-        ]);
+        $purchaseRequest = $this->convertProductRequestsToPurchaseRequest(collect([$productRequest]));
 
         return redirect()->route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id])
-            ->with('success', 'Product request converted. Complete the purchase order below.');
+            ->with('success', 'Product request converted. Complete the quotation below.');
+    }
+
+    public function bulkConvertToPurchaseRequest(Request $request): RedirectResponse
+    {
+        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
+
+        $data = $request->validate([
+            'product_request_ids' => ['required', 'array', 'min:1'],
+            'product_request_ids.*' => ['integer', 'exists:product_requests,id'],
+        ]);
+
+        $productRequests = ProductRequest::with(['items', 'plant', 'purchaseRequest.purchases'])
+            ->whereIn('id', $data['product_request_ids'])
+            ->orderBy('id')
+            ->get();
+
+        if ($productRequests->count() !== count($data['product_request_ids'])) {
+            return back()->with('error', 'One or more selected product requests were not found.');
+        }
+
+        foreach ($productRequests as $productRequest) {
+            $this->authorizePlantAccess($productRequest);
+        }
+
+        $plantIds = $productRequests->pluck('plant_id')->unique();
+        if ($plantIds->count() > 1) {
+            return back()->with('error', 'Select product requests from one plant/site only.');
+        }
+
+        if ($productRequests->contains(fn (ProductRequest $pr) => $pr->status === RequestStatus::Cancelled)) {
+            return back()->with('error', 'Cancelled product requests cannot be included.');
+        }
+
+        if ($productRequests->contains(fn (ProductRequest $pr) => $pr->purchaseRequest?->purchases->isNotEmpty())) {
+            return back()->with('error', 'One or more selected requests already have a quotation/PO.');
+        }
+
+        $existingPurchaseRequest = $productRequests
+            ->map(fn (ProductRequest $pr) => $pr->purchaseRequest)
+            ->filter()
+            ->unique('id');
+
+        if ($existingPurchaseRequest->count() > 1) {
+            return back()->with('error', 'Selected requests already belong to different purchase requests.');
+        }
+
+        if ($existingPurchaseRequest->count() === 1 && $productRequests->count() === 1) {
+            return redirect()->route('plant.purchases.create', [
+                'purchase_request_id' => $existingPurchaseRequest->first()->id,
+            ])->with('info', 'Purchase request already exists. Complete the quotation below.');
+        }
+
+        if ($existingPurchaseRequest->isNotEmpty()) {
+            return back()->with('error', 'Uncheck requests that already have a purchase request, or open Create Quotation on that row.');
+        }
+
+        $purchaseRequest = $this->convertProductRequestsToPurchaseRequest($productRequests);
+        $count = $productRequests->count();
+        $plantName = $productRequests->first()->plant?->name ?? 'site';
+
+        return redirect()->route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id])
+            ->with('success', $count === 1
+                ? 'Product request converted. Complete the quotation below (number like plant-01).'
+                : "{$count} product requests from {$plantName} merged. Quotation no. will be plant-wise (e.g. piska-01).");
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ProductRequest>  $productRequests
+     */
+    protected function convertProductRequestsToPurchaseRequest($productRequests): PurchaseRequest
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($productRequests) {
+            $productRequests->each(fn (ProductRequest $pr) => $pr->loadMissing('items'));
+
+            $primary = $productRequests->first();
+            $remarks = $productRequests
+                ->pluck('remarks')
+                ->filter()
+                ->unique()
+                ->implode(' | ');
+
+            if ($productRequests->count() > 1) {
+                $ids = $productRequests->pluck('id')->implode(', ');
+                $remarks = trim(($remarks ? $remarks.' | ' : '').'Merged product requests #'.$ids);
+            }
+
+            $purchaseRequest = PurchaseRequest::create([
+                'plant_id' => $primary->plant_id,
+                'product_request_id' => $primary->id,
+                'requested_by' => auth()->id(),
+                'plant_status' => RequestStatus::Completed,
+                'status' => RequestStatus::Submitted,
+                'remarks' => $remarks ?: null,
+            ]);
+
+            foreach ($productRequests as $productRequest) {
+                foreach ($productRequest->items as $item) {
+                    PurchaseRequestItem::create([
+                        'purchase_request_id' => $purchaseRequest->id,
+                        'product_request_item_id' => $item->id,
+                        'product_id' => $item->product_id,
+                        'item_name' => $item->product_id ? null : $item->displayName(),
+                        'size' => $item->size,
+                        'sub_category_id' => $item->sub_category_id,
+                        'supplier_id' => $item->supplier_id,
+                        'quantity' => $item->quantity,
+                        'unit_price' => $item->unit_price ?? 0,
+                    ]);
+                }
+
+                $productRequest->update([
+                    'status' => RequestStatus::Completed,
+                    'reviewed_by' => auth()->id(),
+                    'reviewed_at' => now(),
+                ]);
+            }
+
+            return $purchaseRequest;
+        });
     }
 }

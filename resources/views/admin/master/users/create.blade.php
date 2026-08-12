@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Add User')
 @section('content')
-<x-admin-page-header title="Add User" subtitle="Create a user and assign role with plant (plant-wise)">
+<x-admin-page-header title="Add User" subtitle="Create a user and assign role (plant only when required)">
     <a href="{{ route('admin.users.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </x-admin-page-header>
 
@@ -17,7 +17,12 @@
                 <x-admin-form-group label="Role" name="role_id" required>
                     <select name="role_id" id="role_id" class="form-select" required>
                         @foreach($roles as $r)
-                            <option value="{{ $r->id }}" data-requires-plant="{{ $r->requires_plant ? '1' : '0' }}" @selected(old('role_id') == $r->id)>{{ $r->name }}</option>
+                            <option
+                                value="{{ $r->id }}"
+                                data-requires-plant="{{ $r->requires_plant ? '1' : '0' }}"
+                                data-role-slug="{{ $r->slug }}"
+                                @selected(old('role_id') == $r->id)
+                            >{{ $r->name }}</option>
                         @endforeach
                     </select>
                 </x-admin-form-group>
@@ -48,7 +53,11 @@
     function togglePlantField() {
         var select = document.getElementById('role_id');
         var opt = select.options[select.selectedIndex];
-        document.getElementById('plant-field').style.display = opt && opt.dataset.requiresPlant === '1' ? 'block' : 'none';
+        var requiresPlant = opt && opt.dataset.requiresPlant === '1' && opt.dataset.roleSlug !== 'purchaser';
+        document.getElementById('plant-field').style.display = requiresPlant ? 'block' : 'none';
+        if (!requiresPlant) {
+            document.getElementById('plant_id').value = '';
+        }
     }
     document.getElementById('role_id').addEventListener('change', togglePlantField);
     togglePlantField();

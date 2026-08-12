@@ -12,7 +12,6 @@ use App\Models\Purchase;
 use App\Models\PurchaseRequest;
 use App\Models\Plant;
 use App\Models\StockBalance;
-use App\Models\StockMovement;
 use App\Support\FinancialYearResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,23 +27,17 @@ class DashboardController extends Controller
 
         $stockQuery = StockBalance::with(['plant', 'product']);
         $purchaseQuery = Purchase::query();
-        $movementIn = StockMovement::where('type', StockMovementType::In);
-        $movementOut = StockMovement::where('type', StockMovementType::Out);
         $productRequestQuery = ProductRequest::query();
         $purchaseRequestQuery = PurchaseRequest::query();
 
         if ($plantId) {
             $stockQuery->where('plant_id', $plantId);
             $purchaseQuery->where('plant_id', $plantId);
-            $movementIn->where('plant_id', $plantId);
-            $movementOut->where('plant_id', $plantId);
             $productRequestQuery->where('plant_id', $plantId);
             $purchaseRequestQuery->where('plant_id', $plantId);
         }
 
         $resolver->applyToQuery($purchaseQuery, 'ordered_at', $request);
-        $resolver->applyToQuery($movementIn, 'moved_at', $request);
-        $resolver->applyToQuery($movementOut, 'moved_at', $request);
         $resolver->applyToQuery($productRequestQuery, 'created_at', $request);
         $resolver->applyToQuery($purchaseRequestQuery, 'created_at', $request);
 
@@ -59,23 +52,6 @@ class DashboardController extends Controller
             ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
             ->join('purchase_items', 'purchase_items.purchase_id', '=', 'purchases.id');
         $resolver->applyToQuery($purchaseQtyQuery, 'purchases.ordered_at', $request);
-
-        // Stock In: qty sum & amount (from purchase_items line_total via reference join)
-        $stockInQty = (clone $movementIn)->sum('quantity');
-        $stockInAmountQuery = DB::table('stock_movements as sm')
-            ->join('purchase_items as pi', fn ($j) => $j
-                ->on('pi.purchase_id', '=', 'sm.reference_id')
-                ->on('pi.product_id', '=', 'sm.product_id')
-            )
-            ->where('sm.type', StockMovementType::In->value)
-            ->where('sm.reference_type', StockReferenceType::Purchase->value)
-            ->when($plantId, fn ($q) => $q->where('sm.plant_id', $plantId))
-            ->whereDate('sm.moved_at', '>=', $range->dateFrom)
-            ->whereDate('sm.moved_at', '<=', $range->dateTo);
-        $stockInAmount = $stockInAmountQuery->sum('pi.line_total');
-
-        // Stock Out: qty sum
-        $stockOutQty = (clone $movementOut)->sum('quantity');
 
         // Category-wise Stock In qty + amount
         $categoryInQuery = DB::table('stock_movements as sm')
@@ -135,11 +111,6 @@ class DashboardController extends Controller
             'confirmedOrders'           => (clone $purchaseQuery)->where('status', PurchaseStatus::Delivered)->count(),
             'totalPurchaseAmount'       => (clone $purchaseQuery)->sum('grand_total'),
             'totalPurchaseQty'          => $purchaseQtyQuery->sum('purchase_items.quantity'),
-            'stockInCount'              => (clone $movementIn)->count(),
-            'stockOutCount'             => (clone $movementOut)->count(),
-            'stockInQty'                => $stockInQty,
-            'stockInAmount'             => $stockInAmount,
-            'stockOutQty'               => $stockOutQty,
             'categoryBreakdown'         => $categoryBreakdown,
             'submittedProductRequests'  => (clone $productRequestQuery)
                 ->where('status', RequestStatus::Submitted)->count(),

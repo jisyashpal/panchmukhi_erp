@@ -1,4 +1,4 @@
-@extends('layouts.ho')
+@extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Multiple Usage Report')
 @section('content')
 <x-admin-page-header title="Multiple Usage Highlights" subtitle="Products used more than once — sorted by highest usage count">
