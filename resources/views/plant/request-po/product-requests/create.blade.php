@@ -18,13 +18,6 @@
                            placeholder="Enter requester name"
                            required>
                 </x-admin-form-group>
-                <x-admin-form-group label="Remarks" name="remarks" col="col-md-6">
-                    <input type="text"
-                           name="remarks"
-                           value="{{ old('remarks') }}"
-                           class="form-control @error('remarks') is-invalid @enderror"
-                           placeholder="Optional notes">
-                </x-admin-form-group>
             </div>
 
             @include('plant.request-po.product-requests.partials.item-lines', [

@@ -69,20 +69,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
         const sizePart = cleanSize || '';   
         const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
-        const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
+        const namePart = cleanName ? cleanName.substring(0, 3) : '';
 
         let sku = catPart;
         if (subPart) {
             sku += '_' + subPart;
-        }
-        if (sizePart) {
-            sku += '_' + sizePart;
         }
         if (brandPart) {
             sku += '_' + brandPart;
         }
         if (namePart) {
             sku += '_' + namePart;
+        }
+        if (sizePart) {
+            sku += '_' + sizePart;
         }
 
         skuInput.value = sku;

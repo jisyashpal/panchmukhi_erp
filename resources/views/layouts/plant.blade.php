@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>@yield('title', 'Plant') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/p.png') }}" type="image/x-icon">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
 </head>
@@ -17,7 +17,7 @@
         @include('partials.plant-sidebar')
         <div class="admin-content flex-grow-1 d-flex flex-column min-vh-100">
             @include('partials.plant-topbar', [
-            'pageTitle' => trim($__env->yieldContent('title')) ?: 'Plant',
+                'pageTitle' => trim($__env->yieldContent('title')) ?: 'Plant',
             ])
 
             <main class="admin-main flex-grow-1">
@@ -27,7 +27,8 @@
         </div>
     </div>
 
-    <div class="offcanvas offcanvas-start sidebar-admin text-white" tabindex="-1" id="plantSidebarOffcanvas" aria-labelledby="plantSidebarOffcanvasLabel">
+    <div class="offcanvas offcanvas-start sidebar-admin text-white" tabindex="-1" id="plantSidebarOffcanvas"
+        aria-labelledby="plantSidebarOffcanvasLabel">
         <div class="offcanvas-header border-bottom border-secondary border-opacity-25">
             <div class="d-flex align-items-center gap-2" id="plantSidebarOffcanvasLabel">
                 <span class="sidebar-brand-icon rounded d-flex align-items-center justify-content-center">
@@ -38,7 +39,8 @@
                     <small class="text-white-50">{{ auth()->user()->role?->slug === 'purchaser' ? 'All Plants' : (auth()->user()->plant?->name ?? 'Plant Portal') }}</small>
                 </div> -->
             </div>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column">
             <nav class="sidebar-nav flex-grow-1 overflow-auto p-2">
@@ -63,8 +65,8 @@
 
     @include('partials.bootstrap-scripts')
     <script>
-        document.querySelectorAll('#plantSidebarOffcanvas .sidebar-link, #plantSidebarOffcanvas .sidebar-sublink').forEach(function(el) {
-            el.addEventListener('click', function() {
+        document.querySelectorAll('#plantSidebarOffcanvas .sidebar-link, #plantSidebarOffcanvas .sidebar-sublink').forEach(function (el) {
+            el.addEventListener('click', function () {
                 var canvas = bootstrap.Offcanvas.getInstance(document.getElementById('plantSidebarOffcanvas'));
                 if (canvas) canvas.hide();
             });

@@ -106,20 +106,20 @@ class ProductCatalogSeeder extends Seeder
             $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
             $sizePart = $cleanSize !== '' ? strtoupper($cleanSize) : '';
             $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
-            $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
+            $namePart = $cleanName !== '' ? strtoupper(substr($cleanName, 0, 3)) : '';
 
             $sku = $categoryPart;
             if ($subCategoryPart !== '') {
                 $sku .= '_' . $subCategoryPart;
-            }
-            if ($sizePart !== '') {
-                $sku .= '_' . $sizePart;
             }
             if ($brandPart !== '') {
                 $sku .= '_' . $brandPart;
             }
             if ($namePart !== '') {
                 $sku .= '_' . $namePart;
+            }
+            if ($sizePart !== '') {
+                $sku .= '_' . $sizePart;
             }
 
             // Ensure SKU is unique (handle duplicates)

@@ -7,9 +7,11 @@ class PurchasePricingService
     /**
      * @return array{taxable_amount: float, cgst_amount: float, sgst_amount: float, igst_amount: float, line_total: float}
      */
-    public function calculateLine(float $quantity, float $unitPrice, float $gstRate, bool $isInterstate): array
+    public function calculateLine(float $quantity, float $unitPrice, float $gstRate, bool $isInterstate, float $discountPercent = 0): array
     {
-        $taxable = round($quantity * $unitPrice, 2);
+        $discountPercent = max(0, min(100, $discountPercent));
+        $gross = round($quantity * $unitPrice, 2);
+        $taxable = round($gross * (1 - $discountPercent / 100), 2);
         $gstAmount = round($taxable * $gstRate / 100, 2);
 
         if ($isInterstate) {

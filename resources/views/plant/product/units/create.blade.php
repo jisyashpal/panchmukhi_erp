@@ -2,7 +2,7 @@
 @section('title', 'Add Unit')
 @section('content')
 <x-admin-page-header title="Add Unit" subtitle="Create a measurement unit">
-    @include('partials.catalog-create-back', ['fallback' => route('plant.units.index'), 'portal' => 'ho'])
+    @include('partials.catalog-create-back', ['fallback' => route('plant.units.index'), 'portal' => 'plant'])
 </x-admin-page-header>
 
 <div class="admin-card">

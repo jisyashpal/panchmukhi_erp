@@ -2,7 +2,7 @@
 @section('title', 'Add Item Type')
 @section('content')
     <x-admin-page-header title="Add Item Type" subtitle="Create a Item Type under a parent category">
-        @include('partials.catalog-create-back', ['fallback' => route('plant.sub-categories.index'), 'portal' => 'ho'])
+        @include('partials.catalog-create-back', ['fallback' => route('plant.sub-categories.index'), 'portal' => 'plant'])
     </x-admin-page-header>
 
     <div class="admin-card">

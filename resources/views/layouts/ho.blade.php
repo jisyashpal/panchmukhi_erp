@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>@yield('title', 'HO Operations') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/p.png') }}" type="image/x-icon">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
 </head>
@@ -18,7 +18,7 @@
 
         <div class="admin-content flex-grow-1 d-flex flex-column min-vh-100">
             @include('partials.ho-topbar', [
-            'pageTitle' => trim($__env->yieldContent('title')) ?: 'HO Operations',
+                'pageTitle' => trim($__env->yieldContent('title')) ?: 'HO Operations',
             ])
 
             <main class="admin-main flex-grow-1">

@@ -109,7 +109,7 @@ trait StreamsPurchasePdf
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
 
-            fputcsv($out, ['Purchase Order', $purchase->reference_no]);
+            fputcsv($out, [$purchase->isQuotation() ? 'Quotation' : 'Purchase Order', $purchase->reference_no]);
             fputcsv($out, ['Company', $header['name']]);
             if ($header['address'] !== '') {
                 fputcsv($out, ['Address', str_replace(["\r\n", "\n"], ', ', $header['address'])]);

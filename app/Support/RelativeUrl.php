@@ -6,7 +6,7 @@ final class RelativeUrl
 {
     public static function route(string $name, mixed $parameters = []): string
     {
-        return route($name, $parameters, absolute: false);
+        return route($name, $parameters);
     }
 
     public static function normalize(?string $url): ?string

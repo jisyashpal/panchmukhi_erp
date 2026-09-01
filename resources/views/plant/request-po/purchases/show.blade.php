@@ -1,9 +1,10 @@
 @extends('layouts.plant')
-@section('title', 'Purchase ' . $purchase->reference_no)
+@section('title', ($purchase->isQuotation() ? 'Quotation ' : 'Purchase ') . $purchase->reference_no)
 @section('content')
-<x-admin-page-header title="Purchase {{ $purchase->reference_no }}" subtitle="{{ $purchase->plant->name }}">
+<x-admin-page-header :title="($purchase->isQuotation() ? 'Quotation ' : 'Purchase ').$purchase->reference_no" subtitle="{{ $purchase->plant->name }}">
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <x-status-badge :status="$purchase->status" />
+        <span class="badge bg-dark">{{ $purchase->documentLabel() }}</span>
         @if($purchase->is_interstate)
             <span class="badge bg-info">Inter-state · IGST</span>
         @else
@@ -35,10 +36,14 @@
                         <span class="text-muted d-block">Plant</span>
                         <strong>{{ $purchase->plant->name }}</strong>
                     </div>
-                    @if($purchase->purchase_request_id)
+                    @if($purchase->purchaseRequest?->product_request_id)
                     <div class="col-sm-6">
-                        <span class="text-muted d-block">Purchase request</span>
-                        <strong>#{{ $purchase->purchase_request_id }}</strong>
+                        <span class="text-muted d-block">Product request</span>
+                        <strong>
+                            <a href="{{ route('plant.product-requests.show', $purchase->purchaseRequest->product_request_id) }}">
+                                #{{ $purchase->purchaseRequest->product_request_id }}
+                            </a>
+                        </strong>
                     </div>
                     @endif
                     <div class="col-sm-6">
@@ -73,6 +78,7 @@
                             <th>Product</th>
                             <th class="text-end">Qty</th>
                             <th class="text-end">Rate</th>
+                            <th class="text-end">Disc%</th>
                             <th class="text-end">GST%</th>
                             <th class="text-end">Taxable</th>
                             <th class="text-end">CGST</th>
@@ -88,6 +94,7 @@
                             <td>{{ $item->product->name }}</td>
                             <td class="text-end">{{ number_format($item->quantity, 2) }}</td>
                             <td class="text-end">₹{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-end">{{ number_format((float) ($item->discount_percent ?? 0), 2) }}%</td>
                             <td class="text-end">{{ number_format($item->gst_rate, 2) }}%</td>
                             <td class="text-end">₹{{ number_format($item->taxable_amount, 2) }}</td>
                             <td class="text-end">₹{{ number_format($item->cgst_amount, 2) }}</td>
@@ -103,7 +110,9 @@
         </div>
     </div>
     <div class="col-lg-4">
-        @include('partials.purchase-pdf-form')
+        @if(auth()->user()?->isPurchaser())
+            @include('partials.purchase-pdf-form')
+        @endif
         <div class="admin-card mb-4 border-primary">
             <div class="admin-card-header bg-primary-subtle"><h2 class="mb-0">Amount summary</h2></div>
             <div class="admin-card-body">

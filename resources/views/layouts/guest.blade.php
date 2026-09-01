@@ -8,7 +8,7 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="theme-color" content="#0f172a">
     <title>@yield('title', 'Sign in') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/p.png') }}" type="image/x-icon">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/auth.css') }}?v={{ filemtime(public_path('css/auth.css')) }}">
 </head>

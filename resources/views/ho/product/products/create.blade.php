@@ -47,15 +47,20 @@
                 <i class="bi bi-trash"></i>
             </button>
 
-            <!-- Row 1: Name, Size, SKU, Active -->
+            <!-- Row 1: SKU Code, Name, Size, SKU, Active -->
             <div class="row g-3 mb-3 align-items-end pe-5">
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary">SKU Code</label>
+                    <input type="text" name="products[__INDEX__][sku_code]" class="form-control form-control-sm product-sku-code"
+                        maxlength="20" placeholder="SKU only">
+                </div>
+                <div class="col-md-3">
                     <label class="form-label small fw-semibold text-secondary">Item Name <span
                             class="text-danger">*</span></label>
                     <input type="text" name="products[__INDEX__][name]" class="form-control form-control-sm product-name"
                         required placeholder="Item Name">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary">Size/Part</label>
                     <input type="text" name="products[__INDEX__][size]" class="form-control form-control-sm product-size"
                         placeholder="Size/Part">
@@ -200,6 +205,7 @@
 
                 function generateRowSku(row) {
                     const nameInput = row.querySelector('.product-name');
+                    const skuCodeInput = row.querySelector('.product-sku-code');
                     const sizeInput = row.querySelector('.product-size');
                     const categorySelect = row.querySelector('.product-category');
                     const subCategorySelect = row.querySelector('.product-subcategory');
@@ -219,26 +225,31 @@
                     const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const cleanSkuCode = skuCodeInput ? skuCodeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : '';
                     const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
                     const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
                     const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
                     const sizePart = cleanSize || '';   
                     const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
-                    const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
+                    const skuCodePart = cleanSkuCode || '';
+                    const namePart = cleanName ? cleanName.substring(0, 3) : '';
 
                     let sku = catPart;
                     if (subPart) {
                         sku += '_' + subPart;
                     }
-                    if (sizePart) {
-                        sku += '_' + sizePart;
-                    }
                     if (brandPart) {
                         sku += '_' + brandPart;
                     }
+                    if (skuCodePart) {
+                        sku += '_' + skuCodePart;
+                    }
                     if (namePart) {
                         sku += '_' + namePart;
+                    }
+                    if (sizePart) {
+                        sku += '_' + sizePart;
                     }
 
                     skuInput.value = sku;
@@ -249,6 +260,7 @@
                     const subCategorySelect = row.querySelector('.product-subcategory');
                     const brandSelect = row.querySelector('.product-brand');
                     const nameInput = row.querySelector('.product-name');
+                    const skuCodeInput = row.querySelector('.product-sku-code');
                     const sizeInput = row.querySelector('.product-size');
 
                     if (categorySelect) {
@@ -267,6 +279,12 @@
 
                     if (brandSelect) {
                         brandSelect.addEventListener('change', function () {
+                            generateRowSku(row);
+                        });
+                    }
+
+                    if (skuCodeInput) {
+                        skuCodeInput.addEventListener('input', function () {
                             generateRowSku(row);
                         });
                     }

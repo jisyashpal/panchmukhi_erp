@@ -34,6 +34,10 @@
         <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice ?? 0 }}" required
                class="form-control form-control-sm purchase-line-input purchase-num-input" placeholder="0.00">
     </td>
+    <td class="purchase-col-num">
+        <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][discount_percent]" value="{{ $discountPercent ?? 0 }}"
+               class="form-control form-control-sm purchase-line-input purchase-num-input" placeholder="0">
+    </td>
     <td class="purchase-col-num purchase-col-gst">
         <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input purchase-num-input">
             @foreach([0, 5, 12, 18, 28] as $rate)

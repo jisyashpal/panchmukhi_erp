@@ -9,7 +9,7 @@
     @endif
 </x-admin-page-header>
 
-<div class="admin-filters mb-0">
+<div class="admin-filters mb-3">
     @include('partials.status-tabs', [
         'route' => 'plant.purchase-requests.index',
         'param' => 'status',

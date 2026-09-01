@@ -18,7 +18,7 @@
 
 @include('partials.auth-form-errors')
 
-<form method="POST" action="{{ route('login', absolute: false) }}" novalidate class="auth-form">
+<form method="POST" action="{{ route('login') }}" novalidate class="auth-form">
     @csrf
 
     <x-auth.field

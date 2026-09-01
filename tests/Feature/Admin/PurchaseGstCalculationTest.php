@@ -28,6 +28,16 @@ class PurchaseGstCalculationTest extends TestCase
         $this->assertEquals(1180, $line['line_total']);
     }
 
+    public function test_line_discount_reduces_taxable_amount(): void
+    {
+        $service = new PurchasePricingService;
+        $line = $service->calculateLine(10, 100, 18, false, 10);
+
+        $this->assertEquals(900, $line['taxable_amount']);
+        $this->assertEquals(81, $line['cgst_amount']);
+        $this->assertEquals(1062, $line['line_total']);
+    }
+
     public function test_interstate_gst_uses_igst_only(): void
     {
         $service = new PurchasePricingService;

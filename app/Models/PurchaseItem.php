@@ -13,6 +13,7 @@ class PurchaseItem extends Model
         'product_id',
         'quantity',
         'unit_price',
+        'discount_percent',
         'gst_rate',
         'taxable_amount',
         'cgst_amount',
@@ -33,6 +34,7 @@ class PurchaseItem extends Model
         return [
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
+            'discount_percent' => 'decimal:2',
             'gst_rate' => 'decimal:2',
             'taxable_amount' => 'decimal:2',
             'cgst_amount' => 'decimal:2',

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Purchase Order {{ $purchase->reference_no }}</title>
+    <title>{{ $purchase->isQuotation() ? 'Quotation' : 'Purchase Order' }} {{ $purchase->reference_no }}</title>
     <style>
         @page {
             margin: 0;
@@ -183,8 +183,8 @@
                 @endif
             </td>
             <td style="width: 42%; vertical-align: top; padding-bottom: 10pt; padding-left: 12pt;" class="border-bottom text-right">
-                <div class="doc-title">Purchase Order</div>
-                <div class="small"><strong>PO No:</strong> {{ $purchase->reference_no }}</div>
+                <div class="doc-title">{{ $purchase->isQuotation() ? 'Quotation' : 'Purchase Order' }}</div>
+                <div class="small"><strong>{{ $purchase->isQuotation() ? 'Quotation No' : 'PO No' }}:</strong> {{ $purchase->reference_no }}</div>
                 <div class="small"><strong>Date:</strong> {{ $purchase->ordered_at?->format('d-m-Y') ?? now()->format('d-m-Y') }}</div>
                 @if($purchase->purchase_request_id)
                     <div class="small"><strong>PR No:</strong> #{{ $purchase->purchase_request_id }}</div>

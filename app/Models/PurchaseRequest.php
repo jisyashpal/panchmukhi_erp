@@ -76,4 +76,14 @@ class PurchaseRequest extends Model
     {
         return $this->hasMany(Purchase::class);
     }
+
+    public function quotations(): HasMany
+    {
+        return $this->purchases()->quotations();
+    }
+
+    public function purchaseOrders(): HasMany
+    {
+        return $this->purchases()->purchaseOrders();
+    }
 }

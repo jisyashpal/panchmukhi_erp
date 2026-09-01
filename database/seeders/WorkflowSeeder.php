@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\PurchaseDocumentType;
 use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
 use App\Enums\StockMovementType;
@@ -19,6 +20,7 @@ use App\Models\PurchaseItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
 use App\Models\Plant;
+use App\Models\Role;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
@@ -39,10 +41,12 @@ class WorkflowSeeder extends Seeder
         $sand = Product::where('name', 'BATTERY 12V')->first() ?: Product::first();
         $paint = Product::where('name', 'AIR FILTER SET 15KVA')->first() ?: Product::first();
 
-        $plant = Plant::where('code', 'PLT-001')->firstOrFail();
-        $branchPlant = Plant::where('code', 'PLT-002')->firstOrFail();
+        $plant = Plant::where('code', 'PMCMPL-01')->first() ?: Plant::firstOrFail();
+        $branchPlant = Plant::where('code', 'PMCMPL-02')->first() ?: Plant::firstOrFail();
 
-        $plantUser = User::where('email', 'plant@gmail.com')->firstOrFail();
+        $plantUser = User::where('email', 'piska@gmail.com')->first()
+            ?: User::where('email', 'plant@gmail.com')->first()
+            ?: User::whereHas('role', fn ($q) => $q->where('slug', Role::SLUG_PLANT_IN_CHARGE))->firstOrFail();
         $hoUser = User::where('email', 'ho@gmail.com')->firstOrFail();
         $purchaser = User::where('email', 'purchaser@gmail.com')->firstOrFail();
 
@@ -289,14 +293,63 @@ class WorkflowSeeder extends Seeder
                 'requested_by' => $plantUser->id,
                 'plant_status' => RequestStatus::Submitted,
                 'status' => RequestStatus::Submitted,
-                'remarks' => '[demo] Purchase request from completed product request (multi-supplier, no PO yet)',
+                'remarks' => '[demo] Purchase request from completed product request (quotation awaiting PO)',
             ]
         );
         $this->seedPurchaseRequestItems($completedPr, [
-            ['product_id' => $cement->id, 'quantity' => 50, 'unit_price' => 380, 'supplier_id' => $localSupplier->id],
-            ['product_id' => $sand->id, 'quantity' => 6, 'unit_price' => 1180, 'supplier_id' => $ultratechSupplier->id],
+            [
+                'product_id' => $cement->id,
+                'quantity' => 50,
+                'unit_price' => 380,
+                'supplier_id' => $localSupplier->id,
+                'product_request_item_id' => $completed->items()->where('product_id', $cement->id)->value('id'),
+            ],
+            [
+                'product_id' => $sand->id,
+                'quantity' => 6,
+                'unit_price' => 1180,
+                'supplier_id' => $ultratechSupplier->id,
+                'product_request_item_id' => $completed->items()->where('product_id', $sand->id)->value('id'),
+            ],
         ]);
 
+        // Partial convert demo: steel quoted (Create PO tab), sand leftover stays PENDING
+        $partial = ProductRequest::firstOrCreate(
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — partial quotation (leftover pending)'],
+            [
+                'requested_by' => $plantUser->id,
+                'requester_name' => $plantUser->name,
+                'status' => RequestStatus::InProgress,
+                'reviewed_by' => $hoUser->id,
+                'reviewed_at' => now()->subDays(1),
+            ]
+        );
+        $this->seedProductRequestItems($partial, [
+            ['product_id' => $steel->id, 'quantity' => 40, 'unit_price' => 70, 'gst_rate' => 18, 'supplier_id' => $localSupplier->id],
+            ['product_id' => $sand->id, 'quantity' => 3, 'unit_price' => 1180, 'gst_rate' => 5, 'supplier_id' => $localSupplier->id],
+        ]);
+
+        $partialQuotedItem = $partial->items()->where('product_id', $steel->id)->first();
+        $partialPr = PurchaseRequest::firstOrCreate(
+            ['plant_id' => $plant->id, 'remarks' => '[demo] Partial quotation PR (steel only)'],
+            [
+                'requested_by' => $plantUser->id,
+                'product_request_id' => $partial->id,
+                'plant_status' => RequestStatus::Submitted,
+                'status' => RequestStatus::Submitted,
+            ]
+        );
+        if ($partialQuotedItem) {
+            $this->seedPurchaseRequestItems($partialPr, [
+                [
+                    'product_id' => $steel->id,
+                    'quantity' => 40,
+                    'unit_price' => 70,
+                    'supplier_id' => $localSupplier->id,
+                    'product_request_item_id' => $partialQuotedItem->id,
+                ],
+            ]);
+        }
         ProductRequest::firstOrCreate(
             ['plant_id' => $plant->id, 'remarks' => '[demo] Product request — cancelled'],
             [
@@ -443,17 +496,23 @@ class WorkflowSeeder extends Seeder
             ]
         );
         $this->seedPurchaseRequestItems($pipelinePurchaseReq, [
-            ['product_id' => $cement->id, 'quantity' => 100, 'unit_price' => 380, 'supplier_id' => $localSupplier->id],
+            [
+                'product_id' => $cement->id,
+                'quantity' => 100,
+                'unit_price' => 380,
+                'supplier_id' => $localSupplier->id,
+                'product_request_item_id' => $pipelineProductReq->items()->where('product_id', $cement->id)->value('id'),
+            ],
         ]);
     }
 
     /**
-     * @param  list<array{product_id: int, quantity: float, unit_price: float, supplier_id?: int}>  $items
+     * @param  list<array{product_id: int, quantity: float, unit_price: float, supplier_id?: int, product_request_item_id?: int|null}>  $items
      */
     private function seedPurchaseRequestItems(PurchaseRequest $request, array $items): void
     {
         foreach ($items as $item) {
-            PurchaseRequestItem::firstOrCreate(
+            $purchaseRequestItem = PurchaseRequestItem::firstOrCreate(
                 [
                     'purchase_request_id' => $request->id,
                     'product_id' => $item['product_id'],
@@ -462,8 +521,15 @@ class WorkflowSeeder extends Seeder
                     'supplier_id' => $item['supplier_id'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
+                    'product_request_item_id' => $item['product_request_item_id'] ?? null,
                 ]
             );
+
+            if (! empty($item['product_request_item_id']) && ! $purchaseRequestItem->product_request_item_id) {
+                $purchaseRequestItem->update([
+                    'product_request_item_id' => $item['product_request_item_id'],
+                ]);
+            }
         }
     }
 
@@ -483,6 +549,75 @@ class WorkflowSeeder extends Seeder
         $pricing = app(PurchasePricingService::class);
 
         $multiSupplierPr = PurchaseRequest::where('remarks', '[demo] Multi-supplier — POs created')->first();
+        $completedPr = PurchaseRequest::where('remarks', '[demo] Purchase request from completed product request (quotation awaiting PO)')->first()
+            ?: PurchaseRequest::where('remarks', 'like', '[demo] Purchase request from completed product request%')->first();
+        $partialPr = PurchaseRequest::where('remarks', '[demo] Partial quotation PR (steel only)')->first();
+        $readyForPo = PurchaseRequest::where('remarks', '[demo] Purchase request — ready for PO')->first();
+
+        // Quotation awaiting PO (Create PO tab + Quotation section)
+        if ($completedPr) {
+            $this->createPurchase(
+                'QT-DEMO-AWAITING-PO',
+                $plant,
+                $localSupplier,
+                $completedPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $cement->id, 'quantity' => 50, 'unit_price' => 380, 'gst_rate' => 28, 'discount_percent' => 5],
+                    ['product_id' => $sand->id, 'quantity' => 6, 'unit_price' => 1180, 'gst_rate' => 5, 'discount_percent' => 0],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(4),
+                    'document_type' => PurchaseDocumentType::Quotation,
+                    'notes' => '[demo] Quotation awaiting PO conversion',
+                    'supplier_invoice_no' => 'SQ-DEMO-001',
+                    'supplier_invoice_date' => now()->subDays(4)->toDateString(),
+                ]
+            );
+        }
+
+        if ($partialPr) {
+            $this->createPurchase(
+                'QT-DEMO-PARTIAL',
+                $plant,
+                $localSupplier,
+                $partialPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $steel->id, 'quantity' => 40, 'unit_price' => 70, 'gst_rate' => 18, 'discount_percent' => 10],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDay(),
+                    'document_type' => PurchaseDocumentType::Quotation,
+                    'notes' => '[demo] Partial request quotation — sand leftover stays PENDING',
+                ]
+            );
+        }
+
+        if ($readyForPo) {
+            $this->createPurchase(
+                'QT-DEMO-READY',
+                $plant,
+                $localSupplier,
+                $readyForPo,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $paint->id, 'quantity' => 8, 'unit_price' => 3200, 'gst_rate' => 18, 'discount_percent' => 0],
+                    ['product_id' => $sand->id, 'quantity' => 12, 'unit_price' => 1150, 'gst_rate' => 5, 'discount_percent' => 2],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(3),
+                    'document_type' => PurchaseDocumentType::Quotation,
+                    'notes' => '[demo] Ready-for-PO request converted to quotation',
+                ]
+            );
+        }
 
         $this->createPurchase(
             'PO-DEMO-PENDING-DISPATCH',
@@ -548,7 +683,7 @@ class WorkflowSeeder extends Seeder
             PurchaseStatus::Ordered,
             true,
             [
-                ['product_id' => $steel->id, 'quantity' => 500, 'unit_price' => 65, 'gst_rate' => 18],
+                ['product_id' => $steel->id, 'quantity' => 500, 'unit_price' => 65, 'gst_rate' => 18, 'discount_percent' => 5],
             ],
             $pricing,
             [
@@ -559,6 +694,42 @@ class WorkflowSeeder extends Seeder
         );
 
         if ($multiSupplierPr) {
+            $multiQuoteCem = $this->createPurchase(
+                'QT-DEMO-MULTI-CEM',
+                $plant,
+                $ultratechSupplier,
+                $multiSupplierPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $cement->id, 'quantity' => 60, 'unit_price' => 378, 'gst_rate' => 28],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(9),
+                    'document_type' => PurchaseDocumentType::Quotation,
+                    'notes' => '[demo] Multi-supplier quotation — cement (Ultratech)',
+                ]
+            );
+
+            $multiQuoteStl = $this->createPurchase(
+                'QT-DEMO-MULTI-STL',
+                $plant,
+                $localSupplier,
+                $multiSupplierPr,
+                PurchaseStatus::Ordered,
+                false,
+                [
+                    ['product_id' => $steel->id, 'quantity' => 120, 'unit_price' => 66, 'gst_rate' => 18],
+                ],
+                $pricing,
+                [
+                    'ordered_at' => now()->subDays(9),
+                    'document_type' => PurchaseDocumentType::Quotation,
+                    'notes' => '[demo] Multi-supplier quotation — steel (local)',
+                ]
+            );
+
             $this->createPurchase(
                 'PO-DEMO-MULTI-CEM',
                 $plant,
@@ -572,6 +743,7 @@ class WorkflowSeeder extends Seeder
                 $pricing,
                 [
                     'ordered_at' => now()->subDays(8),
+                    'quotation_id' => $multiQuoteCem->id,
                     'notes' => '[demo] Multi-supplier PR — cement PO (Ultratech)',
                 ]
             );
@@ -589,13 +761,34 @@ class WorkflowSeeder extends Seeder
                 $pricing,
                 [
                     'ordered_at' => now()->subDays(8),
+                    'quotation_id' => $multiQuoteStl->id,
                     'notes' => '[demo] Multi-supplier PR — steel PO (local supplier)',
                 ]
             );
         }
 
-        // Pipeline End-to-End: Purchase Order linked to the Purchase Request
+        // Pipeline End-to-End: Quotation then PO linked to the Purchase Request
         $pipelinePurchaseReq = PurchaseRequest::where('remarks', '[demo] End-to-End Pipeline: Purchase Request')->firstOrFail();
+
+        $pipelineQuote = $this->createPurchase(
+            'QT-PIPELINE',
+            $plant,
+            $localSupplier,
+            $pipelinePurchaseReq,
+            PurchaseStatus::Ordered,
+            false,
+            [
+                ['product_id' => $cement->id, 'quantity' => 100, 'unit_price' => 380, 'gst_rate' => 28, 'discount_percent' => 0],
+            ],
+            $pricing,
+            [
+                'ordered_at' => now()->subDays(10),
+                'document_type' => PurchaseDocumentType::Quotation,
+                'notes' => '[demo] Pipeline quotation before PO',
+                'supplier_invoice_no' => 'SQ-PIPE-001',
+                'supplier_invoice_date' => now()->subDays(10)->toDateString(),
+            ]
+        );
 
         $this->createPurchase(
             'PO-PIPELINE-DELIVERED',
@@ -617,12 +810,13 @@ class WorkflowSeeder extends Seeder
                 'received_at' => now()->subDays(7),
                 'supplier_invoice_no' => 'INV-PIPE-001',
                 'supplier_invoice_date' => now()->subDays(8)->toDateString(),
+                'quotation_id' => $pipelineQuote->id,
             ]
         );
     }
 
     /**
-     * @param  list<array{product_id: int, quantity: float, unit_price: float, gst_rate: float}>  $items
+     * @param  list<array{product_id: int, quantity: float, unit_price: float, gst_rate: float, discount_percent?: float}>  $items
      */
     private function createPurchase(
         string $referenceNo,
@@ -635,6 +829,7 @@ class WorkflowSeeder extends Seeder
         PurchasePricingService $pricing,
         array $meta = []
     ): Purchase {
+        $documentType = $meta['document_type'] ?? PurchaseDocumentType::PurchaseOrder;
         $lineCalcs = [];
         $itemsToCreate = [];
 
@@ -643,7 +838,8 @@ class WorkflowSeeder extends Seeder
                 (float) $item['quantity'],
                 (float) $item['unit_price'],
                 (float) $item['gst_rate'],
-                $isInterstate
+                $isInterstate,
+                (float) ($item['discount_percent'] ?? 0)
             );
             $lineCalcs[] = $calc;
             $itemsToCreate[] = array_merge($item, $calc);
@@ -657,6 +853,8 @@ class WorkflowSeeder extends Seeder
                 'plant_id' => $plant->id,
                 'supplier_id' => $supplier->id,
                 'purchase_request_id' => $purchaseRequest?->id,
+                'document_type' => $documentType,
+                'quotation_id' => $meta['quotation_id'] ?? null,
                 'status' => $status,
                 'is_interstate' => $isInterstate,
                 'subtotal' => $totals['subtotal'],
@@ -666,12 +864,21 @@ class WorkflowSeeder extends Seeder
                 'total_gst' => $totals['total_gst'],
                 'grand_total' => $totals['grand_total'],
                 'ordered_at' => $meta['ordered_at'] ?? now(),
-                'notes' => '[demo] Seeded purchase order',
+                'notes' => $meta['notes'] ?? ($documentType === PurchaseDocumentType::Quotation
+                    ? '[demo] Seeded quotation'
+                    : '[demo] Seeded purchase order'),
             ], array_intersect_key($meta, array_flip([
                 'dispatched_at', 'dispatched_by', 'delivered_at',
                 'received_by', 'received_at', 'supplier_invoice_no', 'supplier_invoice_date',
             ])))
         );
+
+        if ($purchase->wasRecentlyCreated === false) {
+            $purchase->fill([
+                'document_type' => $documentType,
+                'quotation_id' => $meta['quotation_id'] ?? $purchase->quotation_id,
+            ])->save();
+        }
 
         if ($purchase->items()->count() === 0) {
             foreach ($itemsToCreate as $item) {
@@ -680,6 +887,7 @@ class WorkflowSeeder extends Seeder
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
+                    'discount_percent' => $item['discount_percent'] ?? 0,
                     'gst_rate' => $item['gst_rate'],
                     'taxable_amount' => $item['taxable_amount'],
                     'cgst_amount' => $item['cgst_amount'],
@@ -691,7 +899,7 @@ class WorkflowSeeder extends Seeder
             }
         }
 
-        return $purchase;
+        return $purchase->fresh(['items']);
     }
 
     private function seedStockAndUsage(

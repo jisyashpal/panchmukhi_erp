@@ -26,6 +26,7 @@ class DispatchController extends Controller
         $isPurchaser = $this->purchaserSeesAllPlants();
 
         $purchases = Purchase::with(['supplier', 'plant', 'items'])
+            ->purchaseOrders()
             ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
             ->when($request->get('filter') === 'pending', fn ($q) => $q->where('status', PurchaseStatus::Ordered)->whereNull('dispatched_at'))
             ->when($request->get('filter') === 'dispatched', fn ($q) => $q->whereNotNull('dispatched_at'))
@@ -41,6 +42,11 @@ class DispatchController extends Controller
         $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
         $this->authorizePlantAccess($purchase);
 
+        if ($purchase->isQuotation()) {
+            return redirect()->route('plant.dispatch.index')
+                ->with('error', 'Quotations cannot be dispatched. Create a PO first.');
+        }
+
         $purchase->load(['items.product', 'items.alternativeProduct', 'items.originalProduct', 'supplier', 'plant', 'dispatcher']);
 
         $products = Product::where('is_active', true)->orderBy('name')->get();
@@ -54,6 +60,10 @@ class DispatchController extends Controller
     {
         $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
         $this->authorizePlantAccess($purchase);
+
+        if ($purchase->isQuotation()) {
+            return back()->with('error', 'Quotations cannot be dispatched. Create a PO first.');
+        }
 
         if ($purchase->status === PurchaseStatus::Delivered) {
             return back()->with('error', 'Purchase already fully received.');

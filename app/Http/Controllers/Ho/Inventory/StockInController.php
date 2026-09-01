@@ -34,6 +34,11 @@ class StockInController extends Controller
             ? Purchase::with(['items.product', 'items.originalProduct', 'plant', 'supplier'])->find($request->integer('purchase_id'))
             : null;
 
+        if ($selectedPurchase?->isQuotation()) {
+            return redirect()->route('ho.stocks.stock-in')
+                ->with('error', 'Quotations cannot be stocked in. Create a PO first.');
+        }
+
         if ($selectedPurchase?->status === PurchaseStatus::Delivered) {
             return redirect()->route('ho.purchases.show', $selectedPurchase)
                 ->with('info', 'This purchase order is already fully received.');
@@ -49,6 +54,7 @@ class StockInController extends Controller
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'purchases' => Purchase::with(['plant', 'supplier', 'items'])
+                ->purchaseOrders()
                 ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
                 ->whereNotNull('dispatched_at')
                 ->latest()
@@ -62,6 +68,10 @@ class StockInController extends Controller
 
     public function updatePurchase(Request $request, Purchase $purchase): RedirectResponse
     {
+        if ($purchase->isQuotation()) {
+            return back()->with('error', 'Quotations cannot be stocked in. Create a PO first.');
+        }
+
         if ($purchase->status === PurchaseStatus::Delivered) {
             return back()->with('error', 'This purchase order is already fully received.');
         }

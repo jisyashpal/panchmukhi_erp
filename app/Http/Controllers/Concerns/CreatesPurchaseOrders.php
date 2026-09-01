@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Enums\PurchaseDocumentType;
 use App\Enums\PurchaseStatus;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -26,6 +27,8 @@ trait CreatesPurchaseOrders
         ?string $supplierInvoiceDate,
         ?string $notes,
         bool $multiSupplier,
+        PurchaseDocumentType $documentType = PurchaseDocumentType::PurchaseOrder,
+        ?int $quotationId = null,
     ): Purchase {
         $lineCalcs = [];
         $itemsToCreate = [];
@@ -35,7 +38,8 @@ trait CreatesPurchaseOrders
                 (float) $item['quantity'],
                 (float) $item['unit_price'],
                 (float) ($item['gst_rate'] ?? 0),
-                $isInterstate
+                $isInterstate,
+                (float) ($item['discount_percent'] ?? 0)
             );
             $lineCalcs[] = $calc;
             $itemsToCreate[] = array_merge($item, $calc);
@@ -51,6 +55,8 @@ trait CreatesPurchaseOrders
             'plant_id' => $plantId,
             'supplier_id' => $supplierId,
             'purchase_request_id' => $purchaseRequestId,
+            'document_type' => $documentType,
+            'quotation_id' => $quotationId,
             'reference_no' => $referenceNo,
             'status' => PurchaseStatus::Ordered,
             'is_interstate' => $isInterstate,
@@ -72,6 +78,7 @@ trait CreatesPurchaseOrders
                 'product_id' => $item['product_id'],
                 'quantity' => $item['quantity'],
                 'unit_price' => $item['unit_price'],
+                'discount_percent' => $item['discount_percent'] ?? 0,
                 'gst_rate' => $item['gst_rate'] ?? 0,
                 'taxable_amount' => $item['taxable_amount'],
                 'cgst_amount' => $item['cgst_amount'],

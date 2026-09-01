@@ -1,15 +1,19 @@
 @extends('layouts.plant')
 @section('title', 'Purchases')
 @section('content')
+@php
+    $quotations = $quotations ?? collect();
+    $purchaseOrders = $purchaseOrders ?? $purchases;
+@endphp
 <x-admin-page-header
     title="Purchases"
-    :subtitle="$isPurchaser ? 'View and print purchase orders' : 'View purchase orders for this plant'"
+    :subtitle="$isPurchaser ? 'Quotations and purchase orders' : 'View purchase orders for this plant'"
 />
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         <div class="col-12 col-md-4">
-            <label class="form-label small">Search PO / Supplier / Product</label>
+            <label class="form-label small">Search Quotation / PO / Supplier / Product</label>
             <input type="text" name="search" value="{{ request('search') }}" class="form-control form-control-sm"
                 placeholder="Reference, supplier, or product name...">
         </div>
@@ -23,46 +27,122 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['search', 'from_date', 'to_date']))
+            @if(request()->anyFilled(['search', 'from_date', 'to_date', 'purchase_request_id']))
                 <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
     </form>
 </div>
 
-<div class="admin-card admin-table-card">
+@if($isPurchaser)
+<div class="admin-card admin-table-card mb-4">
+    <div class="admin-card-header"><h2 class="h6 mb-0">Quotation Section</h2></div>
     <div class="table-responsive">
         <table class="table mb-0">
             <thead>
                 <tr>
-                    <th>Reference</th>
-                    <th>Supplier</th>
-                    <th>Products</th>
-                    <th>Order Date</th>
-                    <th>Status</th>
+                    <th>Quotation / PO</th>
+                    <th>Supplier Name</th>
+                    <th>Date of Request</th>
+                    <th>Site (Plant)</th>
+                    <th>Create Date</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($purchases as $purchase)
+                @forelse($quotations as $purchase)
                 @php
+                    $requestDate = $purchase->purchaseRequest?->productRequest?->created_at
+                        ?? $purchase->purchaseRequest?->created_at;
                     $productNames = $purchase->items->map(fn ($item) => $item->product?->name)->filter()->unique()->values();
                 @endphp
                 <tr>
-                    <td class="fw-semibold">{{ $purchase->reference_no }}</td>
-                    <td>{{ $purchase->supplier->name }}</td>
-                    <td class="small text-muted">
+                    <td>
+                        <span class="fw-semibold">{{ $purchase->reference_no }}</span>
                         @if($productNames->isNotEmpty())
-                            {{ $productNames->take(3)->implode(', ') }}
-                            @if($productNames->count() > 3)
-                                <span class="text-muted">+{{ $productNames->count() - 3 }} more</span>
-                            @endif
-                        @else
-                            —
+                            <span class="d-block small text-muted">{{ $productNames->take(3)->implode(', ') }}</span>
                         @endif
                     </td>
-                    <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? '—' }}</td>
-                    <td><span class="badge bg-secondary">{{ $purchase->status->label() }}</span></td>
+                    <td>{{ $purchase->supplier->name }}</td>
+                    <td class="small text-muted">{{ $requestDate?->format('d M Y') ?? '—' }}</td>
+                    <td>{{ $purchase->plant->name }}</td>
+                    <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? $purchase->created_at?->format('d M Y') ?? '—' }}</td>
+                    <td class="text-end">
+                        <a href="{{ route('plant.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-secondary me-1 btn-print-purchase"
+                            data-pdf-url="{{ route('plant.purchases.pdf', $purchase) }}"
+                            data-reference="{{ $purchase->reference_no }}"
+                            data-default-name="{{ $pdfDefaults['company_name'] ?: $purchase->plant->name }}"
+                            data-default-address="{{ $pdfDefaults['company_address'] ?: ($purchase->plant->address ?? '') }}"
+                            data-default-gstin="{{ $pdfDefaults['company_gstin'] }}">
+                            <i class="bi bi-printer me-1"></i>Print
+                        </button>
+                        @if(! $purchase->hasConvertedPurchaseOrder())
+                            <a href="{{ route('plant.purchases.create', ['quotation_id' => $purchase->id]) }}" class="btn btn-sm btn-warning me-1">
+                                <i class="bi bi-cart-plus me-1"></i>Create PO
+                            </a>
+                        @endif
+                        @if($purchase->canBeEdited())
+                            <a href="{{ route('plant.purchases.edit', $purchase) }}" class="btn btn-sm btn-outline-primary me-1">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </a>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="6">
+                        <div class="admin-empty">
+                            <i class="bi bi-file-earmark-text d-block"></i>
+                            No quotations found
+                        </div>
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    @if(method_exists($quotations, 'links'))
+        <div class="admin-card-body border-top py-2">{{ $quotations->links() }}</div>
+    @endif
+</div>
+@endif
+
+<div class="admin-card admin-table-card">
+    <div class="admin-card-header"><h2 class="h6 mb-0">{{ $isPurchaser ? 'PO Section' : 'Purchase Orders' }}</h2></div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Quotation / PO</th>
+                    <th>Supplier Name</th>
+                    <th>Date of Request</th>
+                    <th>Site (Plant)</th>
+                    <th>Create Date</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($purchaseOrders as $purchase)
+                @php
+                    $requestDate = $purchase->purchaseRequest?->productRequest?->created_at
+                        ?? $purchase->purchaseRequest?->created_at;
+                    $productNames = $purchase->items->map(fn ($item) => $item->product?->name)->filter()->unique()->values();
+                @endphp
+                <tr>
+                    <td>
+                        <span class="fw-semibold">{{ $purchase->reference_no }}</span>
+                        @if($productNames->isNotEmpty())
+                            <span class="d-block small text-muted">{{ $productNames->take(3)->implode(', ') }}</span>
+                        @endif
+                    </td>
+                    <td>{{ $purchase->supplier->name }}</td>
+                    <td class="small text-muted">{{ $requestDate?->format('d M Y') ?? '—' }}</td>
+                    <td>{{ $purchase->plant->name }}</td>
+                    <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? $purchase->created_at?->format('d M Y') ?? '—' }}</td>
                     <td class="text-end">
                         <a href="{{ route('plant.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
                             <i class="bi bi-eye me-1"></i>View
@@ -77,7 +157,7 @@
                                 data-default-gstin="{{ $pdfDefaults['company_gstin'] }}">
                                 <i class="bi bi-printer me-1"></i>Print
                             </button>
-                            @if(in_array($purchase->status->value, ['ordered', 'partial']))
+                            @if($purchase->canBeEdited())
                                 <a href="{{ route('plant.purchases.edit', $purchase) }}" class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil me-1"></i>Edit
                                 </a>
@@ -90,7 +170,7 @@
                     <td colspan="6">
                         <div class="admin-empty">
                             <i class="bi bi-truck d-block"></i>
-                            No purchases found
+                            No purchase orders found
                         </div>
                     </td>
                 </tr>
@@ -99,14 +179,16 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $purchases->links() }}</div>
+@if(method_exists($purchaseOrders, 'links'))
+    <div class="mt-3">{{ $purchaseOrders->links() }}</div>
+@endif
 
 @if($isPurchaser)
 <div class="modal fade" id="purchasePrintModal" tabindex="-1" aria-labelledby="purchasePrintModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="purchasePrintModalLabel">Print purchase order</h5>
+                <h5 class="modal-title" id="purchasePrintModalLabel">Print document</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -155,19 +237,14 @@
     });
 
     document.getElementById('btn_confirm_print')?.addEventListener('click', function () {
-        const companyName = document.getElementById('print_company_name').value.trim();
-        if (!companyName || !activePdfUrl) {
-            document.getElementById('print_company_name').focus();
-            return;
-        }
-
+        const name = document.getElementById('print_company_name').value.trim();
+        if (!name || !activePdfUrl) return;
         const params = new URLSearchParams({
-            company_name: companyName,
-            company_address: document.getElementById('print_company_address').value,
-            company_gstin: document.getElementById('print_company_gstin').value,
+            company_name: name,
+            company_address: document.getElementById('print_company_address').value.trim(),
+            company_gstin: document.getElementById('print_company_gstin').value.trim(),
         });
-
-        window.open(`${activePdfUrl}?${params.toString()}`, '_blank');
+        window.open(activePdfUrl + (activePdfUrl.includes('?') ? '&' : '?') + params.toString(), '_blank');
         modal.hide();
     });
 })();

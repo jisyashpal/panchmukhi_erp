@@ -101,6 +101,7 @@ return new class extends Migration
             $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
             $table->string('item_name')->nullable();
             $table->string('size')->nullable();
+            $table->string('unit')->nullable();
             $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);

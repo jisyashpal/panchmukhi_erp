@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>@yield('title', 'Admin') — {{ config('app.name', 'Panchmukhi ERP') }}</title>
-    <link rel="icon" href="{{ asset('img/PMCMPL.png') }}">
+    <link rel="shortcut icon" href="{{ asset('img/p.png') }}" type="image/x-icon">
     @include('partials.bootstrap-head')
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
 </head>
@@ -18,7 +18,7 @@
 
         <div class="admin-content flex-grow-1 d-flex flex-column min-vh-100">
             @include('partials.admin-topbar', [
-            'pageTitle' => trim($__env->yieldContent('title')) ?: 'Admin',
+                'pageTitle' => trim($__env->yieldContent('title')) ?: 'Admin',
             ])
 
             <main class="admin-main flex-grow-1">
@@ -28,7 +28,8 @@
         </div>
     </div>
 
-    <div class="offcanvas offcanvas-start sidebar-admin text-white" tabindex="-1" id="adminSidebarOffcanvas" aria-labelledby="adminSidebarOffcanvasLabel">
+    <div class="offcanvas offcanvas-start sidebar-admin text-white" tabindex="-1" id="adminSidebarOffcanvas"
+        aria-labelledby="adminSidebarOffcanvasLabel">
         <div class="offcanvas-header border-bottom border-secondary border-opacity-25">
             <div class="d-flex align-items-center gap-2" id="adminSidebarOffcanvasLabel">
                 <span class="sidebar-brand-icon rounded d-flex align-items-center justify-content-center">
@@ -39,7 +40,8 @@
                     <small class="text-white-50">Head Office</small>
                 </div> -->
             </div>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column">
             <nav class="sidebar-nav flex-grow-1 overflow-auto p-2">
@@ -64,8 +66,8 @@
 
     @include('partials.bootstrap-scripts')
     <script>
-        document.querySelectorAll('#adminSidebarOffcanvas .sidebar-link, #adminSidebarOffcanvas .sidebar-sublink').forEach(function(el) {
-            el.addEventListener('click', function() {
+        document.querySelectorAll('#adminSidebarOffcanvas .sidebar-link, #adminSidebarOffcanvas .sidebar-sublink').forEach(function (el) {
+            el.addEventListener('click', function () {
                 var canvas = bootstrap.Offcanvas.getInstance(document.getElementById('adminSidebarOffcanvas'));
                 if (canvas) canvas.hide();
             });

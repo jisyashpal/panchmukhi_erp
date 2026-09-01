@@ -1,5 +1,21 @@
 @extends('layouts.plant')
 @section('title', 'Add Products')
+@php
+    $catalogReturn = array_filter([
+        'redirect' => 'products.create',
+        'product_request_id' => request('product_request_id'),
+        'product_request_item_id' => request('product_request_item_id'),
+        'pc_name' => request('name'),
+        'pc_size' => request('size'),
+        'pc_sku_code' => request('sku_code'),
+        'pc_category_id' => request('category_id'),
+        'pc_sub_category_id' => request('sub_category_id'),
+        'pc_brand_id' => request('brand_id'),
+        'pc_unit_id' => request('unit_id'),
+        'pc_reorder_level' => request('reorder_level'),
+        'category_id' => request('category_id'),
+    ], fn ($value) => $value !== null && $value !== '');
+@endphp
 @section('content')
     <x-admin-page-header title="Add Products" subtitle="Add new products to the catalog">
         @if(request('product_request_id'))
@@ -58,15 +74,20 @@
                 <i class="bi bi-trash"></i>
             </button>
 
-            <!-- Row 1: Name, Size, SKU, Active -->
+            <!-- Row 1: SKU Code, Name, Size, SKU, Active -->
             <div class="row g-3 mb-3 align-items-end pe-5">
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary">SKU Code</label>
+                    <input type="text" name="products[__INDEX__][sku_code]" class="form-control form-control-sm product-sku-code"
+                        maxlength="20" placeholder="SKU only">
+                </div>
+                <div class="col-md-3">
                     <label class="form-label small fw-semibold text-secondary">Item Name <span
                             class="text-danger">*</span></label>
                     <input type="text" name="products[__INDEX__][name]" class="form-control form-control-sm product-name"
                         required placeholder="Item Name">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary">Size/Part</label>
                     <input type="text" name="products[__INDEX__][size]" class="form-control form-control-sm product-size"
                         placeholder="Size/Part">
@@ -93,8 +114,8 @@
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label small fw-semibold text-secondary mb-0">Category <span
                                 class="text-danger">*</span></label>
-                        <a href="{{ route('plant.categories.create', ['redirect' => 'products.create']) }}"
-                            class="text-primary small" style="text-decoration: none;">
+                        <a href="{{ route('plant.categories.create', $catalogReturn) }}"
+                            class="text-primary small js-create-catalog" data-catalog="category" style="text-decoration: none;">
                             <i class="bi bi-plus-circle me-1"></i>Create
                         </a>
                     </div>
@@ -109,8 +130,8 @@
                 <div class="col-md-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label small fw-semibold text-secondary mb-0">Item Type</label>
-                        <a href="{{ route('plant.sub-categories.create', ['redirect' => 'products.create']) }}"
-                            class="text-primary small" style="text-decoration: none;">
+                        <a href="{{ route('plant.sub-categories.create', $catalogReturn) }}"
+                            class="text-primary small js-create-catalog" data-catalog="sub-category" style="text-decoration: none;">
                             <i class="bi bi-plus-circle me-1"></i>Create
                         </a>
                     </div>
@@ -125,8 +146,8 @@
                 <div class="col-md-2">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label small fw-semibold text-secondary mb-0">Brand</label>
-                        <a href="{{ route('plant.brands.create', ['redirect' => 'products.create']) }}"
-                            class="text-primary small" style="text-decoration: none;">
+                        <a href="{{ route('plant.brands.create', $catalogReturn) }}"
+                            class="text-primary small js-create-catalog" data-catalog="brand" style="text-decoration: none;">
                             <i class="bi bi-plus-circle me-1"></i>Create
                         </a>
                     </div>
@@ -141,8 +162,8 @@
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label small fw-semibold text-secondary mb-0">Unit <span
                                 class="text-danger">*</span></label>
-                        <a href="{{ route('plant.units.create', ['redirect' => 'products.create']) }}"
-                            class="text-primary small" style="text-decoration: none;">
+                        <a href="{{ route('plant.units.create', $catalogReturn) }}"
+                            class="text-primary small js-create-catalog" data-catalog="unit" style="text-decoration: none;">
                             <i class="bi bi-plus-circle me-1"></i>Create
                         </a>
                     </div>
@@ -211,6 +232,7 @@
 
                 function generateRowSku(row) {
                     const nameInput = row.querySelector('.product-name');
+                    const skuCodeInput = row.querySelector('.product-sku-code');
                     const sizeInput = row.querySelector('.product-size');
                     const categorySelect = row.querySelector('.product-category');
                     const subCategorySelect = row.querySelector('.product-subcategory');
@@ -230,26 +252,31 @@
                     const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                     const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    const cleanSkuCode = skuCodeInput ? skuCodeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : '';
                     const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
                     const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
                     const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
                     const sizePart = cleanSize || '';
                     const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
-                    const namePart = cleanName ? (cleanName.length >= 3 ? cleanName.slice(-3) : cleanName) : '';
+                    const skuCodePart = cleanSkuCode || '';
+                    const namePart = cleanName ? cleanName.substring(0, 3) : '';
 
                     let sku = catPart;
                     if (subPart) {
                         sku += '_' + subPart;
                     }
-                    if (sizePart) {
-                        sku += '_' + sizePart;
-                    }
                     if (brandPart) {
                         sku += '_' + brandPart;
                     }
+                    if (skuCodePart) {
+                        sku += '_' + skuCodePart;
+                    }
                     if (namePart) {
                         sku += '_' + namePart;
+                    }
+                    if (sizePart) {
+                        sku += '_' + sizePart;
                     }
 
                     skuInput.value = sku;
@@ -260,6 +287,7 @@
                     const subCategorySelect = row.querySelector('.product-subcategory');
                     const brandSelect = row.querySelector('.product-brand');
                     const nameInput = row.querySelector('.product-name');
+                    const skuCodeInput = row.querySelector('.product-sku-code');
                     const sizeInput = row.querySelector('.product-size');
 
                     if (categorySelect) {
@@ -278,6 +306,12 @@
 
                     if (brandSelect) {
                         brandSelect.addEventListener('change', function () {
+                            generateRowSku(row);
+                        });
+                    }
+
+                    if (skuCodeInput) {
+                        skuCodeInput.addEventListener('input', function () {
                             generateRowSku(row);
                         });
                     }
@@ -305,6 +339,50 @@
                             }
                         });
                     }
+
+                    bindCatalogCreateLinks(row);
+                }
+
+                function catalogReturnParams(row) {
+                    const params = new URLSearchParams();
+                    params.set('redirect', 'products.create');
+
+                    const productRequestId = document.querySelector('input[name="product_request_id"]')?.value;
+                    const productRequestItemId = document.querySelector('input[name="product_request_item_id"]')?.value;
+                    if (productRequestId) params.set('product_request_id', productRequestId);
+                    if (productRequestItemId) params.set('product_request_item_id', productRequestItemId);
+
+                    const values = {
+                        pc_name: row.querySelector('.product-name')?.value,
+                        pc_size: row.querySelector('.product-size')?.value,
+                        pc_sku_code: row.querySelector('.product-sku-code')?.value,
+                        pc_category_id: row.querySelector('.product-category')?.value,
+                        pc_sub_category_id: row.querySelector('.product-subcategory')?.value,
+                        pc_brand_id: row.querySelector('.product-brand')?.value,
+                        pc_unit_id: row.querySelector('.product-unit')?.value,
+                        pc_reorder_level: row.querySelector('.product-reorder')?.value,
+                    };
+
+                    Object.entries(values).forEach(([key, value]) => {
+                        if (value) params.set(key, value);
+                    });
+
+                    if (values.pc_category_id) {
+                        params.set('category_id', values.pc_category_id);
+                    }
+
+                    return params;
+                }
+
+                function bindCatalogCreateLinks(row) {
+                    row.querySelectorAll('.js-create-catalog').forEach((link) => {
+                        link.addEventListener('click', function () {
+                            const url = new URL(link.getAttribute('href'), window.location.origin);
+                            const params = catalogReturnParams(row);
+                            params.forEach((value, key) => url.searchParams.set(key, value));
+                            link.href = url.pathname + '?' + params.toString();
+                        });
+                    });
                 }
 
                 function addRow() {
@@ -329,15 +407,23 @@
                 const prefill = {
                     name: @json(request('name')),
                     size: @json(request('size')),
+                    sku_code: @json(request('sku_code')),
                     category_id: @json(request('category_id')),
                     sub_category_id: @json(request('sub_category_id')),
+                    brand_id: @json(request('brand_id')),
+                    unit_id: @json(request('unit_id')),
+                    reorder_level: @json(request('reorder_level')),
                 };
                 const firstRow = container.querySelector('.product-row-group');
                 if (firstRow) {
                     const nameInput = firstRow.querySelector('.product-name');
                     const sizeInput = firstRow.querySelector('.product-size');
+                    const skuCodeInput = firstRow.querySelector('.product-sku-code');
                     const categorySelect = firstRow.querySelector('.product-category');
                     const subCategorySelect = firstRow.querySelector('.product-subcategory');
+                    const brandSelect = firstRow.querySelector('.product-brand');
+                    const unitSelect = firstRow.querySelector('.product-unit');
+                    const reorderInput = firstRow.querySelector('.product-reorder');
 
                     if (prefill.name && nameInput) {
                         nameInput.value = prefill.name;
@@ -345,12 +431,24 @@
                     if (prefill.size && sizeInput) {
                         sizeInput.value = prefill.size;
                     }
+                    if (prefill.sku_code && skuCodeInput) {
+                        skuCodeInput.value = prefill.sku_code;
+                    }
                     if (prefill.category_id && categorySelect) {
                         categorySelect.value = String(prefill.category_id);
                         filterSubCategories(firstRow);
                     }
                     if (prefill.sub_category_id && subCategorySelect) {
                         subCategorySelect.value = String(prefill.sub_category_id);
+                    }
+                    if (prefill.brand_id && brandSelect) {
+                        brandSelect.value = String(prefill.brand_id);
+                    }
+                    if (prefill.unit_id && unitSelect) {
+                        unitSelect.value = String(prefill.unit_id);
+                    }
+                    if (prefill.reorder_level && reorderInput) {
+                        reorderInput.value = prefill.reorder_level;
                     }
                     generateRowSku(firstRow);
                 }

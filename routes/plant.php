@@ -8,7 +8,6 @@ use App\Http\Controllers\Plant\Notifications\NotificationController;
 use App\Http\Controllers\Plant\RequestPo\DispatchController;
 use App\Http\Controllers\Plant\RequestPo\ProductRequestController;
 use App\Http\Controllers\Plant\RequestPo\PurchaseController;
-use App\Http\Controllers\Plant\RequestPo\PurchaseRequestController;
 use App\Http\Controllers\Plant\RequestPo\SupplierController;
 use App\Http\Controllers\Plant\Inventory\StockController;
 use App\Http\Controllers\Plant\Product\BrandController;
@@ -61,12 +60,17 @@ Route::middleware(['auth', 'plant_portal'])
         Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+            Route::get('product-requests/{product_request}/export-supplier', [ProductRequestController::class, 'exportForSupplier'])->name('product-requests.export-supplier');
+            Route::post('product-requests/export-supplier', [ProductRequestController::class, 'bulkExportForSupplier'])->name('product-requests.bulk-export-supplier');
             Route::post('product-requests/{product_request}/convert', [ProductRequestController::class, 'convertToPurchaseRequest'])->name('product-requests.convert');
             Route::post('product-requests/bulk-convert', [ProductRequestController::class, 'bulkConvertToPurchaseRequest'])->name('product-requests.bulk-convert');
         });
 
         Route::middleware('permission:'.PermissionSlug::PLANT_VIEW_PURCHASES.','.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
             Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+        });
+
+        Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
             Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
             Route::get('purchases/{purchase}/excel', [PurchaseController::class, 'excel'])->name('purchases.excel');
             Route::get('purchases/{purchase}/word', [PurchaseController::class, 'word'])->name('purchases.word');
@@ -74,7 +78,7 @@ Route::middleware(['auth', 'plant_portal'])
             Route::post('purchases/{purchase}/email', [PurchaseController::class, 'email'])->name('purchases.email');
         });
 
-        Route::middleware('permission:'.PermissionSlug::PLANT_DISPATCH_ORDERS)->group(function () {
+        Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASES.','.PermissionSlug::PLANT_DISPATCH_ORDERS)->group(function () {
             Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
             Route::put('purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
         });
@@ -82,14 +86,6 @@ Route::middleware(['auth', 'plant_portal'])
         Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS)->group(function () {
             Route::get('product-requests/{product_request}/edit', [ProductRequestController::class, 'edit'])->name('product-requests.edit');
             Route::put('product-requests/{product_request}', [ProductRequestController::class, 'update'])->name('product-requests.update');
-
-            Route::get('purchase-requests', [PurchaseRequestController::class, 'index'])->name('purchase-requests.index');
-            Route::get('purchase-requests/{purchase_request}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
-            Route::get('purchase-requests/create', [PurchaseRequestController::class, 'create'])->name('purchase-requests.create');
-            Route::post('purchase-requests', [PurchaseRequestController::class, 'store'])->name('purchase-requests.store');
-            Route::get('purchase-requests/{purchase_request}/edit', [PurchaseRequestController::class, 'edit'])->name('purchase-requests.edit');
-            Route::put('purchase-requests/{purchase_request}', [PurchaseRequestController::class, 'update'])->name('purchase-requests.update');
-            Route::post('purchase-requests/{purchase_request}/status', [PurchaseRequestController::class, 'updateStatus'])->name('purchase-requests.status');
         });
 
         Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_SUPPLIERS)->group(function () {

@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\ProductRequestItemWorkflowStatus;
+use App\Enums\RequestStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class ProductRequestItem extends Model
 {
@@ -12,6 +16,7 @@ class ProductRequestItem extends Model
         'product_id',
         'item_name',
         'size',
+        'unit',
         'sub_category_id',
         'supplier_id',
         'quantity',
@@ -46,14 +51,110 @@ class ProductRequestItem extends Model
         return $this->belongsTo(SubCategory::class);
     }
 
+    public function purchaseRequestItem(): HasOne
+    {
+        return $this->hasOne(PurchaseRequestItem::class);
+    }
+
     public function displayName(): string
     {
         return $this->product?->name ?? $this->item_name ?? '—';
     }
 
+    public function displayUnit(): string
+    {
+        return $this->unit
+            ?: ($this->product?->unit?->abbreviation ?: $this->product?->unit?->name)
+            ?: '—';
+    }
+
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /**
+     * @return Collection<int, Purchase>
+     */
+    public function relatedPurchases(): Collection
+    {
+        $purchases = $this->purchaseRequestItem?->purchaseRequest?->purchases ?? collect();
+
+        if ($purchases->isEmpty() || ! $this->product_id) {
+            return $purchases;
+        }
+
+        $matched = $purchases->filter(function (Purchase $purchase) {
+            if (! $purchase->relationLoaded('items')) {
+                return true;
+            }
+
+            return $purchase->items->contains(function (PurchaseItem $item) {
+                return (int) $item->product_id === (int) $this->product_id
+                    || (int) ($item->original_product_id ?? 0) === (int) $this->product_id;
+            });
+        });
+
+        return $matched->isNotEmpty() ? $matched : $purchases;
+    }
+
+    /**
+     * @return Collection<int, Purchase>
+     */
+    public function relatedQuotations(): Collection
+    {
+        return $this->relatedPurchases()->filter(fn (Purchase $purchase) => $purchase->isQuotation());
+    }
+
+    /**
+     * @return Collection<int, Purchase>
+     */
+    public function relatedPurchaseOrders(): Collection
+    {
+        return $this->relatedPurchases()->filter(fn (Purchase $purchase) => $purchase->isPurchaseOrder());
+    }
+
+    public function workflowStatus(): ProductRequestItemWorkflowStatus
+    {
+        if ($this->productRequest?->status === RequestStatus::Cancelled) {
+            return ProductRequestItemWorkflowStatus::Cancelled;
+        }
+
+        $purchaseOrders = $this->relatedPurchaseOrders();
+
+        if ($purchaseOrders->isNotEmpty()) {
+            $isDispatched = $purchaseOrders->contains(function (Purchase $purchase) {
+                if ($purchase->dispatched_at !== null) {
+                    return true;
+                }
+
+                if (! $purchase->relationLoaded('items')) {
+                    return false;
+                }
+
+                return $purchase->items->contains(
+                    fn (PurchaseItem $item) => $item->dispatch_status !== null
+                );
+            });
+
+            return $isDispatched
+                ? ProductRequestItemWorkflowStatus::Dispatch
+                : ProductRequestItemWorkflowStatus::PoCreated;
+        }
+
+        if ($this->relatedQuotations()->isNotEmpty()) {
+            return ProductRequestItemWorkflowStatus::CreatePo;
+        }
+
+        return ProductRequestItemWorkflowStatus::SendQuotation;
+    }
+
+    public function canSelectForPo(): bool
+    {
+        return in_array($this->workflowStatus(), [
+            ProductRequestItemWorkflowStatus::SendQuotation,
+            ProductRequestItemWorkflowStatus::Pending,
+        ], true);
     }
 
     public function getImageUrlAttribute(): ?string

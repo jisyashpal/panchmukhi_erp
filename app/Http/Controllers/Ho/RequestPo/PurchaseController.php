@@ -27,6 +27,7 @@ class PurchaseController extends Controller
     public function index(Request $request): View
     {
         $query = Purchase::with(['plant', 'supplier', 'purchaseRequest', 'latestHoComment.user'])
+            ->purchaseOrders()
             ->when($request->filled('plant_id'), fn ($q) => $q->where('plant_id', $request->integer('plant_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('purchase_request_id'), fn ($q) => $q->where('purchase_request_id', $request->integer('purchase_request_id')))

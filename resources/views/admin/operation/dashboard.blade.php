@@ -12,7 +12,7 @@
     </form>
 </x-admin-page-header>
 
-<div class="admin-stat-grid">
+<div class="admin-stat-grid mb-3">
     <a href="{{ route('admin.plants.index') }}" class="admin-stat-card stat-accent-blue">
         <div class="stat-icon stat-icon-blue"><i class="bi bi-building"></i></div>
         <div class="stat-label">Active Plants</div>

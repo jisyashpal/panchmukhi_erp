@@ -6,7 +6,7 @@
     subtitle="{{ $isPurchaser ? 'All plants — requests, purchases & stock overview' : ($plant->name.' — plant-specific summary') }}"
 />
 
-<div class="admin-stat-grid">
+<div class="admin-stat-grid mb-3">
     <a href="{{ route('plant.product-requests.index') }}" class="admin-stat-card stat-accent-amber">
         <div class="stat-icon stat-icon-amber"><i class="bi bi-clipboard-check"></i></div>
         <div class="stat-label">Submitted Product Requests</div>

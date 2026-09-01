@@ -10,23 +10,35 @@ class PlantSeeder extends Seeder
     public function run(): void
     {
         Plant::firstOrCreate(
-            ['code' => 'PLT-001'],
+            ['code' => 'PMCMPL-01'],
             [
-                'name' => 'Main Plant',
+                'name' => 'PISKA-PLANT',
                 'type' => 'plant',
-                'address' => 'Plot 12, Industrial Area, Pune, Maharashtra',
+                'address' => 'Piska, Ranchi, Jharkhand',
                 'is_active' => true,
             ]
         );
 
         Plant::firstOrCreate(
-            ['code' => 'PLT-002'],
+            ['code' => 'PMCMPL-02'],
             [
-                'name' => 'Branch Plant North',
-                'type' => 'plant',
-                'address' => 'Sector 5, MIDC, Nashik, Maharashtra',
+                'name' => 'GURGAIN-MINES',
+                'type' => 'mine',
+                'address' => 'Gurgain, Jharkhand',
                 'is_active' => true,
             ]
         );
+
+        Plant::firstOrCreate(
+            ['code' => 'PMCMPL-03'],
+            [
+                'name' => 'DTZ-PLANT',
+                'type' => 'plant',
+                'address' => 'DTZ, Jharkhand',
+                'is_active' => true,
+            ]
+        );
+
+        Plant::whereNotIn('code', ['PMCMPL-01', 'PMCMPL-02', 'PMCMPL-03'])->delete();
     }
 }

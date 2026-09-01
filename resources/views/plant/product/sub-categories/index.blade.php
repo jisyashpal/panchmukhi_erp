@@ -7,7 +7,7 @@
         </a>
     </x-admin-page-header>
 
-    <div class="admin-filters mb-0">
+    <div class="admin-filters mb-3">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-auto">
                 <label class="form-label">Category</label>

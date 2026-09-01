@@ -38,31 +38,16 @@ trait ManagesProductCatalog
             $brandName = $brand ? $brand->name : '';
         }
 
-        $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $categoryName);
-        $cleanSubCategory = preg_replace('/[^A-Za-z0-9]/', '', $subCategoryName);
-        $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $request->size ?? '');
-        $cleanBrand = preg_replace('/[^A-Za-z0-9]/', '', $brandName);
-        $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $request->name ?? '');
-
-        $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
-        $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
-        $sizePart = $cleanSize !== '' ? strtoupper($cleanSize) : '';
-        $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
-        $namePart = $cleanName !== '' ? (strlen($cleanName) >= 3 ? strtoupper(substr($cleanName, -3)) : strtoupper($cleanName)) : '';
-
-        $sku = $categoryPart;
-        if ($subCategoryPart !== '') {
-            $sku .= '_' . $subCategoryPart;
-        }
-        if ($sizePart !== '') {
-            $sku .= '_' . $sizePart;
-        }
-        if ($brandPart !== '') {
-            $sku .= '_' . $brandPart;
-        }
-        if ($namePart !== '') {
-            $sku .= '_' . $namePart;
-        }
+        $sku = $product
+            ? $product->sku
+            : $this->buildProductSku(
+                $categoryName,
+                $subCategoryName,
+                $brandName,
+                $request->name ?? '',
+                $request->size ?? '',
+                $request->sku_code ?? ''
+            );
 
         $request->merge(['sku' => $sku]);
 
@@ -73,12 +58,50 @@ trait ManagesProductCatalog
             'unit_id' => ['required', 'exists:units,id'],
             'name' => ['required', 'string', 'max:255'],
             'size' => ['nullable', 'string', 'max:50'],
-            'sku' => ['required', 'string', 'max:100', 'unique:products,sku,'.($product?->id ?? 'NULL')],
+            'sku' => ['required', 'string', 'max:100', 'unique:products,sku,' . ($product?->id ?? 'NULL')],
             'reorder_level' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
         ], [], [
             'name' => 'item name',
             'size' => 'size/part',
         ]);
+    }
+
+    protected function buildProductSku(
+        string $categoryName,
+        string $subCategoryName,
+        string $brandName,
+        string $itemName,
+        ?string $size = '',
+        ?string $skuCode = ''
+    ): string {
+        $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $categoryName);
+        $cleanSubCategory = preg_replace('/[^A-Za-z0-9]/', '', $subCategoryName);
+        $cleanBrand = preg_replace('/[^A-Za-z0-9]/', '', $brandName);
+        $cleanSkuCode = preg_replace('/[^A-Za-z0-9]/', '', $skuCode ?? '');
+        $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $itemName);
+        $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $size ?? '');
+
+        $parts = [
+            strtoupper(substr((string) $cleanCategory, 0, 3)),
+        ];
+
+        if ($cleanSubCategory !== '') {
+            $parts[] = strtoupper(substr((string) $cleanSubCategory, 0, 3));
+        }
+        if ($cleanBrand !== '') {
+            $parts[] = strtoupper(substr((string) $cleanBrand, 0, 3));
+        }
+        if ($cleanSkuCode !== '') {
+            $parts[] = strtoupper((string) $cleanSkuCode);
+        }
+        if ($cleanName !== '') {
+            $parts[] = strtoupper(substr((string) $cleanName, 0, 3));
+        }
+        if ($cleanSize !== '') {
+            $parts[] = strtoupper((string) $cleanSize);
+        }
+
+        return implode('_', array_filter($parts, fn ($part) => $part !== ''));
     }
 }

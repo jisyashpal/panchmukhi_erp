@@ -40,10 +40,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Prevent 419 when APP_URL (localhost) differs from browser URL (127.0.0.1)
-        if ($this->app->environment('local') && ! $this->app->runningInConsole()) {
+        if ($this->app->environment('local') && ! $this->app->runningInConsole() && ! $this->app->runningUnitTests()) {
             $request = request();
             if ($request->hasHeader('Host')) {
-                URL::forceRootUrl($request->getSchemeAndHttpHost());
+                URL::forceRootUrl($request->getSchemeAndHttpHost() . $request->getBaseUrl());
             }
         }
     }

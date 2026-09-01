@@ -20,7 +20,7 @@
         @endforeach
     </select>
 </div>
-<div class="col-md-3 position-relative">
+<div class="col-md-2 position-relative">
     <label class="form-label">Search Item Name / SKU</label>
     <input type="text" name="items[{{ $index }}][item_name]" value="{{ $oldItem['item_name'] ?? '' }}"
         class="form-control form-control-sm item-name-input" placeholder="Enter item name or SKU..." required
@@ -34,14 +34,19 @@
         class="form-control form-control-sm item-size-input" placeholder="Size">
 </div>
 <div class="col-md-1">
+    <label class="form-label">Unit</label>
+    <input type="text" name="items[{{ $index }}][unit]" value="{{ $oldItem['unit'] ?? '' }}"
+        class="form-control form-control-sm item-unit-input" placeholder="Unit" maxlength="100">
+</div>
+<div class="col-md-1">
     <label class="form-label">Qty</label>
     <input type="number" step="0.01" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
         required class="form-control form-control-sm">
 </div>
 <div class="col-md-1">
-    <label class="form-label">Remark</label>
+    <label class="form-label">Vehicle No / Machine No</label>
     <input type="text" name="items[{{ $index }}][remarks]" value="{{ $oldItem['remarks'] ?? '' }}"
-        class="form-control form-control-sm" placeholder="Remark">
+        class="form-control form-control-sm" placeholder="Vehicle / machine no">
 </div>
 <div class="col-md-1">
     <label class="form-label">Image</label>

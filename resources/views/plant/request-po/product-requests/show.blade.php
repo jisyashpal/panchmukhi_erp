@@ -39,7 +39,8 @@
                             <th class="text-end">GST %</th>
                         @endif
                         <th class="text-end">Quantity</th>
-                        <th>Remark</th>
+                        <th>Status</th>
+                        <th>Vehicle No / Machine No</th>
                         <th>Image</th>
                         <th class="text-end">In Stock</th>
                     </tr>
@@ -76,6 +77,7 @@
                                 <td class="text-end">{{ $item->gst_rate }}%</td>
                             @endif
                             <td class="text-end">{{ $item->quantity }}</td>
+                            <td><x-status-badge :status="$item->workflowStatus()" /></td>
                             <td>{{ $item->remarks ?? '—' }}</td>
                             <td>
                                 @if($item->image_path)
@@ -103,62 +105,86 @@
     </div>
 
     @if(auth()->user()->isPurchaser())
-        @if($productRequest->purchaseRequest)
+        @php
+            $remainingItems = $productRequest->items->filter(fn ($item) => $item->canSelectForPo());
+            $hasRemaining = $remainingItems->isNotEmpty();
+        @endphp
+        @if($hasRemaining && $productRequest->status !== \App\Enums\RequestStatus::Cancelled)
+            <div class="admin-card mb-4 bg-light">
+                <div class="admin-card-body">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-1">Create Quotation</h5>
+                            <p class="mb-0 text-muted small">
+                                {{ $remainingItems->count() }} product(s) still need quotation. Export selected products from the list, or convert remaining items here.
+                            </p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ route('plant.product-requests.export-supplier', $productRequest) }}" class="btn btn-admin-outline btn-sm">
+                                <i class="bi bi-file-earmark-excel me-1"></i>Export remaining
+                            </a>
+                            <form method="POST" action="{{ route('plant.product-requests.convert', $productRequest) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-file-earmark-text me-1"></i>Create Quotation (remaining)
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @elseif($productRequest->purchaseRequest)
+            @php
+                $linkedDocs = $productRequest->purchaseRequest->purchases;
+                $linkedQuotations = $linkedDocs->filter(fn ($doc) => $doc->isQuotation());
+                $linkedOrders = $linkedDocs->filter(fn ($doc) => $doc->isPurchaseOrder());
+            @endphp
             <div class="admin-card mb-4 bg-light border-success">
                 <div class="admin-card-body">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1 text-success"><i class="bi bi-check-circle-fill me-2"></i>Converted to Purchase Request
-                            </h5>
-                            <p class="mb-0 text-muted small">Purchase Request:
-                                <strong>#{{ $productRequest->purchaseRequest->id }}</strong>
-                                ({{ $productRequest->purchaseRequest->status->label() }})
+                            <h5 class="mb-1 text-success"><i class="bi bi-check-circle-fill me-2"></i>Quotation / PO started</h5>
+                            <p class="mb-0 text-muted small">
+                                Continue from Purchases — create quotation or PO for remaining / converted items.
                             </p>
                         </div>
-                        <div>
-                            @if($productRequest->purchaseRequest->purchases->isNotEmpty())
-                                @if($productRequest->purchaseRequest->purchases->count() === 1)
-                                    @php $po = $productRequest->purchaseRequest->purchases->first(); @endphp
+                        <div class="d-flex flex-wrap gap-2">
+                            @if($linkedOrders->isNotEmpty())
+                                @if($linkedOrders->count() === 1)
+                                    @php $po = $linkedOrders->first(); @endphp
                                     <a href="{{ route('plant.purchases.show', $po) }}" class="btn btn-admin-outline btn-sm">
                                         View PO: <code>{{ $po->reference_no }}</code>
                                     </a>
                                 @else
                                     <a href="{{ route('plant.purchases.index', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}"
                                         class="btn btn-admin-outline btn-sm">
-                                        View {{ $productRequest->purchaseRequest->purchases->count() }} POs
+                                        View {{ $linkedOrders->count() }} POs
                                     </a>
                                 @endif
+                            @elseif($linkedQuotations->isNotEmpty())
+                                @php $quote = $linkedQuotations->first(); @endphp
+                                <a href="{{ route('plant.purchases.create', ['quotation_id' => $quote->id]) }}" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-cart-plus me-1"></i>Create PO
+                                </a>
+                                <a href="{{ route('plant.purchases.show', $quote) }}" class="btn btn-admin-outline btn-sm">
+                                    View Quotation
+                                </a>
                             @else
                                 <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}"
                                     class="btn btn-warning btn-sm">
-                                    <i class="bi bi-cart-plus me-1"></i>Create Purchase Order
+                                    <i class="bi bi-file-earmark-text me-1"></i>Create Quotation
                                 </a>
                             @endif
                         </div>
                     </div>
                 </div>
             </div>
-        @elseif(!in_array($productRequest->status->value, ['cancelled']))
-            <div class="admin-card mb-4 bg-light">
-                <div class="admin-card-body">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                        <div>
-                            <h5 class="mb-1">Create Purchase Order</h5>
-                            <p class="mb-0 text-muted small">Convert this product request and generate a purchase order.</p>
-                        </div>
-                        <form method="POST" action="{{ route('plant.product-requests.convert', $productRequest) }}">
-                            @csrf
-                            <button type="submit" class="btn btn-warning btn-sm">
-                                <i class="bi bi-cart-plus me-1"></i>Create PO
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
         @endif
     @elseif($productRequest->purchaseRequest)
-        <a href="{{ route('plant.purchase-requests.show', $productRequest->purchaseRequest) }}"
-            class="btn btn-admin-outline btn-sm">View Purchase Request</a>
+        <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}"
+            class="btn btn-admin-outline btn-sm">
+            <i class="bi bi-file-earmark-text me-1"></i>Continue Quotation / PO
+        </a>
     @endif
 
     @push('scripts')

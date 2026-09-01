@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\PurchaseDocumentType;
 use App\Enums\PurchaseStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,10 +15,16 @@ class Purchase extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'document_type' => 'purchase_order',
+    ];
+
     protected $fillable = [
         'plant_id',
         'supplier_id',
         'purchase_request_id',
+        'document_type',
+        'quotation_id',
         'reference_no',
         'status',
         'is_interstate',
@@ -40,6 +48,7 @@ class Purchase extends Model
     protected function casts(): array
     {
         return [
+            'document_type' => PurchaseDocumentType::class,
             'status' => PurchaseStatus::class,
             'is_interstate' => 'boolean',
             'supplier_invoice_date' => 'date',
@@ -54,6 +63,55 @@ class Purchase extends Model
             'received_at' => 'datetime',
             'dispatched_at' => 'datetime',
         ];
+    }
+
+    public function scopePurchaseOrders(Builder $query): Builder
+    {
+        return $query->where('document_type', PurchaseDocumentType::PurchaseOrder);
+    }
+
+    public function scopeQuotations(Builder $query): Builder
+    {
+        return $query->where('document_type', PurchaseDocumentType::Quotation);
+    }
+
+    public function isQuotation(): bool
+    {
+        return $this->document_type === PurchaseDocumentType::Quotation;
+    }
+
+    public function isPurchaseOrder(): bool
+    {
+        return $this->document_type === PurchaseDocumentType::PurchaseOrder;
+    }
+
+    public function hasConvertedPurchaseOrder(): bool
+    {
+        if ($this->relationLoaded('convertedOrders')) {
+            return $this->convertedOrders->isNotEmpty();
+        }
+
+        return $this->convertedOrders()->exists();
+    }
+
+    public function canBeEdited(): bool
+    {
+        $statusValue = $this->status instanceof PurchaseStatus ? $this->status : PurchaseStatus::tryFrom((string) $this->status);
+
+        if (! in_array($statusValue, [PurchaseStatus::Ordered, PurchaseStatus::Partial], true)) {
+            return false;
+        }
+
+        if ($this->isQuotation() && $this->hasConvertedPurchaseOrder()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function documentLabel(): string
+    {
+        return $this->document_type?->label() ?? 'Purchase Order';
     }
 
     public function receiver(): BelongsTo
@@ -79,6 +137,16 @@ class Purchase extends Model
     public function purchaseRequest(): BelongsTo
     {
         return $this->belongsTo(PurchaseRequest::class);
+    }
+
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'quotation_id');
+    }
+
+    public function convertedOrders(): HasMany
+    {
+        return $this->hasMany(self::class, 'quotation_id');
     }
 
     public function items(): HasMany

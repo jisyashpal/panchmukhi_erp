@@ -79,9 +79,9 @@ class PurchaseShareLinks
         $lines = [
             'Hello '.$purchase->supplier->name.',',
             '',
-            'Please find our Purchase Order details below:',
+            'Please find our '.($purchase->isQuotation() ? 'Quotation' : 'Purchase Order').' details below:',
             '',
-            'PO No: '.$purchase->reference_no,
+            ($purchase->isQuotation() ? 'Quotation No: ' : 'PO No: ').$purchase->reference_no,
             'Date: '.($purchase->ordered_at?->format('d M Y') ?? '—'),
             'Plant: '.$purchase->plant->name,
         ];

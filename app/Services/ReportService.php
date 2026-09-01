@@ -197,6 +197,7 @@ class ReportService
         $filters ??= new ReportFilters;
 
         $rows = Purchase::query()
+            ->purchaseOrders()
             ->with('supplier')
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('ordered_at', '>=', $filters->dateFrom))
@@ -237,6 +238,7 @@ class ReportService
         $filters ??= new ReportFilters;
 
         $purchases = Purchase::query()
+            ->purchaseOrders()
             ->with(['plant', 'items.product'])
             ->where('supplier_id', $supplierId)
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))

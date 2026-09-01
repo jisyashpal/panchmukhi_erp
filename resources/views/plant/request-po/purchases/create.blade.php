@@ -2,12 +2,18 @@
 @section('title', 'New Purchase')
 @section('content')
 @php
-    $pageTitle = $purchaseRequest
-        ? 'Create Purchase Order'
-        : 'New Purchase Order';
-    $pageSubtitle = $purchaseRequest
-        ? 'Purchase Request #'.$purchaseRequest->id.' · '.$purchaseRequest->plant->name
-        : 'Enter supplier, rate, quantity & GST per product';
+    $documentType = $documentType ?? \App\Enums\PurchaseDocumentType::PurchaseOrder;
+    $sourceQuotation = $sourceQuotation ?? null;
+    $isQuotationForm = $documentType === \App\Enums\PurchaseDocumentType::Quotation;
+    $isPoFromQuotation = $sourceQuotation !== null;
+    $pageTitle = $isQuotationForm
+        ? 'Create Quotation'
+        : ($isPoFromQuotation ? 'Create Purchase Order from Quotation' : 'New Purchase Order');
+    $pageSubtitle = $isPoFromQuotation
+        ? 'Quotation '.$sourceQuotation->reference_no.' · '.$sourceQuotation->plant->name
+        : ($purchaseRequest
+            ? 'From product request'.($purchaseRequest->product_request_id ? ' #'.$purchaseRequest->product_request_id : '').' · '.$purchaseRequest->plant->name
+            : 'Enter supplier, rate, quantity & GST per product');
     $supplierNames = $suppliers->pluck('name', 'id');
     $purchaseProductCatalog = $products->map(function ($p) {
         return [
@@ -16,6 +22,8 @@
             'sku' => $p->sku ?? '',
         ];
     })->values();
+    $lineSource = $isPoFromQuotation ? $sourceQuotation->items : ($purchaseRequest?->items ?? collect());
+    $showLinkedLines = $lineSource->isNotEmpty();
 @endphp
 <x-admin-page-header :title="$pageTitle" :subtitle="$pageSubtitle">
     <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
@@ -23,43 +31,24 @@
     </a>
 </x-admin-page-header>
 
-@if(!$purchaseRequest && $purchaseRequests->isNotEmpty())
-<div class="admin-card mb-4">
-    <div class="admin-card-body py-3">
-        <form method="GET" action="{{ route('plant.purchases.create') }}" class="row g-2 align-items-end">
-            <div class="col-md-8">
-                <label class="form-label small mb-1" for="purchase_request_id">Link to purchase request</label>
-                <select name="purchase_request_id" id="purchase_request_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">— Manual purchase —</option>
-                    @foreach($purchaseRequests as $pr)
-                    <option value="{{ $pr->id }}" @selected(request('purchase_request_id')==$pr->id)>
-                        PR #{{ $pr->id }} — {{ $pr->plant->name }} ({{ $pr->items->count() }} items)
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-        </form>
-    </div>
-</div>
-@endif
-
-@if($purchaseRequest)
+@if($showLinkedLines)
 <div class="purchase-create-pr-strip mb-4">
     <div class="d-flex flex-wrap align-items-center gap-3">
         <span class="purchase-create-pr-icon"><i class="bi bi-file-earmark-text"></i></span>
         <div class="flex-grow-1">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                <span class="badge bg-primary">PR #{{ $purchaseRequest->id }}</span>
-                @if($purchaseRequest->product_request_id)
-                    <span class="badge bg-light text-dark border">From product request</span>
+                @if($isPoFromQuotation)
+                    <span class="badge bg-info text-dark">Quotation {{ $sourceQuotation->reference_no }}</span>
+                @elseif($purchaseRequest)
+                    <span class="badge bg-primary">From Product Request{{ $purchaseRequest->product_request_id ? ' #'.$purchaseRequest->product_request_id : '' }}</span>
                 @endif
             </div>
             <p class="mb-0 small text-muted">
-                {{ $purchaseRequest->items->count() }} product(s) · set supplier &amp; billing per line
+                {{ $lineSource->count() }} product(s) · set supplier, discount &amp; billing per line
             </p>
         </div>
         <div class="purchase-create-po-hint text-end" id="po-split-hint">
-            <span class="d-block small text-muted">Purchase orders</span>
+            <span class="d-block small text-muted">{{ $isQuotationForm ? 'Quotations' : 'Purchase orders' }}</span>
             <strong class="text-primary" id="po-split-count">—</strong>
         </div>
     </div>
@@ -68,7 +57,12 @@
 
 <form method="POST" action="{{ route('plant.purchases.store') }}" id="purchase-form">
     @csrf
-    @if($purchaseRequest)
+    <input type="hidden" name="document_type" value="{{ $documentType->value }}">
+    @if($sourceQuotation)
+    <input type="hidden" name="quotation_id" value="{{ $sourceQuotation->id }}">
+    <input type="hidden" name="purchase_request_id" value="{{ $sourceQuotation->purchase_request_id }}">
+    <input type="hidden" name="plant_id" value="{{ $sourceQuotation->plant_id }}">
+    @elseif($purchaseRequest)
     <input type="hidden" name="purchase_request_id" value="{{ $purchaseRequest->id }}">
     <input type="hidden" name="plant_id" value="{{ $purchaseRequest->plant_id }}">
     @endif
@@ -78,28 +72,65 @@
             <div class="admin-card admin-table-card mb-0">
                 <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <h2 class="h6 mb-0">Line items</h2>
-                    <span class="small text-muted">Unit price is GST exclusive</span>
+                    <span class="small text-muted">Unit price is GST exclusive · discount % before GST</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0 purchase-create-table">
                         <thead>
                             <tr>
-                                <th class="purchase-col-product">{{ $purchaseRequest ? 'Item Name' : 'Product' }}</th>
-                                @if($purchaseRequest)
+                                <th class="purchase-col-product">{{ $showLinkedLines ? 'Item Name' : 'Product' }}</th>
+                                @if($showLinkedLines && $purchaseRequest && ! $isPoFromQuotation)
                                 <th class="purchase-col-requested">Requested item</th>
                                 @endif
                                 <th class="purchase-col-supplier">Supplier</th>
                                 <th class="purchase-col-num purchase-col-qty">Qty</th>
                                 <th class="purchase-col-num purchase-col-rate">Rate (₹)</th>
+                                <th class="purchase-col-num" style="min-width: 5rem;">Disc%</th>
                                 <th class="purchase-col-num purchase-col-gst">GST%</th>
                                 <th class="purchase-col-num purchase-col-total">Line total</th>
-                                @if(!$purchaseRequest)
+                                @if(!$showLinkedLines)
                                 <th style="width: 2.5rem"></th>
                                 @endif
                             </tr>
                         </thead>
                         <tbody id="purchase-lines">
-                            @if($purchaseRequest)
+                            @if($isPoFromQuotation)
+                            @foreach($sourceQuotation->items as $i => $item)
+                            <tr class="purchase-line-row">
+                                <td class="purchase-col-product">
+                                    <input type="text" value="{{ $item->product?->name }}" class="form-control form-control-sm purchase-line-input purchase-item-name-input" placeholder="Search item name or SKU..." required autocomplete="off">
+                                    <input type="hidden" name="items[{{ $i }}][product_id]" value="{{ $item->product_id }}" class="purchase-item-product-id">
+                                </td>
+                                <td class="purchase-col-supplier">
+                                    <select name="items[{{ $i }}][supplier_id]" class="form-select form-select-sm purchase-line-input purchase-supplier-select" required>
+                                        <option value="">— Select —</option>
+                                        @foreach($suppliers as $s)
+                                        <option value="{{ $s->id }}" @selected(old("items.$i.supplier_id", $sourceQuotation->supplier_id)==$s->id)>{{ $s->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td class="purchase-col-num purchase-col-qty">
+                                    <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]" value="{{ old("items.$i.quantity", $item->quantity) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
+                                </td>
+                                <td class="purchase-col-num purchase-col-rate">
+                                    <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ old("items.$i.unit_price", $item->unit_price) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
+                                </td>
+                                <td class="purchase-col-num">
+                                    <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][discount_percent]" value="{{ old("items.$i.discount_percent", $item->discount_percent ?? 0) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" placeholder="0">
+                                </td>
+                                <td class="purchase-col-num purchase-col-gst">
+                                    <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input purchase-num-input">
+                                        @foreach([0, 5, 12, 18, 28] as $rate)
+                                            <option value="{{ $rate }}" @selected(old("items.$i.gst_rate", $item->gst_rate) == $rate)>{{ $rate }} %</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td class="purchase-col-num purchase-col-total purchase-line-total-cell">
+                                    <span class="purchase-line-total">₹0.00</span>
+                                </td>
+                            </tr>
+                            @endforeach
+                            @elseif($purchaseRequest)
                             @foreach($purchaseRequest->items as $i => $item)
                             @php
                                 $prItem = $item->productRequestItem
@@ -114,9 +145,9 @@
                                 $defaultSupplierId = $item->supplier_id ?? ($prItem?->supplier_id);
                                 $requestedLabel = $item->displayName();
                                 $requestedSize = $item->size ?? $prItem?->size ?? $item->product?->size;
-                                $selectedProductId = old("items.$i.product_id", $item->product_id);
+                                $selectedProductId = old("items.$i.product_id", $item->product_id ?: $prItem?->product_id);
                                 $selectedProduct = $selectedProductId ? $products->firstWhere('id', (int) $selectedProductId) : null;
-                                $itemNameValue = $selectedProduct?->name ?? '';
+                                $itemNameValue = $selectedProduct?->name ?? $prItem?->product?->name ?? '';
                             @endphp
                             <tr class="purchase-line-row">
                                 <td class="purchase-col-product">
@@ -131,7 +162,6 @@
                                            value="{{ $selectedProductId }}"
                                            class="purchase-item-product-id">
                                 </td>
-                                @if($purchaseRequest)
                                 <td class="purchase-col-requested">
                                     <span class="fw-semibold d-block">{{ $requestedLabel }}</span>
                                     @if($requestedSize)
@@ -141,7 +171,6 @@
                                         <span class="d-block small text-muted">{{ $item->subCategory?->name ?? $prItem?->subCategory?->name }}</span>
                                     @endif
                                 </td>
-                                @endif
                                 <td class="purchase-col-supplier">
                                     <select name="items[{{ $i }}][supplier_id]" class="form-select form-select-sm purchase-line-input purchase-supplier-select" required>
                                         <option value="">— Select —</option>
@@ -155,6 +184,9 @@
                                 </td>
                                 <td class="purchase-col-num purchase-col-rate">
                                     <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ old("items.$i.unit_price", $defaultUnitPrice) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
+                                </td>
+                                <td class="purchase-col-num">
+                                    <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][discount_percent]" value="{{ old("items.$i.discount_percent", 0) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" placeholder="0">
                                 </td>
                                 <td class="purchase-col-num purchase-col-gst">
                                     <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input purchase-num-input">
@@ -180,7 +212,7 @@
                         </tbody>
                     </table>
                 </div>
-                @if(!$purchaseRequest)
+                @if(!$showLinkedLines)
                 <div class="admin-card-body border-top py-2">
                     <button type="button" class="btn btn-sm btn-admin-outline" onclick="addPurchaseLine()">
                         <i class="bi bi-plus-lg me-1"></i>Add line
@@ -189,16 +221,16 @@
                 @endif
             </div>
 
-            @if($purchaseRequest)
+            @if($showLinkedLines)
             <p class="small text-muted mt-3 mb-0">
                 <i class="bi bi-info-circle me-1"></i>
-                Different suppliers on separate lines will create separate purchase orders automatically.
+                Different suppliers on separate lines will create separate {{ $isQuotationForm ? 'quotations' : 'purchase orders' }} automatically.
             </p>
             @endif
 
             <div class="d-flex flex-wrap gap-2 mt-4 d-lg-none">
                 <button type="submit" class="btn btn-admin-primary">
-                    <i class="bi bi-check2-circle me-1"></i>Create purchase order
+                    <i class="bi bi-check2-circle me-1"></i>{{ $isQuotationForm ? 'Create quotation' : 'Create purchase order' }}
                 </button>
             </div>
         </div>
@@ -208,7 +240,7 @@
                 <div class="admin-card-header"><h2 class="h6 mb-0">Order details</h2></div>
                 <div class="admin-card-body">
                     <div class="vstack gap-3">
-                        @if(!$purchaseRequest)
+                        @if(!$purchaseRequest && !$sourceQuotation)
                         <div>
                             <label class="form-label small" for="plant_id">Plant</label>
                             <select name="plant_id" id="plant_id" class="form-select form-select-sm" required>
@@ -220,12 +252,12 @@
                         @else
                         <div>
                             <span class="form-label small text-muted d-block">Plant</span>
-                            <span class="fw-semibold">{{ $purchaseRequest->plant->name }}</span>
+                            <span class="fw-semibold">{{ $sourceQuotation?->plant->name ?? $purchaseRequest->plant->name }}</span>
                         </div>
                         @endif
 
                         <div>
-                            <label class="form-label small" for="reference_no">PO / Quotation no.</label>
+                            <label class="form-label small" for="reference_no">{{ $isQuotationForm ? 'Quotation' : 'PO' }} no.</label>
                             <input type="text" name="reference_no" id="reference_no" value="{{ old('reference_no', $nextQuotationNo ?? '') }}" class="form-control form-control-sm" placeholder="{{ $nextQuotationNo ?? 'Auto plant-wise (e.g. piska-01)' }}">
                             <div class="form-text">Uses plant name + serial (e.g. piska-01, piska-02).</div>
                         </div>
@@ -233,25 +265,25 @@
                         <div class="row g-2">
                             <div class="col-6">
                                 <label class="form-label small" for="supplier_invoice_no">Supplier quotation no.</label>
-                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no') }}" class="form-control form-control-sm" placeholder="Optional — defaults to PO no.">
+                                <input type="text" name="supplier_invoice_no" id="supplier_invoice_no" value="{{ old('supplier_invoice_no', $sourceQuotation?->supplier_invoice_no) }}" class="form-control form-control-sm" placeholder="Optional — defaults to doc no.">
                             </div>
                             <div class="col-6">
                                 <label class="form-label small" for="supplier_invoice_date">Quotation date</label>
-                                <input type="date" name="supplier_invoice_date" id="supplier_invoice_date" value="{{ old('supplier_invoice_date', now()->toDateString()) }}" class="form-control form-control-sm">
+                                <input type="date" name="supplier_invoice_date" id="supplier_invoice_date" value="{{ old('supplier_invoice_date', $sourceQuotation?->supplier_invoice_date?->format('Y-m-d') ?? now()->toDateString()) }}" class="form-control form-control-sm">
                             </div>
                         </div>
 
                         <div class="purchase-gst-type-box rounded border bg-light px-3 py-2">
                             <input type="hidden" name="is_interstate" value="0">
                             <div class="form-check mb-0">
-                                <input type="checkbox" name="is_interstate" value="1" id="is_interstate" class="form-check-input purchase-line-input" @checked(old('is_interstate'))>
+                                <input type="checkbox" name="is_interstate" value="1" id="is_interstate" class="form-check-input purchase-line-input" @checked(old('is_interstate', $sourceQuotation?->is_interstate))>
                                 <label class="form-check-label small" for="is_interstate">Inter-state supply (IGST only)</label>
                             </div>
                         </div>
 
                         <div>
                             <label class="form-label small" for="notes">Notes</label>
-                            <textarea name="notes" id="notes" class="form-control form-control-sm" rows="2" placeholder="Optional">{{ old('notes') }}</textarea>
+                            <textarea name="notes" id="notes" class="form-control form-control-sm" rows="2" placeholder="Optional">{{ old('notes', $sourceQuotation?->notes) }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -289,7 +321,7 @@
                 </div>
                 <div class="admin-card-body border-top pt-0 d-none d-lg-block">
                     <button type="submit" class="btn btn-admin-primary w-100 mb-2">
-                        <i class="bi bi-check2-circle me-1"></i>Create purchase order
+                        <i class="bi bi-check2-circle me-1"></i>{{ $isQuotationForm ? 'Create quotation' : 'Create purchase order' }}
                     </button>
                     <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline w-100 btn-sm">Cancel</a>
                 </div>
@@ -331,6 +363,7 @@
 <script type="application/json" id="purchase-product-catalog-data">@json($purchaseProductCatalog)</script>
 <script>
     const supplierNames = @json($supplierNames);
+    const docLabel = @json($isQuotationForm ? 'quotation' : 'PO');
 
     function addPurchaseLine() {
         const container = document.getElementById('purchase-lines');
@@ -342,8 +375,10 @@
         recalcPurchaseTotals();
     }
 
-    function calcPurchaseLine(qty, price, gstRate, isInterstate) {
-        const taxable = Math.round(qty * price * 100) / 100;
+    function calcPurchaseLine(qty, price, gstRate, isInterstate, discountPercent) {
+        const discount = Math.max(0, Math.min(100, discountPercent || 0));
+        const gross = Math.round(qty * price * 100) / 100;
+        const taxable = Math.round(gross * (1 - discount / 100) * 100) / 100;
         const gstAmount = Math.round(taxable * gstRate / 100 * 100) / 100;
         if (isInterstate) {
             return {
@@ -374,10 +409,11 @@
             const qty = parseFloat(row.querySelector('[name*="[quantity]"]')?.value) || 0;
             const price = parseFloat(row.querySelector('[name*="[unit_price]"]')?.value) || 0;
             const gstRate = parseFloat(row.querySelector('[name*="[gst_rate]"]')?.value) || 0;
+            const discount = parseFloat(row.querySelector('[name*="[discount_percent]"]')?.value) || 0;
             const supplierId = row.querySelector('[name*="[supplier_id]"]')?.value;
             if (supplierId) supplierIds.add(supplierId);
 
-            const line = calcPurchaseLine(qty, price, gstRate, isInterstate);
+            const line = calcPurchaseLine(qty, price, gstRate, isInterstate, discount);
             subtotal += line.taxable;
             cgst += line.cgst;
             sgst += line.sgst;
@@ -401,9 +437,9 @@
             if (count === 0) {
                 poHint.textContent = '—';
             } else if (count === 1) {
-                poHint.textContent = '1 PO';
+                poHint.textContent = '1 ' + docLabel;
             } else {
-                poHint.textContent = count + ' POs';
+                poHint.textContent = count + ' ' + docLabel + 's';
             }
         }
     }

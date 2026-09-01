@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Plant\RequestPo;
 
+use App\Enums\PurchaseDocumentType;
 use App\Enums\PurchaseStatus;
 use App\Enums\RequestStatus;
 use App\Http\Controllers\Concerns\AuthorizesPermissions;
@@ -26,6 +27,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -43,24 +45,52 @@ class PurchaseController extends Controller
     {
         $isPurchaser = $this->purchaserSeesAllPlants();
 
-        $purchases = Purchase::with(['supplier', 'plant', 'items.product'])
-            ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $search = $request->string('search');
-                $q->where(function ($q) use ($search) {
-                    $q->where('reference_no', 'like', '%'.$search.'%')
-                        ->orWhereHas('supplier', fn ($sq) => $sq->where('name', 'like', '%'.$search.'%'))
-                        ->orWhereHas('items.product', fn ($pq) => $pq->where('name', 'like', '%'.$search.'%')
-                            ->orWhere('sku', 'like', '%'.$search.'%'));
-                });
-            })
-            ->when($request->filled('from_date'), fn ($q) => $q->whereDate('ordered_at', '>=', $request->date('from_date')))
-            ->when($request->filled('to_date'), fn ($q) => $q->whereDate('ordered_at', '<=', $request->date('to_date')))
-            ->latest('ordered_at')
-            ->paginate(20)
-            ->withQueryString();
+        $baseQuery = function () use ($request, $isPurchaser) {
+            return Purchase::with([
+                'supplier',
+                'plant',
+                'items.product',
+                'purchaseRequest.productRequest',
+                'convertedOrders',
+            ])
+                ->when(! $isPurchaser, fn ($q) => $q->where('plant_id', $this->plantId()))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $search = $request->string('search');
+                    $q->where(function ($q) use ($search) {
+                        $q->where('reference_no', 'like', '%'.$search.'%')
+                            ->orWhereHas('supplier', fn ($sq) => $sq->where('name', 'like', '%'.$search.'%'))
+                            ->orWhereHas('items.product', fn ($pq) => $pq->where('name', 'like', '%'.$search.'%')
+                                ->orWhere('sku', 'like', '%'.$search.'%'));
+                    });
+                })
+                ->when($request->filled('from_date'), fn ($q) => $q->whereDate('ordered_at', '>=', $request->date('from_date')))
+                ->when($request->filled('to_date'), fn ($q) => $q->whereDate('ordered_at', '<=', $request->date('to_date')))
+                ->when($request->filled('purchase_request_id'), fn ($q) => $q->where('purchase_request_id', $request->integer('purchase_request_id')))
+                ->latest('ordered_at');
+        };
+
+        if ($isPurchaser) {
+            $quotations = $baseQuery()->quotations()->paginate(20, ['*'], 'quotations_page')->withQueryString();
+            $purchaseOrders = $baseQuery()->purchaseOrders()->paginate(20, ['*'], 'po_page')->withQueryString();
+
+            return view('plant.request-po.purchases.index', [
+                'quotations' => $quotations,
+                'purchaseOrders' => $purchaseOrders,
+                'purchases' => $purchaseOrders,
+                'isPurchaser' => $isPurchaser,
+                'pdfDefaults' => [
+                    'company_name' => config('company.name', ''),
+                    'company_address' => config('company.address', ''),
+                    'company_gstin' => config('company.gstin', ''),
+                ],
+            ]);
+        }
+
+        $purchases = $baseQuery()->purchaseOrders()->paginate(20)->withQueryString();
 
         return view('plant.request-po.purchases.index', [
+            'quotations' => collect(),
+            'purchaseOrders' => $purchases,
             'purchases' => $purchases,
             'isPurchaser' => $isPurchaser,
             'pdfDefaults' => [
@@ -75,41 +105,84 @@ class PurchaseController extends Controller
     {
         $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
 
-        $purchaseRequest = $request->filled('purchase_request_id')
-            ? PurchaseRequest::with([
-                'items.product',
-                'items.productRequestItem',
-                'items.subCategory',
-                'items.supplier',
-                'plant',
-                'productRequest.items',
-            ])->findOrFail($request->integer('purchase_request_id'))
+        $sourceQuotation = $request->filled('quotation_id')
+            ? Purchase::with(['items.product', 'supplier', 'plant', 'purchaseRequest.items.product', 'purchaseRequest.items.productRequestItem.product', 'purchaseRequest.items.subCategory', 'purchaseRequest.items.supplier', 'convertedOrders'])
+                ->quotations()
+                ->findOrFail($request->integer('quotation_id'))
             : null;
 
-        if ($purchaseRequest?->purchases()->exists()) {
-            $purchases = $purchaseRequest->purchases()->latest()->get();
+        if ($sourceQuotation) {
+            $this->authorizePlantAccess($sourceQuotation);
 
-            if ($purchases->count() === 1) {
-                return redirect()->route('plant.purchases.show', $purchases->first())
+            if ($sourceQuotation->hasConvertedPurchaseOrder()) {
+                $orders = $sourceQuotation->convertedOrders;
+
+                if ($orders->count() === 1) {
+                    return redirect()->route('plant.purchases.show', $orders->first())
+                        ->with('info', 'Purchase order already exists for this quotation.');
+                }
+
+                return redirect()->route('plant.purchases.index')
+                    ->with('info', 'Purchase order(s) already exist for this quotation.');
+            }
+        }
+
+        $purchaseRequest = $sourceQuotation?->purchaseRequest
+            ?? ($request->filled('purchase_request_id')
+                ? PurchaseRequest::with([
+                    'items.product',
+                    'items.productRequestItem.product',
+                    'items.subCategory',
+                    'items.supplier',
+                    'plant',
+                    'productRequest.items',
+                ])->findOrFail($request->integer('purchase_request_id'))
+                : null);
+
+        if ($purchaseRequest && ! $sourceQuotation) {
+            $this->syncPurchaseRequestItemsFromCatalog($purchaseRequest);
+            $purchaseRequest->load([
+                'items.product',
+                'items.productRequestItem.product',
+                'items.subCategory',
+                'items.supplier',
+            ]);
+
+            if ($purchaseRequest->purchaseOrders()->exists()) {
+                $orders = $purchaseRequest->purchaseOrders()->latest()->get();
+
+                if ($orders->count() === 1) {
+                    return redirect()->route('plant.purchases.show', $orders->first())
+                        ->with('info', 'Purchase order(s) already exist for this request.');
+                }
+
+                return redirect()->route('plant.purchases.index', ['purchase_request_id' => $purchaseRequest->id])
                     ->with('info', 'Purchase order(s) already exist for this request.');
             }
 
-            return redirect()->route('plant.purchases.index', ['purchase_request_id' => $purchaseRequest->id])
-                ->with('info', 'Purchase order(s) already exist for this request.');
+            if ($purchaseRequest->quotations()->exists()) {
+                $quotation = $purchaseRequest->quotations()->latest()->first();
+
+                return redirect()->route('plant.purchases.create', ['quotation_id' => $quotation->id])
+                    ->with('info', 'Quotation already exists. Create the PO from it.');
+            }
         }
+
+        $documentType = $sourceQuotation
+            ? PurchaseDocumentType::PurchaseOrder
+            : ($purchaseRequest ? PurchaseDocumentType::Quotation : PurchaseDocumentType::PurchaseOrder);
+
+        $plantId = $sourceQuotation?->plant_id ?? $purchaseRequest?->plant_id;
 
         return view('plant.request-po.purchases.create', [
             'plants' => Plant::orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
-            'purchaseRequests' => PurchaseRequest::whereNot('status', RequestStatus::Cancelled)
-                ->whereDoesntHave('purchases')
-                ->with('plant')
-                ->latest()
-                ->get(),
             'purchaseRequest' => $purchaseRequest,
-            'nextQuotationNo' => $purchaseRequest
-                ? app(PlantDocumentNumberService::class)->peekNextReferenceNo((int) $purchaseRequest->plant_id)
+            'sourceQuotation' => $sourceQuotation,
+            'documentType' => $documentType,
+            'nextQuotationNo' => $plantId
+                ? app(PlantDocumentNumberService::class)->peekNextReferenceNo((int) $plantId)
                 : null,
         ]);
     }
@@ -121,6 +194,8 @@ class PurchaseController extends Controller
         $data = $request->validate([
             'plant_id' => ['required', 'exists:plants,id'],
             'purchase_request_id' => ['nullable', 'exists:purchase_requests,id'],
+            'quotation_id' => ['nullable', 'exists:purchases,id'],
+            'document_type' => ['nullable', Rule::enum(PurchaseDocumentType::class)],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'is_interstate' => ['boolean'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
@@ -131,13 +206,34 @@ class PurchaseController extends Controller
             'items.*.supplier_id' => ['required', 'exists:suppliers,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'items.*.gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        if ($data['purchase_request_id'] ?? null) {
+        $sourceQuotation = null;
+        if ($data['quotation_id'] ?? null) {
+            $sourceQuotation = Purchase::quotations()->findOrFail($data['quotation_id']);
+            $this->authorizePlantAccess($sourceQuotation);
+
+            if ($sourceQuotation->hasConvertedPurchaseOrder()) {
+                return back()->with('error', 'Purchase order(s) already exist for this quotation.');
+            }
+
+            $data['purchase_request_id'] = $sourceQuotation->purchase_request_id;
+            $data['plant_id'] = $sourceQuotation->plant_id;
+        }
+
+        $documentType = $sourceQuotation
+            ? PurchaseDocumentType::PurchaseOrder
+            : PurchaseDocumentType::tryFrom((string) ($data['document_type'] ?? ''))
+                ?? (($data['purchase_request_id'] ?? null)
+                    ? PurchaseDocumentType::Quotation
+                    : PurchaseDocumentType::PurchaseOrder);
+
+        if (($data['purchase_request_id'] ?? null) && ! $sourceQuotation) {
             $purchaseRequest = PurchaseRequest::findOrFail($data['purchase_request_id']);
             if ($purchaseRequest->purchases()->exists()) {
-                return back()->with('error', 'Purchase order(s) already exist for this request.');
+                return back()->with('error', 'Quotation or purchase order already exists for this request.');
             }
         }
 
@@ -158,10 +254,12 @@ class PurchaseController extends Controller
                 supplierInvoiceDate: $data['supplier_invoice_date'] ?? null,
                 notes: $data['notes'] ?? null,
                 multiSupplier: $itemsBySupplier->count() > 1,
+                documentType: $documentType,
+                quotationId: $sourceQuotation?->id,
             );
         }
 
-        if ($data['purchase_request_id'] ?? null) {
+        if ($documentType === PurchaseDocumentType::PurchaseOrder && ($data['purchase_request_id'] ?? null)) {
             PurchaseRequest::where('id', $data['purchase_request_id'])->update([
                 'status' => RequestStatus::Completed,
                 'plant_status' => RequestStatus::Completed,
@@ -169,6 +267,7 @@ class PurchaseController extends Controller
         }
 
         foreach ($createdPurchases as $purchase) {
+            $isQuote = $purchase->isQuotation();
             $this->notifications->notifyUsers(
                 User::query()
                     ->where('plant_id', $purchase->plant_id)
@@ -179,25 +278,29 @@ class PurchaseController extends Controller
                     ]))
                     ->get(),
                 new ErpDatabaseNotification(
-                    type: 'purchase_ordered',
-                    title: 'Purchase order placed',
-                    body: "PO {$purchase->reference_no} ordered — awaiting dispatch.",
+                    type: $isQuote ? 'quotation_created' : 'purchase_ordered',
+                    title: $isQuote ? 'Quotation created' : 'Purchase order placed',
+                    body: $isQuote
+                        ? "Quotation {$purchase->reference_no} created — create PO when ready."
+                        : "PO {$purchase->reference_no} ordered — awaiting dispatch.",
                     url: route('plant.purchases.index'),
                     plantId: $purchase->plant_id,
                 )
             );
         }
 
+        $label = $documentType === PurchaseDocumentType::Quotation ? 'quotation' : 'purchase order';
+
         if (count($createdPurchases) === 1) {
             return redirect()->route('plant.purchases.show', $createdPurchases[0])
-                ->with('success', 'Purchase order created.');
+                ->with('success', ucfirst($label).' created.');
         }
 
         $refs = collect($createdPurchases)->pluck('reference_no')->implode(', ');
 
         return redirect()->route('plant.purchases.index', [
             'purchase_request_id' => $data['purchase_request_id'] ?? null,
-        ])->with('success', count($createdPurchases)." purchase orders created: {$refs}");
+        ])->with('success', count($createdPurchases)." {$label}s created: {$refs}");
     }
 
     public function show(Purchase $purchase): View
@@ -261,11 +364,13 @@ class PurchaseController extends Controller
     public function edit(Purchase $purchase): View|RedirectResponse
     {
         $this->authorizePlantAccess($purchase);
-        $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
+        $this->authorizePurchaseEdit();
 
-        if (! in_array($purchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial])) {
+        if (! $purchase->canBeEdited()) {
             return redirect()->route('plant.purchases.index')
-                ->with('error', 'Only pending orders can be edited.');
+                ->with('error', $purchase->isQuotation() && $purchase->hasConvertedPurchaseOrder()
+                    ? 'This quotation has already been converted to a PO.'
+                    : 'Only pending quotations/orders can be edited.');
         }
 
         $purchase->load(['items.product', 'supplier']);
@@ -277,11 +382,11 @@ class PurchaseController extends Controller
     public function update(Request $request, Purchase $purchase): RedirectResponse
     {
         $this->authorizePlantAccess($purchase);
-        $this->authorizePermission(PermissionSlug::PLANT_DISPATCH_ORDERS);
+        $this->authorizePurchaseEdit();
 
-        if (! in_array($purchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial])) {
+        if (! $purchase->canBeEdited()) {
             return redirect()->route('plant.purchases.index')
-                ->with('error', 'Only pending orders can be edited.');
+                ->with('error', 'Only pending quotations/orders can be edited.');
         }
 
         $data = $request->validate([
@@ -292,7 +397,9 @@ class PurchaseController extends Controller
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array'],
             'items.*.id' => ['required', 'exists:purchase_items,id'],
+            'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $isInterstate = $request->boolean('is_interstate');
@@ -305,17 +412,23 @@ class PurchaseController extends Controller
                 return back()->with('error', 'Invalid purchase item ID.')->withInput();
             }
 
+            $quantity = (float) ($itemData['quantity'] ?? $purchaseItem->quantity);
+            $discountPercent = (float) ($itemData['discount_percent'] ?? $purchaseItem->discount_percent ?? 0);
+
             $calc = $this->pricing->calculateLine(
-                (float) $purchaseItem->quantity,
+                $quantity,
                 (float) $itemData['unit_price'],
                 (float) $purchaseItem->gst_rate,
-                $isInterstate
+                $isInterstate,
+                $discountPercent
             );
 
             $lineCalcs[] = $calc;
             $itemsToUpdate[] = [
                 'model' => $purchaseItem,
+                'quantity' => $quantity,
                 'unit_price' => $itemData['unit_price'],
+                'discount_percent' => $discountPercent,
                 'calc' => $calc,
             ];
         }
@@ -339,19 +452,26 @@ class PurchaseController extends Controller
 
             foreach ($itemsToUpdate as $itemUpdate) {
                 $itemUpdate['model']->update(array_merge([
+                    'quantity' => $itemUpdate['quantity'],
                     'unit_price' => $itemUpdate['unit_price'],
+                    'discount_percent' => $itemUpdate['discount_percent'],
                 ], $itemUpdate['calc']));
             }
         });
 
         return redirect()->route('plant.purchases.index')
-            ->with('success', 'Purchase details updated successfully.');
+            ->with('success', ($purchase->isQuotation() ? 'Quotation' : 'Purchase').' details updated successfully.');
     }
 
     public function receiveForm(Purchase $purchase): View|RedirectResponse
     {
         $this->authorizePlantAccess($purchase);
         $this->authorizePurchaseReceipt();
+
+        if ($purchase->isQuotation()) {
+            return redirect()->route('plant.purchases.index')
+                ->with('error', 'Quotations cannot be received. Create a PO first.');
+        }
 
         if ($purchase->status === PurchaseStatus::Delivered) {
             return redirect()->route('plant.purchases.index')
@@ -372,6 +492,10 @@ class PurchaseController extends Controller
     {
         $this->authorizePlantAccess($purchase);
         $this->authorizePurchaseReceipt();
+
+        if ($purchase->isQuotation()) {
+            return back()->with('error', 'Quotations cannot be received. Create a PO first.');
+        }
 
         if ($purchase->status === PurchaseStatus::Delivered) {
             return back()->with('error', 'Purchase already received.');
@@ -426,5 +550,39 @@ class PurchaseController extends Controller
 
         return redirect()->route('plant.purchases.index')
             ->with('success', 'Stock in recorded for this purchase.');
+    }
+
+    protected function authorizePurchaseEdit(): void
+    {
+        $user = auth()->user();
+        if (! $user?->canManagePlantPurchases() && ! $user?->canDispatchOrders()) {
+            abort(403);
+        }
+    }
+
+    protected function syncPurchaseRequestItemsFromCatalog(PurchaseRequest $purchaseRequest): void
+    {
+        foreach ($purchaseRequest->items as $item) {
+            $source = $item->productRequestItem;
+            if (! $source?->product_id) {
+                continue;
+            }
+
+            $updates = [];
+            if (! $item->product_id) {
+                $updates['product_id'] = $source->product_id;
+                $updates['item_name'] = null;
+            }
+            if (! $item->size && $source->size) {
+                $updates['size'] = $source->size;
+            }
+            if (! $item->sub_category_id && $source->sub_category_id) {
+                $updates['sub_category_id'] = $source->sub_category_id;
+            }
+
+            if ($updates !== []) {
+                $item->update($updates);
+            }
+        }
     }
 }

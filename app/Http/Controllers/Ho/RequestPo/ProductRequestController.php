@@ -29,7 +29,8 @@ class ProductRequestController extends Controller
         $query = ProductRequest::with(['plant', 'requester', 'items.product', 'items.subCategory', 'purchaseRequest.purchases'])
             ->withCount('items')
             ->withSum('items', 'quantity')
-            ->latest();
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         $this->applyPlantProductFilters($query, $request);
 

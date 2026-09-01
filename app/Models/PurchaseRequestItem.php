@@ -59,12 +59,15 @@ class PurchaseRequestItem extends Model
 
     public function displayName(): string
     {
+        if ($this->product?->name) {
+            return $this->product->name;
+        }
+
         if ($this->item_name) {
             return $this->item_name;
         }
 
         return $this->productRequestItem?->displayName()
-            ?? $this->product?->name
             ?? '—';
     }
 }

@@ -13,17 +13,11 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $mainPlant = Plant::where('code', 'PLT-001')->firstOrFail();
-        $branchPlant = Plant::where('code', 'PLT-002')->firstOrFail();
+        $piskaPlant = Plant::where('code', 'PMCMPL-01')->first();
+        $gurgainMines = Plant::where('code', 'PMCMPL-02')->first();
+        $dtzPlant = Plant::where('code', 'PMCMPL-03')->first();
 
         $users = [
-            [
-                'email' => 'admin@gmail.com',
-                'name' => 'Super Admin',
-                'role' => Role::SLUG_SUPER_ADMIN,
-                'plant_id' => null,
-                'approval_status' => UserApprovalStatus::Approved,
-            ],
             [
                 'email' => 'ho@gmail.com',
                 'name' => 'HO Data Operator Demo',
@@ -32,40 +26,54 @@ class UserSeeder extends Seeder
                 'approval_status' => UserApprovalStatus::Approved,
             ],
             [
-                'email' => 'plant@gmail.com',
-                'name' => 'Plant In-Charge Demo',
-                'role' => Role::SLUG_PLANT_IN_CHARGE,
-                'plant_id' => $mainPlant->id,
-                'approval_status' => UserApprovalStatus::Approved,
-            ],
-            [
                 'email' => 'purchaser@gmail.com',
-                'name' => 'Purchaser Demo',
+                'name' => 'KAMLESH KUMAR',
                 'role' => Role::SLUG_PURCHASER,
                 'plant_id' => null,
                 'approval_status' => UserApprovalStatus::Approved,
             ],
             [
-                'email' => 'plant2@gmail.com',
-                'name' => 'Branch Plant In-Charge',
+                'email' => 'gurgai@gmail.com',
+                'name' => 'PAWAN KUMAR',
                 'role' => Role::SLUG_PLANT_IN_CHARGE,
-                'plant_id' => $branchPlant->id,
+                'plant_id' => $gurgainMines?->id,
                 'approval_status' => UserApprovalStatus::Approved,
             ],
             [
                 'email' => 'pending@gmail.com',
                 'name' => 'Pending Approval User',
                 'role' => Role::SLUG_PLANT_IN_CHARGE,
-                'plant_id' => $mainPlant->id,
+                'plant_id' => $piskaPlant?->id,
                 'approval_status' => UserApprovalStatus::Pending,
+            ],
+            [
+                'email' => 'dtzplant@gmail.com',
+                'name' => 'RAKESH KUMAR',
+                'role' => Role::SLUG_PLANT_IN_CHARGE,
+                'plant_id' => $dtzPlant?->id,
+                'approval_status' => UserApprovalStatus::Approved,
             ],
             [
                 'email' => 'rejected@gmail.com',
                 'name' => 'Rejected User Demo',
                 'role' => Role::SLUG_PLANT_IN_CHARGE,
-                'plant_id' => $mainPlant->id,
+                'plant_id' => $piskaPlant?->id,
                 'approval_status' => UserApprovalStatus::Rejected,
                 'rejection_reason' => 'Incomplete documentation provided.',
+            ],
+            [
+                'email' => 'piska@gmail.com',
+                'name' => 'SUBODH KUMAR',
+                'role' => Role::SLUG_PLANT_IN_CHARGE,
+                'plant_id' => $piskaPlant?->id,
+                'approval_status' => UserApprovalStatus::Approved,
+            ],
+            [
+                'email' => 'admin@gmail.com',
+                'name' => 'Super Admin',
+                'role' => Role::SLUG_SUPER_ADMIN,
+                'plant_id' => null,
+                'approval_status' => UserApprovalStatus::Approved,
             ],
         ];
 
@@ -84,5 +92,7 @@ class UserSeeder extends Seeder
                 ]
             );
         }
+
+        User::whereNotIn('email', array_column($users, 'email'))->delete();
     }
 }

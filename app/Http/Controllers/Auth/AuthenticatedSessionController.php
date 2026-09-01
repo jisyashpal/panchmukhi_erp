@@ -31,7 +31,7 @@ class AuthenticatedSessionController extends Controller
         $user = $request->user();
         $user?->loadMissing('role');
 
-        return redirect()->intended(route($user?->defaultDashboardRoute() ?? 'login', absolute: false));
+        return redirect()->intended(route($user?->defaultDashboardRoute() ?? 'login'));
     }
 
     /**
@@ -45,6 +45,6 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('login');
     }
 }

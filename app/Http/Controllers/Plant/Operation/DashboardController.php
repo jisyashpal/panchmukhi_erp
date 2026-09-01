@@ -45,6 +45,7 @@ class DashboardController extends Controller
                 ->where('status', RequestStatus::Submitted)
                 ->count(),
             'totalPurchases' => Purchase::query()
+                ->purchaseOrders()
                 ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->count(),
             'totalStockLines' => StockBalance::query()
@@ -55,11 +56,13 @@ class DashboardController extends Controller
                 ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->sum('quantity'),
             'awaitingDispatch' => Purchase::query()
+                ->purchaseOrders()
                 ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNull('dispatched_at')
                 ->count(),
             'awaitingDelivery' => Purchase::query()
+                ->purchaseOrders()
                 ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
                 ->where('status', PurchaseStatus::Ordered)
                 ->whereNotNull('dispatched_at')

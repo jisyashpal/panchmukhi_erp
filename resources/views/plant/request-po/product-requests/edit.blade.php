@@ -26,7 +26,7 @@
                         <tr>
                             <th>Product</th>
                             <th class="text-end" style="width: 180px;">Quantity</th>
-                            <th>Item Remarks</th>
+                            <th>Vehicle No / Machine No</th>
                             <th>Image</th>
                         </tr>
                     </thead>
@@ -48,7 +48,7 @@
                                 <td>
                                     <input type="text" name="items[{{ $i }}][remarks]" 
                                            value="{{ old('items.'.$i.'.remarks', $item->remarks) }}" 
-                                           class="form-control @error('items.'.$i.'.remarks') is-invalid @enderror" placeholder="Optional notes for this product">
+                                           class="form-control @error('items.'.$i.'.remarks') is-invalid @enderror" placeholder="Vehicle / machine no">
                                 </td>
                                 <td>
                                     @if($item->image_path)

@@ -19,7 +19,7 @@ return [
                 'label' => 'Request & PO',
                 'icon' => 'bi-clipboard-check',
                 'permission' => PermissionSlug::PLANT_VIEW_PRODUCT_REQUESTS,
-                'routes' => ['plant.product-requests.*', 'plant.purchase-requests.*', 'plant.purchases.*', 'plant.suppliers.*', 'plant.dispatch.*'],
+                'routes' => ['plant.product-requests.*', 'plant.purchases.*', 'plant.suppliers.*', 'plant.dispatch.*'],
                 'any_permission' => [
                     PermissionSlug::PLANT_VIEW_PRODUCT_REQUESTS,
                     PermissionSlug::PLANT_CREATE_PRODUCT_REQUESTS,
@@ -45,13 +45,6 @@ return [
                         'routes' => ['plant.product-requests.index', 'plant.product-requests.show', 'plant.product-requests.edit'],
                     ],
                     [
-                        'label' => 'Purchase Requests',
-                        'route' => 'plant.purchase-requests.index',
-                        'icon' => 'bi-cart-check',
-                        'permission' => PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS,
-                        'routes' => ['plant.purchase-requests.*'],
-                    ],
-                    [
                         'label' => 'Create PO',
                         'route' => 'plant.purchases.create',
                         'icon' => 'bi-plus-circle',
@@ -71,7 +64,18 @@ return [
                         'route' => 'plant.purchases.index',
                         'icon' => 'bi-receipt',
                         'permission' => PermissionSlug::PLANT_DISPATCH_ORDERS,
-                        'routes' => ['plant.purchases.*'],
+                        'routes' => [
+                            'plant.purchases.index',
+                            'plant.purchases.show',
+                            'plant.purchases.edit',
+                            'plant.purchases.pdf',
+                            'plant.purchases.excel',
+                            'plant.purchases.word',
+                            'plant.purchases.share-links',
+                            'plant.purchases.email',
+                            'plant.purchases.receive',
+                            'plant.purchases.receive.store',
+                        ],
                     ],
                     [
                         'label' => 'Order Dispatch',

@@ -2,7 +2,7 @@
 @section('title', 'Purchases')
 @section('content')
 <x-admin-page-header title="Purchases" subtitle="Track purchase orders — status, supplier and amounts" />
-<div class="admin-filters mb-0">
+<div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         @if(isset($financialYear))
             <div class="col-6 col-md-2">

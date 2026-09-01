@@ -12,6 +12,7 @@
         ])
     </div>
 </div>
+
 <template id="plant-item-line-template">
     @include('plant.request-po.product-requests.partials.item-line-row', [
         'products' => $products,
@@ -28,6 +29,7 @@
             'name' => $p->name,
             'sku' => $p->sku ?? '',
             'size' => $p->size,
+            'unit' => $p->unit?->abbreviation ?? $p->unit?->name ?? '',
             'sub_category_id' => $p->sub_category_id,
             'category_id' => $p->category_id,
         ];
@@ -156,9 +158,14 @@
             const sizeInput = row.querySelector('.item-size-input');
             const catSelect = row.querySelector('.item-category-select');
             const subCatSelect = row.querySelector('.item-subcategory-select');
+            const unitInput = row.querySelector('.item-unit-input');
 
             input.value = product.name;
             productIdInput.value = product.id;
+
+            if (product.unit && unitInput && !unitInput.value.trim()) {
+                unitInput.value = product.unit;
+            }
 
             if (product.size) {
                 sizeInput.value = product.size;

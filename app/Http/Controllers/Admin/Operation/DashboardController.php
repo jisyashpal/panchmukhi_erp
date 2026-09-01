@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $usersCount = User::where('is_active', true)->count();
         $productsCount = Product::where('is_active', true)->count();
 
-        $purchasesQuery = Purchase::query()->with(['plant', 'supplier']);
+        $purchasesQuery = Purchase::query()->purchaseOrders()->with(['plant', 'supplier']);
         $stockQuery = StockBalance::query();
 
         if ($plantId) {

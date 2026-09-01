@@ -1,7 +1,7 @@
 @extends('layouts.plant')
 @section('title', 'Edit Purchase Details')
 @section('content')
-<x-admin-page-header title="Edit Purchase Details" subtitle="PO: {{ $purchase->reference_no }}">
+<x-admin-page-header title="Edit {{ $purchase->isQuotation() ? 'Quotation' : 'Purchase' }} Details" subtitle="{{ $purchase->isQuotation() ? 'Quotation' : 'PO' }}: {{ $purchase->reference_no }}">
     <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
@@ -69,13 +69,14 @@
                                 <tr>
                                     <th>Product</th>
                                     <th class="text-end" style="width: 120px;">Qty</th>
-                                    <th class="text-end" style="width: 180px;">Unit Price (₹)</th>
-                                    <th class="text-end" style="width: 120px;">GST %</th>
+                                    <th class="text-end" style="width: 150px;">Unit Price (₹)</th>
+                                    <th class="text-end" style="width: 110px;">Disc %</th>
+                                    <th class="text-end" style="width: 100px;">GST %</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($purchase->items as $i => $item)
-                                    <tr data-qty="{{ $item->quantity }}" data-gstrate="{{ $item->gst_rate }}">
+                                    <tr data-gstrate="{{ $item->gst_rate }}">
                                         <td>
                                             <span class="fw-semibold text-dark">{{ $item->product->name }}</span>
                                             @if($item->product->sku)
@@ -83,14 +84,23 @@
                                             @endif
                                             <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
                                         </td>
-                                        <td class="text-end fw-semibold text-secondary">{{ $item->quantity }}</td>
+                                        <td class="text-end">
+                                            <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]"
+                                                   value="{{ old('items.'.$i.'.quantity', $item->quantity) }}"
+                                                   required class="form-control form-control-sm text-end purchase-line-input @error('items.'.$i.'.quantity') is-invalid @enderror" style="max-width: 100px; display: inline-block;">
+                                        </td>
                                         <td class="text-end">
                                             <div class="input-group input-group-sm justify-content-end">
                                                 <span class="input-group-text">₹</span>
-                                                <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" 
-                                                       value="{{ old('items.'.$i.'.unit_price', $item->unit_price) }}" 
+                                                <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]"
+                                                       value="{{ old('items.'.$i.'.unit_price', $item->unit_price) }}"
                                                        required class="form-control text-end purchase-line-input @error('items.'.$i.'.unit_price') is-invalid @enderror" style="max-width: 120px;">
                                             </div>
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][discount_percent]"
+                                                   value="{{ old('items.'.$i.'.discount_percent', $item->discount_percent ?? 0) }}"
+                                                   class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 90px;">
                                         </td>
                                         <td class="text-end text-muted">{{ $item->gst_rate }}%</td>
                                     </tr>
@@ -140,7 +150,7 @@
                         </tbody>
                     </table>
                     <p class="small text-muted mb-0 mt-3">
-                        <i class="bi bi-info-circle me-1"></i>Totals automatically update when you modify unit prices or toggle GST type.
+                        <i class="bi bi-info-circle me-1"></i>Totals automatically update when you modify quantity, unit prices or toggle GST type.
                     </p>
                 </div>
                 <div class="admin-card-body border-top pt-0 d-none d-xl-block">
@@ -156,8 +166,10 @@
 
 @push('scripts')
 <script>
-    function calcPurchaseLine(qty, price, gstRate, isInterstate) {
-        const taxable = Math.round(qty * price * 100) / 100;
+    function calcPurchaseLine(qty, price, gstRate, isInterstate, discountPercent) {
+        const discount = Math.max(0, Math.min(100, discountPercent || 0));
+        const gross = Math.round(qty * price * 100) / 100;
+        const taxable = Math.round(gross * (1 - discount / 100) * 100) / 100;
         const gstAmount = Math.round(taxable * gstRate / 100 * 100) / 100;
         if (isInterstate) {
             return {
@@ -186,10 +198,11 @@
             igst = 0,
             grand = 0;
         document.querySelectorAll('#purchase-lines tbody tr').forEach(row => {
-            const qty = parseFloat(row.dataset.qty) || 0;
-            const price = parseFloat(row.querySelector('.purchase-line-input')?.value) || 0;
+            const qty = parseFloat(row.querySelector('[name*="[quantity]"]')?.value) || 0;
+            const price = parseFloat(row.querySelector('[name*="[unit_price]"]')?.value) || 0;
+            const discount = parseFloat(row.querySelector('[name*="[discount_percent]"]')?.value) || 0;
             const gstRate = parseFloat(row.dataset.gstrate) || 0;
-            const line = calcPurchaseLine(qty, price, gstRate, isInterstate);
+            const line = calcPurchaseLine(qty, price, gstRate, isInterstate, discount);
             subtotal += line.taxable;
             cgst += line.cgst;
             sgst += line.sgst;

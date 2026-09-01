@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $range = $resolver->resolve($request);
 
         $stockQuery = StockBalance::with(['plant', 'product']);
-        $purchaseQuery = Purchase::query();
+        $purchaseQuery = Purchase::query()->purchaseOrders();
         $productRequestQuery = ProductRequest::query();
         $purchaseRequestQuery = PurchaseRequest::query();
 
@@ -49,6 +49,7 @@ class DashboardController extends Controller
             ->get();
 
         $purchaseQtyQuery = Purchase::query()
+            ->purchaseOrders()
             ->when($plantId, fn ($q) => $q->where('plant_id', $plantId))
             ->join('purchase_items', 'purchase_items.purchase_id', '=', 'purchases.id');
         $resolver->applyToQuery($purchaseQtyQuery, 'purchases.ordered_at', $request);
