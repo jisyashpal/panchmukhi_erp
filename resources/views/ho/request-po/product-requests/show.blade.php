@@ -30,6 +30,7 @@
                         <th>Size</th>
                         <th>Supplier</th>
                         <th class="text-end">Qty</th>
+                        <th>Priority</th>
                         <th class="text-end">Rate</th>
                         <th class="text-end">GST %</th>
                         <th>Remark</th>
@@ -51,6 +52,7 @@
                             <td>{{ $item->size ?? $item->product?->size ?? '—' }}</td>
                             <td>{{ $item->supplier?->name ?? '—' }}</td>
                             <td class="text-end">{{ $item->quantity }}</td>
+                            <td><x-status-badge :status="$item->priority" /></td>
                             <td class="text-end">{{ $item->unit_price }}</td>
                             <td class="text-end">{{ $item->gst_rate }}%</td>
                             <td>{{ $item->remarks ?? '—' }}</td>

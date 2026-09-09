@@ -30,6 +30,7 @@
                     <td>{{ $s->gstin ?? '—' }}</td>
                     <td class="text-end">
                         <x-admin-action-edit :href="route('admin.suppliers.edit', $s)" />
+                        <x-admin-action-delete :action="route('admin.suppliers.destroy', $s)" confirm="Delete this supplier?" />
                     </td>
                 </tr>
                 @empty

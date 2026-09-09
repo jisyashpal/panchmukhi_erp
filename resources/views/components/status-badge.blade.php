@@ -3,6 +3,10 @@
 @php
     $value = $status instanceof \BackedEnum ? $status->value : (string) $status;
     $class = match($value) {
+        'low' => 'bg-secondary',
+        'medium' => 'bg-info text-dark',
+        'high' => 'bg-warning text-dark',
+        'urgent' => 'bg-danger',
         'draft' => 'bg-secondary',
         'submitted' => 'bg-info text-dark',
         'in_progress' => 'bg-warning text-dark',

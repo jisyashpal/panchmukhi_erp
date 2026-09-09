@@ -20,7 +20,7 @@
                                 @endforeach
                             </select>
                         </td>
-                        <td><input type="number" step="0.01" name="items[{{ $i }}][quantity]" value="{{ $item->quantity }}" class="form-control form-control-sm" required></td>
+                        <td><input type="number" step="1" min="1" name="items[{{ $i }}][quantity]" value="{{ (int)$item->quantity }}" class="form-control form-control-sm" required></td>
                         <td><input type="number" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $item->unit_price }}" class="form-control form-control-sm"></td>
                     </tr>
                     @endforeach

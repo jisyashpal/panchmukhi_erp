@@ -110,7 +110,7 @@
                                     </select>
                                 </td>
                                 <td class="purchase-col-num purchase-col-qty">
-                                    <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]" value="{{ old("items.$i.quantity", $item->quantity) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
+                                    <input type="number" step="1" min="1" name="items[{{ $i }}][quantity]" value="{{ old("items.$i.quantity", (int)$item->quantity) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
                                 </td>
                                 <td class="purchase-col-num purchase-col-rate">
                                     <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ old("items.$i.unit_price", $item->unit_price) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
@@ -180,7 +180,7 @@
                                     </select>
                                 </td>
                                 <td class="purchase-col-num purchase-col-qty">
-                                    <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]" value="{{ old("items.$i.quantity", $item->quantity) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
+                                    <input type="number" step="1" min="1" name="items[{{ $i }}][quantity]" value="{{ old("items.$i.quantity", (int)$item->quantity) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>
                                 </td>
                                 <td class="purchase-col-num purchase-col-rate">
                                     <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ old("items.$i.unit_price", $defaultUnitPrice) }}" class="form-control form-control-sm purchase-line-input purchase-num-input" required>

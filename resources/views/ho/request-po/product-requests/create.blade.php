@@ -20,7 +20,14 @@
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <!-- spacing or other fields if any -->
+                    <label class="form-label fw-semibold">Priority</label>
+                    <select name="priority" required class="form-select">
+                        @foreach(\App\Enums\PriorityLevel::cases() as $priority)
+                            <option value="{{ $priority->value }}" @selected(old('priority', 'medium') === $priority->value)>
+                                {{ $priority->label() }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
                 <x-admin-form-group label="Remarks" name="remarks" col="col-md-12">
                     <textarea name="remarks" class="form-control" rows="2">{{ old('remarks') }}</textarea>

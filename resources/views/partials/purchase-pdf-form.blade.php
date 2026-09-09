@@ -27,7 +27,7 @@
             <button type="submit" class="btn btn-primary btn-sm w-100 mb-2">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i>Download / View PDF
             </button>
-            @isset($excelRoute, $wordRoute)
+            @if(isset($excelRoute, $wordRoute))
             <div class="row g-2 mb-3">
                 <div class="col-6">
                     <button type="submit" class="btn btn-outline-success btn-sm w-100" formaction="{{ $excelRoute }}" formtarget="_self">
@@ -40,7 +40,7 @@
                     </button>
                 </div>
             </div>
-            @endisset
+            @endif
         </form>
 
         @isset($shareLinksRoute)

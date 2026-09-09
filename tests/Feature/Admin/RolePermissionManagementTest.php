@@ -75,6 +75,64 @@ class RolePermissionManagementTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_can_update_and_delete_unassigned_custom_permission(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $permission = Permission::create([
+            'name' => 'Old Permission',
+            'slug' => 'plant.old_permission',
+            'module' => 'plant',
+            'is_system' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('admin.permissions.update', $permission), [
+                'name' => 'Updated Permission',
+                'slug' => 'plant.updated_permission',
+                'module' => 'plant',
+                'description' => 'Updated description',
+                'sort_order' => 15,
+            ])
+            ->assertRedirect(route('admin.permissions.index'));
+
+        $this->assertDatabaseHas('permissions', [
+            'id' => $permission->id,
+            'name' => 'Updated Permission',
+            'slug' => 'plant.updated_permission',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.permissions.destroy', $permission))
+            ->assertRedirect(route('admin.permissions.index'));
+
+        $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+    }
+
+    public function test_assigned_custom_permission_cannot_be_deleted(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $permission = Permission::create([
+            'name' => 'Assigned Permission',
+            'slug' => 'plant.assigned_permission',
+            'module' => 'plant',
+            'is_system' => false,
+        ]);
+        $role = Role::create([
+            'name' => 'Custom Role',
+            'slug' => 'custom_role',
+            'is_system' => false,
+            'is_active' => true,
+        ]);
+        $role->permissions()->attach($permission);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.permissions.destroy', $permission))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('permissions', ['id' => $permission->id]);
+    }
+
     public function test_system_role_cannot_be_deleted(): void
     {
         $admin = User::factory()->superAdmin()->create();

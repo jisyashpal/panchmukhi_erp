@@ -100,7 +100,7 @@ class PermissionController extends Controller
                 'regex:/^[a-z0-9_.]+$/',
                 Rule::unique('permissions', 'slug')->ignore($permission?->id),
             ],
-            'module' => ['required', 'string', 'max:50'],
+            'module' => ['required', 'string', 'max:50', Rule::in(array_keys(config('permissions.modules', [])))],
             'description' => ['nullable', 'string', 'max:1000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
         ]);

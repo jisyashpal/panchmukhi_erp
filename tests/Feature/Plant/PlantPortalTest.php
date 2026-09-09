@@ -60,6 +60,7 @@ class PlantPortalTest extends TestCase
                         'product_id' => $product->id,
                         'item_name' => $product->name,
                         'quantity' => 2,
+                        'priority' => 'urgent',
                     ],
                 ],
             ])
@@ -70,6 +71,39 @@ class PlantPortalTest extends TestCase
             'requested_by' => $inCharge->id,
             'status' => RequestStatus::Submitted->value,
         ]);
+
+        $this->assertDatabaseHas('product_request_items', [
+            'product_id' => $product->id,
+            'priority' => 'urgent',
+        ]);
+    }
+
+    public function test_site_incharge_creates_request_with_priority_and_purchaser_sees_it(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser();
+        $product = Product::factory()->create();
+
+        $this->actingAs($inCharge)
+            ->post(route('plant.product-requests.store'), [
+                'requester_name' => 'Site Incharge',
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'item_name' => $product->name,
+                        'quantity' => 10,
+                        'priority' => 'high',
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.index'))
+            ->assertOk()
+            ->assertSee('High')
+            ->assertSee($product->name);
     }
 
     public function test_plant_in_charge_can_create_product_request_with_custom_item_name(): void

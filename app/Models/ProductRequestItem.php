@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PriorityLevel;
 use App\Enums\ProductRequestItemWorkflowStatus;
 use App\Enums\RequestStatus;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ class ProductRequestItem extends Model
         'sub_category_id',
         'supplier_id',
         'quantity',
+        'priority',
         'unit_price',
         'gst_rate',
         'billing_notes',
@@ -30,6 +32,7 @@ class ProductRequestItem extends Model
     protected function casts(): array
     {
         return [
+            'priority' => PriorityLevel::class,
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'gst_rate' => 'decimal:2',
@@ -95,7 +98,7 @@ class ProductRequestItem extends Model
             });
         });
 
-        return $matched->isNotEmpty() ? $matched : $purchases;
+        return $matched;
     }
 
     /**

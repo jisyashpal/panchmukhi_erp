@@ -68,46 +68,65 @@
                             <thead>
                                 <tr>
                                     <th>Product</th>
-                                    <th class="text-end" style="width: 120px;">Qty</th>
-                                    <th class="text-end" style="width: 150px;">Unit Price (₹)</th>
-                                    <th class="text-end" style="width: 110px;">Disc %</th>
-                                    <th class="text-end" style="width: 100px;">GST %</th>
+                                    <th class="text-end" style="width: 100px;">Qty</th>
+                                    <th class="text-end" style="width: 130px;">Unit Price (₹)</th>
+                                    <th class="text-end" style="width: 90px;">Disc %</th>
+                                    <th class="text-end" style="width: 80px;">GST %</th>
+                                    <th class="text-end" style="width: 110px;">Total (₹)</th>
+                                    <th class="text-center" style="width: 45px;"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($purchase->items as $i => $item)
                                     <tr data-gstrate="{{ $item->gst_rate }}">
-                                        <td>
-                                            <span class="fw-semibold text-dark">{{ $item->product->name }}</span>
-                                            @if($item->product->sku)
-                                                <span class="d-block small text-muted text-uppercase">SKU: {{ $item->product->sku }}</span>
-                                            @endif
+                                        <td class="position-relative">
+                                            <input type="text"
+                                                   value="{{ old('items.'.$i.'.item_name', $item->product?->name) }}"
+                                                   class="form-control form-control-sm purchase-line-input purchase-item-name-input @error('items.'.$i.'.product_id') is-invalid @enderror"
+                                                   placeholder="Search item name or SKU..."
+                                                   required
+                                                   autocomplete="off">
+                                            <input type="hidden"
+                                                   name="items[{{ $i }}][product_id]"
+                                                   value="{{ old('items.'.$i.'.product_id', $item->product_id) }}"
+                                                   class="purchase-item-product-id">
                                             <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
                                         </td>
                                         <td class="text-end">
-                                            <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]"
-                                                   value="{{ old('items.'.$i.'.quantity', $item->quantity) }}"
-                                                   required class="form-control form-control-sm text-end purchase-line-input @error('items.'.$i.'.quantity') is-invalid @enderror" style="max-width: 100px; display: inline-block;">
+                                            <input type="number" step="1" min="1" name="items[{{ $i }}][quantity]"
+                                                   value="{{ old('items.'.$i.'.quantity', (int) $item->quantity) }}"
+                                                   required class="form-control form-control-sm text-end purchase-line-input @error('items.'.$i.'.quantity') is-invalid @enderror" style="max-width: 90px; display: inline-block;">
                                         </td>
                                         <td class="text-end">
                                             <div class="input-group input-group-sm justify-content-end">
                                                 <span class="input-group-text">₹</span>
                                                 <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]"
-                                                       value="{{ old('items.'.$i.'.unit_price', $item->unit_price) }}"
-                                                       required class="form-control text-end purchase-line-input @error('items.'.$i.'.unit_price') is-invalid @enderror" style="max-width: 120px;">
+                                                       value="{{ old('items.'.$i.'.unit_price', number_format((float)$item->unit_price, 2, '.', '')) }}"
+                                                       required class="form-control text-end purchase-line-input @error('items.'.$i.'.unit_price') is-invalid @enderror" style="max-width: 110px;">
                                             </div>
                                         </td>
                                         <td class="text-end">
                                             <input type="number" step="0.01" min="0" max="100" name="items[{{ $i }}][discount_percent]"
-                                                   value="{{ old('items.'.$i.'.discount_percent', $item->discount_percent ?? 0) }}"
-                                                   class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 90px;">
+                                                   value="{{ old('items.'.$i.'.discount_percent', number_format((float)($item->discount_percent ?? 0), 2, '.', '')) }}"
+                                                   class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 80px;">
                                         </td>
                                         <td class="text-end text-muted">{{ $item->gst_rate }}%</td>
+                                        <td class="text-end fw-semibold">₹<span class="purchase-line-total">0.00</span></td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-line" title="Delete product item">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <div class="admin-card-footer bg-light p-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-line">
+                        <i class="bi bi-plus-lg me-1"></i>Add Product
+                    </button>
                 </div>
             </div>
 
@@ -164,7 +183,38 @@
     </div>
 </form>
 
+@php
+    $purchaseProductCatalog = isset($products) ? $products->map(function ($p) {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'sku' => $p->sku ?? '',
+        ];
+    })->values() : collect();
+@endphp
+
 @push('scripts')
+<style>
+#purchase-edit-autocomplete-portal {
+    position: fixed;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 2000;
+    display: none;
+}
+#purchase-edit-autocomplete-portal.is-open {
+    display: block;
+}
+#purchase-edit-autocomplete-portal .suggestion-item {
+    cursor: pointer;
+    transition: background 0.15s ease-in-out;
+}
+#purchase-edit-autocomplete-portal .suggestion-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+@include('partials.infinite-suggestions')
+<script type="application/json" id="purchase-edit-catalog-data">@json($purchaseProductCatalog)</script>
 <script>
     function calcPurchaseLine(qty, price, gstRate, isInterstate, discountPercent) {
         const discount = Math.max(0, Math.min(100, discountPercent || 0));
@@ -203,6 +253,10 @@
             const discount = parseFloat(row.querySelector('[name*="[discount_percent]"]')?.value) || 0;
             const gstRate = parseFloat(row.dataset.gstrate) || 0;
             const line = calcPurchaseLine(qty, price, gstRate, isInterstate, discount);
+            const lineTotalEl = row.querySelector('.purchase-line-total');
+            if (lineTotalEl) {
+                lineTotalEl.textContent = line.total.toFixed(2);
+            }
             subtotal += line.taxable;
             cgst += line.cgst;
             sgst += line.sgst;
@@ -225,9 +279,184 @@
             el.addEventListener('change', recalcPurchaseTotals);
         });
     }
+
+    function initPurchaseItemAutocomplete() {
+        const catalogEl = document.getElementById('purchase-edit-catalog-data');
+        if (!catalogEl) return;
+        const products = JSON.parse(catalogEl.textContent);
+        let activeInput = null;
+        let activeRow = null;
+
+        const portal = document.createElement('div');
+        portal.id = 'purchase-edit-autocomplete-portal';
+        portal.className = 'autocomplete-suggestions shadow border rounded-bottom bg-white';
+        document.body.appendChild(portal);
+
+        const infinite = window.PanchmukhiInfiniteSuggestions.create(portal, {
+            pageSize: 25,
+            renderItem: function (product) {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
+                div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
+                    + product.name
+                    + '</span> <span class="text-muted small">'
+                    + (product.sku || 'No SKU')
+                    + '</span>';
+                div.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    if (activeRow) {
+                        applyProductSelection(activeRow, product);
+                    }
+                });
+                return div;
+            },
+        });
+
+        function hideSuggestions() {
+            infinite.reset();
+            portal.classList.remove('is-open');
+            activeInput = null;
+            activeRow = null;
+        }
+
+        function positionPortal(input) {
+            const rect = input.getBoundingClientRect();
+            portal.style.top = (rect.bottom + 2) + 'px';
+            portal.style.left = rect.left + 'px';
+            portal.style.width = rect.width + 'px';
+        }
+
+        function applyProductSelection(row, product) {
+            const input = row.querySelector('.purchase-item-name-input');
+            const productIdInput = row.querySelector('.purchase-item-product-id');
+            input.value = product.name;
+            productIdInput.value = product.id;
+            hideSuggestions();
+        }
+
+        function showSuggestions(input) {
+            const row = input.closest('tr');
+            if (!row) return;
+            const val = input.value.trim().toLowerCase();
+            activeInput = input;
+            activeRow = row;
+
+            const filtered = products.filter(function (product) {
+                if (!val) return true;
+                return product.name.toLowerCase().includes(val)
+                    || (product.sku && product.sku.toLowerCase().includes(val));
+            });
+
+            if (filtered.length === 0) {
+                hideSuggestions();
+                return;
+            }
+
+            infinite.setResults(filtered);
+            positionPortal(input);
+            portal.classList.add('is-open');
+        }
+
+        document.addEventListener('input', function (event) {
+            if (event.target.matches('.purchase-item-name-input')) {
+                const row = event.target.closest('tr');
+                const productIdInput = row?.querySelector('.purchase-item-product-id');
+                if (productIdInput) {
+                    productIdInput.value = '';
+                }
+                showSuggestions(event.target);
+            }
+        });
+
+        document.addEventListener('focusin', function (event) {
+            if (event.target.matches('.purchase-item-name-input')) {
+                showSuggestions(event.target);
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            if (event.target.matches('.purchase-item-name-input')) {
+                showSuggestions(event.target);
+                return;
+            }
+            if (activeInput && (activeInput.contains(event.target) || portal.contains(event.target))) {
+                return;
+            }
+            hideSuggestions();
+        });
+
+        window.addEventListener('scroll', function (event) {
+            if (!activeInput || !portal.classList.contains('is-open')) return;
+            if (portal.contains(event.target)) return;
+            positionPortal(activeInput);
+        }, true);
+
+        window.addEventListener('resize', function () {
+            if (activeInput && portal.classList.contains('is-open')) {
+                positionPortal(activeInput);
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         bindPurchaseGstCalc();
         recalcPurchaseTotals();
+        initPurchaseItemAutocomplete();
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-delete-line');
+            if (btn) {
+                const rows = document.querySelectorAll('#purchase-lines tbody tr');
+                if (rows.length <= 1) {
+                    alert('At least one product item is required in the purchase.');
+                    return;
+                }
+                const row = btn.closest('tr');
+                if (row) {
+                    row.remove();
+                    bindPurchaseGstCalc();
+                    recalcPurchaseTotals();
+                }
+            }
+        });
+
+        const btnAdd = document.getElementById('btn-add-line');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', function () {
+                const tbody = document.querySelector('#purchase-lines tbody');
+                const i = Date.now();
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-gstrate', '18');
+                tr.innerHTML = `
+                    <td class="position-relative">
+                        <input type="text" name="items[${i}][item_name]" class="form-control form-control-sm purchase-line-input purchase-item-name-input" placeholder="Search item name or SKU..." required autocomplete="off">
+                        <input type="hidden" name="items[${i}][product_id]" class="purchase-item-product-id">
+                    </td>
+                    <td class="text-end">
+                        <input type="number" step="1" min="1" name="items[${i}][quantity]" value="1" required class="form-control form-control-sm text-end purchase-line-input" style="max-width: 90px; display: inline-block;">
+                    </td>
+                    <td class="text-end">
+                        <div class="input-group input-group-sm justify-content-end">
+                            <span class="input-group-text">₹</span>
+                            <input type="number" step="0.01" min="0" name="items[${i}][unit_price]" value="0.00" required class="form-control text-end purchase-line-input" style="max-width: 110px;">
+                        </div>
+                    </td>
+                    <td class="text-end">
+                        <input type="number" step="0.01" min="0" max="100" name="items[${i}][discount_percent]" value="0.00" class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 80px;">
+                    </td>
+                    <td class="text-end text-muted">18%</td>
+                    <td class="text-end fw-semibold">₹<span class="purchase-line-total">0.00</span></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-line" title="Delete product item">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+                bindPurchaseGstCalc();
+                recalcPurchaseTotals();
+            });
+        }
     });
 </script>
 @endpush

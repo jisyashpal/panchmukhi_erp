@@ -36,6 +36,18 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('supplier_payments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
+            $table->decimal('amount', 14, 2);
+            $table->date('payment_date');
+            $table->text('notes')->nullable();
+            $table->foreignId('paid_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+
+            $table->index(['supplier_id', 'payment_date']);
+        });
+
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -52,6 +64,17 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->unique(['category_id', 'slug']);
+        });
+
+        Schema::create('vehicles', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
+            $table->string('name');
+            $table->string('registration_no')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+
+            $table->index(['category_id', 'name']);
         });
 
         Schema::create('brands', function (Blueprint $table) {
@@ -105,6 +128,7 @@ return new class extends Migration
             $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('quantity', 12, 2);
+            $table->string('priority')->default('medium');
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('gst_rate', 5, 2)->default(0);
             $table->text('billing_notes')->nullable();
@@ -151,6 +175,8 @@ return new class extends Migration
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
             $table->foreignId('purchase_request_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('document_type')->default('purchase_order');
+            $table->foreignId('quotation_id')->nullable()->constrained('purchases')->nullOnDelete();
             $table->string('reference_no')->unique();
             $table->string('status')->default('ordered');
             $table->boolean('is_interstate')->default(false);
@@ -171,6 +197,15 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->index(['plant_id', 'status']);
+            $table->index(['document_type', 'plant_id']);
+        });
+
+        Schema::create('purchase_comments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('purchase_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->text('comment');
+            $table->timestamps();
         });
 
         Schema::create('purchase_items', function (Blueprint $table) {
@@ -179,6 +214,7 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->decimal('quantity', 12, 2);
             $table->decimal('unit_price', 12, 2)->default(0);
+            $table->decimal('discount_percent', 5, 2)->default(0);
             $table->decimal('gst_rate', 5, 2)->default(0);
             $table->decimal('taxable_amount', 14, 2)->default(0);
             $table->decimal('cgst_amount', 14, 2)->default(0);
@@ -186,6 +222,12 @@ return new class extends Migration
             $table->decimal('igst_amount', 14, 2)->default(0);
             $table->decimal('line_total', 14, 2)->default(0);
             $table->decimal('received_quantity', 12, 2)->default(0);
+            $table->string('dispatch_status', 20)->nullable();
+            $table->date('dispatched_at')->nullable();
+            $table->decimal('dispatched_quantity', 12, 2)->nullable();
+            $table->text('dispatch_remark')->nullable();
+            $table->foreignId('alternative_product_id')->nullable()->constrained('products')->nullOnDelete();
+            $table->foreignId('original_product_id')->nullable()->constrained('products')->nullOnDelete();
             $table->timestamps();
         });
 
@@ -204,6 +246,7 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('vehicle_id')->nullable()->constrained()->nullOnDelete();
             $table->string('type');
             $table->decimal('quantity', 12, 2);
             $table->string('reference_type');
@@ -221,8 +264,13 @@ return new class extends Migration
         Schema::create('product_use_entries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('vehicle_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('replaced_product_id')->nullable()->constrained('products')->nullOnDelete();
             $table->foreignId('sub_category_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('meter_type', 16)->default('hours');
+            $table->decimal('current_reading', 12, 2)->nullable();
+            $table->decimal('previous_reading', 12, 2)->nullable();
             $table->decimal('quantity', 12, 2);
             $table->decimal('life_hours', 12, 2)->default(0);
             $table->unsignedInteger('usage_count')->default(1);
@@ -230,6 +278,8 @@ return new class extends Migration
             $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
+
+            $table->index(['vehicle_id', 'sub_category_id', 'used_at']);
         });
     }
 
@@ -239,6 +289,7 @@ return new class extends Migration
         Schema::dropIfExists('stock_movements');
         Schema::dropIfExists('stock_balances');
         Schema::dropIfExists('purchase_items');
+        Schema::dropIfExists('purchase_comments');
         Schema::dropIfExists('purchases');
         Schema::dropIfExists('purchase_request_items');
         Schema::dropIfExists('purchase_requests');
@@ -247,8 +298,10 @@ return new class extends Migration
         Schema::dropIfExists('products');
         Schema::dropIfExists('units');
         Schema::dropIfExists('brands');
+        Schema::dropIfExists('vehicles');
         Schema::dropIfExists('sub_categories');
         Schema::dropIfExists('categories');
+        Schema::dropIfExists('supplier_payments');
         Schema::dropIfExists('suppliers');
         Schema::table('users', function (Blueprint $table) {
             $table->dropConstrainedForeignId('plant_id');

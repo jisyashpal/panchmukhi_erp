@@ -46,6 +46,7 @@
                     <th>Name</th>
                     <th>Slug</th>
                     <th>Module</th>
+                    <th>Description</th>
                     <th>Roles</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -61,6 +62,7 @@
                     </td>
                     <td><code class="small">{{ $permission->slug }}</code></td>
                     <td>{{ $permission->moduleLabel() }}</td>
+                    <td class="text-muted small">{{ $permission->description ?: '—' }}</td>
                     <td>{{ $permission->roles_count }}</td>
                     <td class="text-end">
                         <x-admin-action-edit :href="route('admin.permissions.edit', $permission)" />
@@ -71,7 +73,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="5">
+                    <td colspan="6">
                         <div class="admin-empty"><i class="bi bi-key d-block"></i>No permissions found</div>
                     </td>
                 </tr>

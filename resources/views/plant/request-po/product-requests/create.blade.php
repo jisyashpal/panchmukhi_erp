@@ -18,6 +18,12 @@
                            placeholder="Enter requester name"
                            required>
                 </x-admin-form-group>
+                <x-admin-form-group label="Remarks" name="remarks" col="col-md-6">
+                    <textarea name="remarks"
+                              class="form-control @error('remarks') is-invalid @enderror"
+                              rows="1"
+                              placeholder="Enter remarks (optional)">{{ old('remarks') }}</textarea>
+                </x-admin-form-group>
             </div>
 
             @include('plant.request-po.product-requests.partials.item-lines', [

@@ -37,6 +37,9 @@ class ProductRequestController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->string('priority'));
+        }
 
         return view('ho.request-po.product-requests.index', [
             'productRequests' => $query->paginate(20)->withQueryString(),
@@ -64,6 +67,7 @@ class ProductRequestController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.sub_category_id' => ['nullable', 'exists:sub_categories,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
             'items.*.remarks' => ['nullable', 'string'],
             'items.*.image' => ['nullable', 'image', 'max:5120'],
         ]);
@@ -93,6 +97,7 @@ class ProductRequestController extends Controller
                 'product_id' => $item['product_id'],
                 'sub_category_id' => $subCategoryId,
                 'quantity' => $item['quantity'],
+                'priority' => $item['priority'] ?? \App\Enums\PriorityLevel::Medium->value,
                 'remarks' => $item['remarks'] ?? null,
                 'image_path' => $imagePath,
             ]);

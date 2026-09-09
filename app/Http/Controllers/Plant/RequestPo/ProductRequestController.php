@@ -57,6 +57,15 @@ class ProductRequestController extends Controller
             ->when(! $isPurchaser, fn ($q) => $q->where('product_requests.plant_id', $this->plantId()))
             ->when($isPurchaser && $request->filled('plant_id'), fn ($q) => $q->where('product_requests.plant_id', $request->integer('plant_id')))
             ->when($request->filled('product_id'), fn ($q) => $q->where('product_request_items.product_id', $request->integer('product_id')))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $search = $request->string('search');
+                $q->where(function ($q) use ($search) {
+                    $q->where('product_request_items.item_name', 'like', '%'.$search.'%')
+                        ->orWhereHas('product', fn ($pq) => $pq->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('sku', 'like', '%'.$search.'%'));
+                });
+            })
+            ->when($request->filled('priority'), fn ($q) => $q->where('product_request_items.priority', $request->string('priority')))
             ->when($request->filled('from_date'), fn ($q) => $q->whereDate('product_requests.created_at', '>=', $request->date('from_date')))
             ->when($request->filled('to_date'), fn ($q) => $q->whereDate('product_requests.created_at', '<=', $request->date('to_date')));
 
@@ -73,6 +82,11 @@ class ProductRequestController extends Controller
             'plants' => $isPurchaser ? Plant::orderBy('name')->get() : collect(),
             'isPurchaser' => $isPurchaser,
             'activeStatus' => $status,
+            'pdfDefaults' => [
+                'company_name' => config('company.name', ''),
+                'company_address' => config('company.address', ''),
+                'company_gstin' => config('company.gstin', ''),
+            ],
         ]);
     }
 
@@ -98,6 +112,7 @@ class ProductRequestController extends Controller
             'items.*.sub_category_id' => ['nullable', 'exists:sub_categories,id'],
             'items.*.size' => ['nullable', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
             'items.*.remarks' => ['nullable', 'string'],
             'items.*.image' => ['nullable', 'image', 'max:5120'],
         ]);
@@ -145,6 +160,7 @@ class ProductRequestController extends Controller
                 'unit' => $unit ?: null,
                 'sub_category_id' => $subCategoryId,
                 'quantity' => $item['quantity'],
+                'priority' => $item['priority'] ?? \App\Enums\PriorityLevel::Medium->value,
                 'remarks' => $item['remarks'] ?? null,
                 'image_path' => $imagePath,
             ]);
@@ -164,7 +180,7 @@ class ProductRequestController extends Controller
         return view('plant.request-po.product-requests.show', compact('productRequest'));
     }
 
-    public function edit(ProductRequest $productRequest): View|RedirectResponse
+    public function edit(Request $request, ProductRequest $productRequest): View|RedirectResponse
     {
         $this->authorizePlantAccess($productRequest);
         $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
@@ -174,9 +190,27 @@ class ProductRequestController extends Controller
                 ->with('error', 'Completed or cancelled product requests cannot be edited.');
         }
 
-        $productRequest->load(['items.product']);
+        $query = $productRequest->items()->with(['product']);
+        if ($request->filled('item_id')) {
+            $query->where('id', $request->integer('item_id'));
+        }
+        $items = $query->get();
 
-        return view('plant.request-po.product-requests.edit', compact('productRequest'));
+        if ($items->isEmpty()) {
+            return redirect()->route('plant.product-requests.index')
+                ->with('error', 'The requested product item was not found.');
+        }
+
+        $editableItems = $items->filter(fn ($item) => $item->canSelectForPo());
+        if ($editableItems->isEmpty()) {
+            return redirect()->route('plant.product-requests.index')
+                ->with('error', 'Cannot edit product item after a quotation or PO has been created.');
+        }
+
+        $productRequest->setRelation('items', $editableItems);
+        $products = Product::where('is_active', true)->orderBy('name')->get();
+
+        return view('plant.request-po.product-requests.edit', compact('productRequest', 'products'));
     }
 
     public function update(Request $request, ProductRequest $productRequest): RedirectResponse
@@ -193,10 +227,21 @@ class ProductRequestController extends Controller
             'remarks' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'exists:product_request_items,id'],
+            'items.*.item_name' => ['nullable', 'string', 'max:255'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
             'items.*.remarks' => ['nullable', 'string'],
             'items.*.image' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        foreach ($data['items'] as $itemData) {
+            $item = $productRequest->items()->find($itemData['id']);
+            if ($item && ! $item->canSelectForPo()) {
+                return redirect()->route('plant.product-requests.index')
+                    ->with('error', 'Cannot edit product item "'.$item->displayName().'" after a quotation or PO has been created.');
+            }
+        }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($productRequest, $data, $request) {
             $productRequest->update([
@@ -208,8 +253,16 @@ class ProductRequestController extends Controller
                 if ($item) {
                     $updateData = [
                         'quantity' => $itemData['quantity'],
+                        'priority' => $itemData['priority'] ?? $item->priority,
                         'remarks' => $itemData['remarks'] ?? null,
                     ];
+
+                    if (isset($itemData['item_name'])) {
+                        $updateData['item_name'] = $itemData['item_name'];
+                    }
+                    if (array_key_exists('product_id', $itemData)) {
+                        $updateData['product_id'] = $itemData['product_id'] ?: null;
+                    }
 
                     if ($request->hasFile("items.{$index}.image")) {
                         $file = $request->file("items.{$index}.image");
@@ -223,7 +276,7 @@ class ProductRequestController extends Controller
             }
         });
 
-        return redirect()->route('plant.product-requests.show', $productRequest)
+        return redirect()->route('plant.product-requests.index')
             ->with('success', 'Product request updated successfully.');
     }
 
@@ -265,27 +318,30 @@ class ProductRequestController extends Controller
      */
     protected function streamSupplierExport(Collection $items): StreamedResponse
     {
-        $plant = $items->first()?->productRequest?->plant;
+        $plants = $items->map(fn ($item) => $item->productRequest?->plant?->name)->filter()->unique()->values();
         $requestIds = $items->pluck('product_request_id')->unique()->sort()->values();
         $ids = $requestIds->implode('-');
-        $plantSlug = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $plant?->name ?? 'plant'));
+        $plantSlug = $plants->count() === 1
+            ? strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $plants->first()))
+            : 'multi-plant';
         $filename = 'supplier-inquiry-'.$plantSlug.'-'.$ids.'.csv';
 
-        return response()->streamDownload(function () use ($items, $plant, $requestIds) {
+        return response()->streamDownload(function () use ($items, $plants, $requestIds) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
 
             fputcsv($out, ['Supplier Inquiry / Quotation Request']);
-            fputcsv($out, ['Plant', $plant?->name ?? '']);
+            fputcsv($out, ['Plant / Site', $plants->implode(', ')]);
             fputcsv($out, ['Date', now()->format('d-m-Y')]);
             fputcsv($out, ['Product Request #', $requestIds->map(fn ($id) => '#'.$id)->implode(', ')]);
             fputcsv($out, ['Requested By', $items->map(fn (ProductRequestItem $item) => $item->productRequest?->displayRequesterName())->filter()->unique()->implode(', ')]);
             fputcsv($out, []);
-            fputcsv($out, ['#', 'Product', 'Type', 'Size', 'Qty', 'Unit', 'Remarks', 'Rate', 'GST%', 'Amount']);
+            fputcsv($out, ['#', 'Plant / Site', 'Product', 'Type', 'Size', 'Qty', 'Unit', 'Remarks', 'Rate', 'GST%', 'Amount']);
 
             foreach ($items->values() as $index => $item) {
                 fputcsv($out, [
                     $index + 1,
+                    $item->productRequest?->plant?->name ?? '',
                     $item->displayName(),
                     $item->subCategory?->name ?? $item->product?->subCategory?->name ?? '',
                     $item->size ?? $item->product?->size ?? '',
@@ -359,13 +415,15 @@ class ProductRequestController extends Controller
             return $items;
         }
 
-        return $this->convertOrResumeProductRequestItems($items);
+        $createType = $request->string('create_type')->toString();
+
+        return $this->convertOrResumeProductRequestItems($items, $createType);
     }
 
     /**
      * @param  Collection<int, ProductRequestItem>  $items
      */
-    protected function convertOrResumeProductRequestItems(Collection $items): RedirectResponse
+    protected function convertOrResumeProductRequestItems(Collection $items, string $createType = ''): RedirectResponse
     {
         if ($items->isEmpty()) {
             return back()->with('error', 'Select at least one product.');
@@ -379,14 +437,23 @@ class ProductRequestController extends Controller
             return back()->with('error', 'One or more selected products already have a quotation or PO.');
         }
 
+        if ($items->map(fn (ProductRequestItem $item) => $item->productRequest?->plant_id)->unique()->count() > 1) {
+            return back()->with('error', 'Select products from one plant/site only.');
+        }
+
         $purchaseRequest = $this->consolidateItemsOntoPurchaseRequest($items);
         $count = $items->count();
         $plantName = $items->first()->productRequest?->plant?->name ?? 'site';
 
-        return redirect()->route('plant.purchases.create', ['purchase_request_id' => $purchaseRequest->id])
+        $params = ['purchase_request_id' => $purchaseRequest->id];
+        if ($createType === 'po') {
+            $params['document_type'] = 'purchase_order';
+        }
+
+        return redirect()->route('plant.purchases.create', $params)
             ->with('success', $count === 1
-                ? 'Product converted. Complete the quotation below (number like plant-01).'
-                : "{$count} products from {$plantName} merged. Complete the quotation below.");
+                ? 'Product converted. Complete the details below.'
+                : "{$count} products from {$plantName} merged. Complete the details below.");
     }
 
     /**
@@ -527,10 +594,6 @@ class ProductRequestController extends Controller
 
         foreach ($items as $item) {
             $this->authorizePlantAccess($item->productRequest);
-        }
-
-        if ($items->map(fn (ProductRequestItem $item) => $item->productRequest?->plant_id)->unique()->count() > 1) {
-            return back()->with('error', 'Select products from one plant/site only.');
         }
 
         return $items;

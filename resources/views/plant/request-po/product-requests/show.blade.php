@@ -5,7 +5,7 @@
         subtitle="{{ $productRequest->plant->name }} · {{ $productRequest->displayRequesterName() }}">
         <div class="d-flex align-items-center gap-2">
             <x-status-badge :status="$productRequest->status" />
-            @if(auth()->user()->isPurchaser() && in_array($productRequest->status->value, ['submitted', 'in_progress']))
+            @if(in_array($productRequest->status->value, ['submitted', 'in_progress']) && $productRequest->items->contains(fn($i) => $i->canSelectForPo()))
                 <a href="{{ route('plant.product-requests.edit', $productRequest) }}" class="btn btn-primary btn-sm">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
@@ -39,6 +39,7 @@
                             <th class="text-end">GST %</th>
                         @endif
                         <th class="text-end">Quantity</th>
+                        <th>Priority</th>
                         <th>Status</th>
                         <th>Vehicle No / Machine No</th>
                         <th>Image</th>
@@ -73,11 +74,19 @@
                             <td>{{ $item->size ?? $item->product?->size ?? '—' }}</td>
                             @if(auth()->user()->isPurchaser())
                                 <td>{{ $item->supplier?->name ?? '—' }}</td>
-                                <td class="text-end">{{ $item->unit_price }}</td>
+                                <td class="text-end">{{ $item->unit_price !== null && $item->unit_price > 0 ? '₹' . number_format((float) $item->unit_price, 2) : '—' }}</td>
                                 <td class="text-end">{{ $item->gst_rate }}%</td>
                             @endif
                             <td class="text-end">{{ $item->quantity }}</td>
-                            <td><x-status-badge :status="$item->workflowStatus()" /></td>
+                            <td><x-status-badge :status="$item->priority" /></td>
+                            <td>
+                                <x-status-badge :status="$item->workflowStatus()" />
+                                @if($item->canSelectForPo() && in_array($productRequest->status->value, ['submitted', 'in_progress']))
+                                    <a href="{{ route('plant.product-requests.edit', [$productRequest, 'item_id' => $item->id]) }}" class="btn btn-xs btn-outline-primary ms-1" title="Edit this item">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                @endif
+                            </td>
                             <td>{{ $item->remarks ?? '—' }}</td>
                             <td>
                                 @if($item->image_path)

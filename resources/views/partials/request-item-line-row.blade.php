@@ -32,8 +32,18 @@
 </div>
 <div class="col-md-1">
     <label class="form-label">Qty</label>
-    <input type="number" step="0.01" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
+    <input type="number" step="1" min="1" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
         required class="form-control form-control-sm">
+</div>
+<div class="col-md-1">
+    <label class="form-label">Priority</label>
+    <select name="items[{{ $index }}][priority]" class="form-select form-select-sm" required>
+        @foreach(\App\Enums\PriorityLevel::cases() as $priority)
+            <option value="{{ $priority->value }}" @selected(($oldItem['priority'] ?? 'medium') === $priority->value)>
+                {{ $priority->label() }}
+            </option>
+        @endforeach
+    </select>
 </div>
 <div class="col-md-2">
     <label class="form-label">Remark</label>

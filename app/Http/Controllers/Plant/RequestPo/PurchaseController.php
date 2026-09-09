@@ -12,7 +12,9 @@ use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestItem;
 use App\Models\Role;
 use App\Models\Plant;
 use App\Models\Supplier;
@@ -168,9 +170,12 @@ class PurchaseController extends Controller
             }
         }
 
-        $documentType = $sourceQuotation
+        $requestedDocType = $request->string('document_type')->toString();
+        $documentType = $requestedDocType === 'purchase_order'
             ? PurchaseDocumentType::PurchaseOrder
-            : ($purchaseRequest ? PurchaseDocumentType::Quotation : PurchaseDocumentType::PurchaseOrder);
+            : ($sourceQuotation
+                ? PurchaseDocumentType::PurchaseOrder
+                : ($purchaseRequest ? PurchaseDocumentType::Quotation : PurchaseDocumentType::PurchaseOrder));
 
         $plantId = $sourceQuotation?->plant_id ?? $purchaseRequest?->plant_id;
 
@@ -375,8 +380,9 @@ class PurchaseController extends Controller
 
         $purchase->load(['items.product', 'supplier']);
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
+        $products = Product::where('is_active', true)->orderBy('name')->get();
 
-        return view('plant.request-po.purchases.edit', compact('purchase', 'suppliers'));
+        return view('plant.request-po.purchases.edit', compact('purchase', 'suppliers', 'products'));
     }
 
     public function update(Request $request, Purchase $purchase): RedirectResponse
@@ -395,47 +401,122 @@ class PurchaseController extends Controller
             'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'supplier_invoice_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array'],
-            'items.*.id' => ['required', 'exists:purchase_items,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id' => ['nullable', 'exists:purchase_items,id'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $isInterstate = $request->boolean('is_interstate');
+        $submittedIds = collect($data['items'])->pluck('id')->filter()->all();
+
         $lineCalcs = [];
         $itemsToUpdate = [];
+        $itemsToCreate = [];
 
         foreach ($data['items'] as $itemData) {
-            $purchaseItem = $purchase->items()->find($itemData['id']);
-            if (! $purchaseItem) {
-                return back()->with('error', 'Invalid purchase item ID.')->withInput();
+            $unitPrice = (float) ($itemData['unit_price'] ?? 0);
+            $discountPercent = (float) ($itemData['discount_percent'] ?? 0);
+            $productId = $itemData['product_id'] ?? null;
+
+            if (! empty($itemData['id'])) {
+                $purchaseItem = $purchase->items()->find($itemData['id']);
+                if (! $purchaseItem) {
+                    return back()->with('error', 'Invalid purchase item ID.')->withInput();
+                }
+
+                $quantity = (float) ($itemData['quantity'] ?? $purchaseItem->quantity);
+                $gstRate = (float) ($itemData['gst_rate'] ?? $purchaseItem->gst_rate);
+
+                $calc = $this->pricing->calculateLine(
+                    $quantity,
+                    $unitPrice,
+                    $gstRate,
+                    $isInterstate,
+                    $discountPercent
+                );
+
+                $lineCalcs[] = $calc;
+                $itemsToUpdate[] = [
+                    'model' => $purchaseItem,
+                    'product_id' => $productId ?: $purchaseItem->product_id,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'discount_percent' => $discountPercent,
+                    'gst_rate' => $gstRate,
+                    'calc' => $calc,
+                ];
+            } else {
+                $quantity = (float) ($itemData['quantity'] ?? 1);
+                $product = $productId ? Product::find($productId) : null;
+                $gstRate = (float) ($itemData['gst_rate'] ?? $product?->gst_rate ?? 18);
+
+                $calc = $this->pricing->calculateLine(
+                    $quantity,
+                    $unitPrice,
+                    $gstRate,
+                    $isInterstate,
+                    $discountPercent
+                );
+
+                $lineCalcs[] = $calc;
+                $itemsToCreate[] = [
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'discount_percent' => $discountPercent,
+                    'gst_rate' => $gstRate,
+                    'calc' => $calc,
+                ];
             }
-
-            $quantity = (float) ($itemData['quantity'] ?? $purchaseItem->quantity);
-            $discountPercent = (float) ($itemData['discount_percent'] ?? $purchaseItem->discount_percent ?? 0);
-
-            $calc = $this->pricing->calculateLine(
-                $quantity,
-                (float) $itemData['unit_price'],
-                (float) $purchaseItem->gst_rate,
-                $isInterstate,
-                $discountPercent
-            );
-
-            $lineCalcs[] = $calc;
-            $itemsToUpdate[] = [
-                'model' => $purchaseItem,
-                'quantity' => $quantity,
-                'unit_price' => $itemData['unit_price'],
-                'discount_percent' => $discountPercent,
-                'calc' => $calc,
-            ];
         }
 
         $totals = $this->pricing->sumLines($lineCalcs);
 
-        DB::transaction(function () use ($purchase, $data, $isInterstate, $totals, $itemsToUpdate) {
+        DB::transaction(function () use ($purchase, $data, $isInterstate, $totals, $submittedIds, $itemsToUpdate, $itemsToCreate) {
+            $deletedItems = $purchase->items()->whereNotIn('id', $submittedIds)->get();
+
+            foreach ($deletedItems as $deletedItem) {
+                if ($purchase->purchase_request_id) {
+                    $purchaseRequestId = $purchase->purchase_request_id;
+                    $productId = $deletedItem->product_id;
+                    $origProductId = $deletedItem->original_product_id ?? $deletedItem->product_id;
+
+                    $priItems = PurchaseRequestItem::where('purchase_request_id', $purchaseRequestId)
+                        ->where(function ($q) use ($productId, $origProductId) {
+                            $q->where('product_id', $productId);
+                            if ($origProductId) {
+                                $q->orWhere('product_id', $origProductId);
+                            }
+                            $q->orWhereHas('productRequestItem', function ($prq) use ($productId, $origProductId) {
+                                $prq->where('product_id', $productId);
+                                if ($origProductId) {
+                                    $prq->orWhere('product_id', $origProductId);
+                                }
+                            });
+                        })
+                        ->get();
+
+                    foreach ($priItems as $pri) {
+                        $productRequestItem = $pri->productRequestItem;
+                        $pri->delete();
+
+                        if ($productRequestItem && $productRequestItem->productRequest) {
+                            $pr = $productRequestItem->productRequest;
+                            $stillOpen = $pr->items()->whereDoesntHave('purchaseRequestItem')->exists();
+                            if ($stillOpen && $pr->status === RequestStatus::Completed) {
+                                $pr->update(['status' => RequestStatus::InProgress]);
+                            }
+                        }
+                    }
+                }
+
+                $deletedItem->delete();
+            }
+
             $purchase->update([
                 'supplier_id' => $data['supplier_id'],
                 'is_interstate' => $isInterstate,
@@ -451,11 +532,31 @@ class PurchaseController extends Controller
             ]);
 
             foreach ($itemsToUpdate as $itemUpdate) {
-                $itemUpdate['model']->update(array_merge([
+                $updateFields = array_merge([
                     'quantity' => $itemUpdate['quantity'],
                     'unit_price' => $itemUpdate['unit_price'],
                     'discount_percent' => $itemUpdate['discount_percent'],
-                ], $itemUpdate['calc']));
+                    'gst_rate' => $itemUpdate['gst_rate'],
+                ], $itemUpdate['calc']);
+
+                if (! empty($itemUpdate['product_id'])) {
+                    $updateFields['product_id'] = $itemUpdate['product_id'];
+                }
+
+                $itemUpdate['model']->update($updateFields);
+            }
+
+            foreach ($itemsToCreate as $itemCreate) {
+                $createFields = array_merge([
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $itemCreate['product_id'],
+                    'quantity' => $itemCreate['quantity'],
+                    'unit_price' => $itemCreate['unit_price'],
+                    'discount_percent' => $itemCreate['discount_percent'],
+                    'gst_rate' => $itemCreate['gst_rate'],
+                ], $itemCreate['calc']);
+
+                PurchaseItem::create($createFields);
             }
         });
 

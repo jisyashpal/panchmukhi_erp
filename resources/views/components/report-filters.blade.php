@@ -39,7 +39,7 @@
         @if($plants)
             <div class="col-6 col-md-2">
                 <label class="form-label small">Plant</label>
-                <select name="plant_id" class="form-select form-select-sm">
+                <select name="plant_id" class="form-select form-select-sm searchable-select" data-placeholder="All plants">
                     <option value="">All plants</option>
                     @foreach($plants as $plant)
                         <option value="{{ $plant->id }}" @selected(request('plant_id') == $plant->id)>{{ $plant->name }}</option>
@@ -50,7 +50,7 @@
         @if($vehicles)
             <div class="col-6 col-md-2">
                 <label class="form-label small">Vehicle</label>
-                <select name="vehicle_id" class="form-select form-select-sm">
+                <select name="vehicle_id" class="form-select form-select-sm searchable-select" data-placeholder="All vehicles">
                     <option value="">All vehicles</option>
                     @foreach($vehicles as $vehicle)
                         <option value="{{ $vehicle->id }}" @selected(request('vehicle_id') == $vehicle->id)>
@@ -63,7 +63,7 @@
         @if($categories)
             <div class="col-6 col-md-2">
                 <label class="form-label small">Category</label>
-                <select name="category_id" class="form-select form-select-sm">
+                <select name="category_id" class="form-select form-select-sm searchable-select" data-placeholder="All categories">
                     <option value="">All categories</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
@@ -74,7 +74,7 @@
         @if($products)
             <div class="col-6 col-md-2">
                 <label class="form-label small">Product</label>
-                <select name="product_id" class="form-select form-select-sm">
+                <select name="product_id" class="form-select form-select-sm searchable-select" data-placeholder="All products">
                     <option value="">All products</option>
                     @foreach($products as $product)
                         <option value="{{ $product->id }}" @selected(request('product_id') == $product->id)>{{ $product->name }}</option>

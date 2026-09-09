@@ -38,13 +38,14 @@
 <div class="admin-card admin-table-card mb-4">
     <div class="admin-card-header"><h2 class="h6 mb-0">Quotation Section</h2></div>
     <div class="table-responsive">
-        <table class="table mb-0">
+        <table class="table mb-0 align-middle">
             <thead>
                 <tr>
-                    <th>Quotation / PO</th>
+                    <th>Quotation No.</th>
                     <th>Supplier Name</th>
                     <th>Date of Request</th>
                     <th>Site (Plant)</th>
+                    <th class="text-end">Grand Total</th>
                     <th>Create Date</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -58,7 +59,7 @@
                 @endphp
                 <tr>
                     <td>
-                        <span class="fw-semibold">{{ $purchase->reference_no }}</span>
+                        <span class="fw-semibold text-dark">{{ $purchase->reference_no }}</span>
                         @if($productNames->isNotEmpty())
                             <span class="d-block small text-muted">{{ $productNames->take(3)->implode(', ') }}</span>
                         @endif
@@ -66,6 +67,7 @@
                     <td>{{ $purchase->supplier->name }}</td>
                     <td class="small text-muted">{{ $requestDate?->format('d M Y') ?? '—' }}</td>
                     <td>{{ $purchase->plant->name }}</td>
+                    <td class="text-end fw-semibold">₹{{ number_format((float) $purchase->grand_total, 2) }}</td>
                     <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? $purchase->created_at?->format('d M Y') ?? '—' }}</td>
                     <td class="text-end">
                         <a href="{{ route('plant.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
@@ -94,7 +96,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="admin-empty">
                             <i class="bi bi-file-earmark-text d-block"></i>
                             No quotations found
@@ -112,16 +114,18 @@
 @endif
 
 <div class="admin-card admin-table-card">
-    <div class="admin-card-header"><h2 class="h6 mb-0">{{ $isPurchaser ? 'PO Section' : 'Purchase Orders' }}</h2></div>
+    <div class="admin-card-header"><h2 class="h6 mb-0">{{ $isPurchaser ? 'PO Section (Purchase Orders)' : 'Purchase Orders' }}</h2></div>
     <div class="table-responsive">
-        <table class="table mb-0">
+        <table class="table mb-0 align-middle">
             <thead>
                 <tr>
-                    <th>Quotation / PO</th>
+                    <th>PO No.</th>
                     <th>Supplier Name</th>
                     <th>Date of Request</th>
                     <th>Site (Plant)</th>
-                    <th>Create Date</th>
+                    <th class="text-end">Grand Total</th>
+                    <th>Status</th>
+                    <th>PO Date</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -134,7 +138,7 @@
                 @endphp
                 <tr>
                     <td>
-                        <span class="fw-semibold">{{ $purchase->reference_no }}</span>
+                        <span class="fw-semibold text-dark">{{ $purchase->reference_no }}</span>
                         @if($productNames->isNotEmpty())
                             <span class="d-block small text-muted">{{ $productNames->take(3)->implode(', ') }}</span>
                         @endif
@@ -142,6 +146,8 @@
                     <td>{{ $purchase->supplier->name }}</td>
                     <td class="small text-muted">{{ $requestDate?->format('d M Y') ?? '—' }}</td>
                     <td>{{ $purchase->plant->name }}</td>
+                    <td class="text-end fw-semibold">₹{{ number_format((float) $purchase->grand_total, 2) }}</td>
+                    <td><x-status-badge :status="$purchase->status" /></td>
                     <td class="small text-muted">{{ $purchase->ordered_at?->format('d M Y') ?? $purchase->created_at?->format('d M Y') ?? '—' }}</td>
                     <td class="text-end">
                         <a href="{{ route('plant.purchases.show', $purchase) }}" class="btn btn-sm btn-admin-outline me-1">
@@ -163,11 +169,16 @@
                                 </a>
                             @endif
                         @endif
+                        @if(auth()->user()->canManagePlantStocks() && $purchase->isDispatched() && $purchase->status !== \App\Enums\PurchaseStatus::Delivered)
+                            <a href="{{ route('plant.purchases.receive', $purchase) }}" class="btn btn-sm btn-success me-1">
+                                <i class="bi bi-box-arrow-in-down me-1"></i>Receive
+                            </a>
+                        @endif
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6">
+                    <td colspan="8">
                         <div class="admin-empty">
                             <i class="bi bi-truck d-block"></i>
                             No purchase orders found
