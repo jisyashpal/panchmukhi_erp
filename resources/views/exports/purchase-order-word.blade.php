@@ -68,12 +68,12 @@
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td>
-                        <strong>{{ $item->product->name }}</strong>
-                        @if($item->product->sku)<div class="muted">SKU: {{ $item->product->sku }}</div>@endif
-                        @if($item->product->size)<div class="muted">Size/Part: {{ $item->product->size }}</div>@endif
+                        <strong>{{ $item->product?->name ?? '—' }}</strong>
+                        @if($item->product?->sku)<div class="muted">SKU: {{ $item->product->sku }}</div>@endif
+                        @if($item->product?->size)<div class="muted">Size/Part: {{ $item->product->size }}</div>@endif
                     </td>
                     <td class="num">{{ number_format((float) $item->quantity, 2) }}</td>
-                    <td>{{ $item->product->unit?->name ?? '—' }}</td>
+                    <td>{{ $item->product?->unit?->name ?? '—' }}</td>
                     <td class="num">{{ number_format((float) $item->unit_price, 2) }}</td>
                     <td class="num">{{ number_format((float) $item->gst_rate, 2) }}</td>
                     <td class="num">{{ number_format((float) $item->taxable_amount, 2) }}</td>

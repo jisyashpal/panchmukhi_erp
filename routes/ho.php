@@ -79,6 +79,9 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
             Route::middleware('permission:'.PermissionSlug::HO_MANAGE_STOCKS)->group(function () {
                 Route::get('stocks', [StockController::class, 'index'])->name('stocks.index');
                 Route::get('stocks/movements', [StockController::class, 'show'])->name('stocks.show');
+                Route::get('stocks/bulk-upload', [StockController::class, 'bulkUploadForm'])->name('stocks.bulk-upload');
+                Route::post('stocks/bulk-upload', [StockController::class, 'bulkUpload'])->name('stocks.bulk-upload.store');
+                Route::get('stocks/bulk-upload/sample-export', [StockController::class, 'downloadBulkSample'])->name('stocks.bulk-upload.sample');
                 Route::get('stocks/stock-in', [StockInController::class, 'create'])->name('stocks.stock-in');
                 Route::post('stocks/stock-in', [StockInController::class, 'store'])->name('stocks.stock-in.store');
                 Route::put('stocks/stock-in/{purchase}', [StockInController::class, 'updatePurchase'])->name('stocks.stock-in.update-purchase');

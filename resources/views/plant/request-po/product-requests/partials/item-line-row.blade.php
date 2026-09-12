@@ -21,7 +21,7 @@
     </select>
 </div>
 <div class="col-md-2 position-relative">
-    <label class="form-label">Search Item Name / SKU</label>
+    <label class="form-label">Search Item Name / SKU <span class="text-danger">*</span></label>
     <input type="text" name="items[{{ $index }}][item_name]" value="{{ $oldItem['item_name'] ?? '' }}"
         class="form-control form-control-sm item-name-input" placeholder="Enter item name or SKU..." required
         autocomplete="off">
@@ -34,7 +34,7 @@
         class="form-control form-control-sm item-size-input" placeholder="Size">
 </div>
 <div class="col-md-1">
-    <label class="form-label">Qty</label>
+    <label class="form-label">Qty <span class="text-danger">*</span></label>
     <input type="number" step="1" min="1" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
         required class="form-control form-control-sm">
 </div>

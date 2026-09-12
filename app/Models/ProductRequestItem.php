@@ -27,6 +27,7 @@ class ProductRequestItem extends Model
         'billing_notes',
         'remarks',
         'image_path',
+        'exported_at',
     ];
 
     protected function casts(): array
@@ -36,6 +37,7 @@ class ProductRequestItem extends Model
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'gst_rate' => 'decimal:2',
+            'exported_at' => 'datetime',
         ];
     }
 
@@ -87,9 +89,15 @@ class ProductRequestItem extends Model
             return $purchases;
         }
 
-        $matched = $purchases->filter(function (Purchase $purchase) {
+        $itemSupplierId = $this->supplier_id ?? $this->purchaseRequestItem?->supplier_id;
+
+        $matched = $purchases->filter(function (Purchase $purchase) use ($itemSupplierId) {
+            if ($itemSupplierId && (int) $purchase->supplier_id !== (int) $itemSupplierId) {
+                return false;
+            }
+
             if (! $purchase->relationLoaded('items')) {
-                return true;
+                $purchase->loadMissing('items');
             }
 
             return $purchase->items->contains(function (PurchaseItem $item) {
@@ -149,13 +157,17 @@ class ProductRequestItem extends Model
             return ProductRequestItemWorkflowStatus::CreatePo;
         }
 
-        return ProductRequestItemWorkflowStatus::SendQuotation;
+        if ($this->exported_at !== null) {
+            return ProductRequestItemWorkflowStatus::AddQuotation;
+        }
+
+        return ProductRequestItemWorkflowStatus::Pending;
     }
 
     public function canSelectForPo(): bool
     {
         return in_array($this->workflowStatus(), [
-            ProductRequestItemWorkflowStatus::SendQuotation,
+            ProductRequestItemWorkflowStatus::AddQuotation,
             ProductRequestItemWorkflowStatus::Pending,
         ], true);
     }

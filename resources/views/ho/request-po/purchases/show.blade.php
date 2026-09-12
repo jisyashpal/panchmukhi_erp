@@ -85,7 +85,7 @@
                     <tbody>
                         @foreach($purchase->items as $item)
                         <tr>
-                            <td>{{ $item->product->name }}</td>
+                            <td>{{ $item->product?->name ?? '—' }}</td>
                             <td class="text-end">{{ number_format($item->quantity, 2) }}</td>
                             <td class="text-end">₹{{ number_format($item->unit_price, 2) }}</td>
                             <td class="text-end">{{ number_format($item->gst_rate, 2) }}%</td>

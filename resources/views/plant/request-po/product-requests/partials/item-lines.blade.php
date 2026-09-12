@@ -1,6 +1,6 @@
 @props(['products', 'subCategories', 'categories', 'containerId' => 'item-lines'])
-
-<h2 class="h6 mt-4 mb-3">Product Items</h2>
+<hr>
+<h2 class="h5 text-danger"> <i class="bi bi-box-seam text-danger me-2"></i> Product Items</h2>
 
 <div id="{{ $containerId }}">
     <div class="dynamic-row row g-3 mb-2 align-items-end">

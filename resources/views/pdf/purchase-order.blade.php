@@ -268,16 +268,16 @@
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
                 <td class="desc">
-                    <div class="product-name">{{ $item->product->name }}</div>
-                    @if($item->product->sku)
+                    <div class="product-name">{{ $item->product?->name ?? '—' }}</div>
+                    @if($item->product?->sku)
                         <div class="product-sub">SKU: {{ $item->product->sku }}</div>
                     @endif
-                    @if($item->product->size)
+                    @if($item->product?->size)
                         <div class="product-sub">Size/Part: {{ $item->product->size }}</div>
                     @endif
                 </td>
                 <td class="num">{{ number_format((float) $item->quantity, 2) }}</td>
-                <td class="center">{{ $item->product->unit?->name ?? '—' }}</td>
+                <td class="center">{{ $item->product?->unit?->name ?? '—' }}</td>
                 <td class="num">{{ number_format((float) $item->unit_price, 2) }}</td>
                 <td class="num">{{ number_format((float) $item->gst_rate, 2) }}</td>
                 <td class="num">{{ number_format((float) $item->taxable_amount, 2) }}</td>

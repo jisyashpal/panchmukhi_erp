@@ -2,6 +2,9 @@
 @section('title', 'Stocks')
 @section('content')
 <x-admin-page-header title="Stocks" subtitle="Current balances and {{ $financialYearRange->displayLabel() }} movement summary">
+    <a href="{{ route('ho.stocks.bulk-upload') }}" class="btn btn-primary btn-sm me-1">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Bulk Upload
+    </a>
     <a href="{{ route('ho.stocks.stock-in') }}" class="btn btn-success btn-sm me-1">
         <i class="bi bi-box-arrow-in-down me-1"></i>Stock In
     </a>
@@ -9,6 +12,18 @@
         <i class="bi bi-box-arrow-up me-1"></i>Stock Out
     </a>
 </x-admin-page-header>
+
+@if(session('warning_rows'))
+    <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+        <h6 class="alert-heading fw-bold mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Stock Upload Warnings:</h6>
+        <ul class="mb-0 ps-3 small">
+            @foreach(session('warning_rows') as $w)
+                <li>{{ $w }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">

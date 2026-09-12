@@ -13,6 +13,7 @@ trait HandlesNotifications
     {
         $notifications = $request->user()
             ->notifications()
+            ->latest()
             ->paginate(20);
 
         return view($this->notificationView(), compact('notifications'));

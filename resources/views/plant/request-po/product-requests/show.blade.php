@@ -2,7 +2,7 @@
 @section('title', 'Product Request #' . $productRequest->id)
 @section('content')
     <x-admin-page-header title="Product Request #{{ $productRequest->id }}"
-        subtitle="{{ $productRequest->plant->name }} · {{ $productRequest->displayRequesterName() }}">
+        subtitle="{{ $productRequest->plant->name }} · Requested by: {{ $productRequest->displayRequesterName() }}{{ $productRequest->updater ? ' · Updated by: ' . $productRequest->updater->name : '' }}">
         <div class="d-flex align-items-center gap-2">
             <x-status-badge :status="$productRequest->status" />
             @if(in_array($productRequest->status->value, ['submitted', 'in_progress']) && $productRequest->items->contains(fn($i) => $i->canSelectForPo()))
@@ -123,19 +123,21 @@
                 <div class="admin-card-body">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div>
-                            <h5 class="mb-1">Create Quotation</h5>
+                            <h5 class="mb-1">Export for Supplier</h5>
                             <p class="mb-0 text-muted small">
-                                {{ $remainingItems->count() }} product(s) still need quotation. Export selected products from the list, or convert remaining items here.
+                                {{ $remainingItems->count() }} product(s) in this request. Select supplier to export inquiry file.
                             </p>
                         </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <a href="{{ route('plant.product-requests.export-supplier', $productRequest) }}" class="btn btn-admin-outline btn-sm">
-                                <i class="bi bi-file-earmark-excel me-1"></i>Export remaining
-                            </a>
-                            <form method="POST" action="{{ route('plant.product-requests.convert', $productRequest) }}">
-                                @csrf
-                                <button type="submit" class="btn btn-warning btn-sm">
-                                    <i class="bi bi-file-earmark-text me-1"></i>Create Quotation (remaining)
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <form method="GET" action="{{ route('plant.product-requests.export-supplier', $productRequest) }}" class="d-flex align-items-center gap-1" onsubmit="setTimeout(() => { window.location.href = '{{ route('plant.product-requests.index', ['status' => 'add_quotation']) }}'; }, 1200);">
+                                <select name="supplier_id" class="form-select form-select-sm" required style="min-width: 180px;" title="Select Supplier for Inquiry Export">
+                                    <option value="">-- Select Supplier * --</option>
+                                    @foreach(\App\Models\Supplier::where('is_active', true)->orderBy('name')->get() as $sup)
+                                        <option value="{{ $sup->id }}">{{ $sup->name }}</option>
+                                    @endforeach
+                                </select>
+                                <button type="submit" class="btn btn-admin-outline btn-sm text-nowrap">
+                                    <i class="bi bi-file-earmark-excel me-1"></i>Export remaining
                                 </button>
                             </form>
                         </div>
@@ -178,22 +180,12 @@
                                 <a href="{{ route('plant.purchases.show', $quote) }}" class="btn btn-admin-outline btn-sm">
                                     View Quotation
                                 </a>
-                            @else
-                                <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}"
-                                    class="btn btn-warning btn-sm">
-                                    <i class="bi bi-file-earmark-text me-1"></i>Create Quotation
-                                </a>
                             @endif
                         </div>
                     </div>
                 </div>
             </div>
         @endif
-    @elseif($productRequest->purchaseRequest)
-        <a href="{{ route('plant.purchases.create', ['purchase_request_id' => $productRequest->purchaseRequest->id]) }}"
-            class="btn btn-admin-outline btn-sm">
-            <i class="bi bi-file-earmark-text me-1"></i>Continue Quotation / PO
-        </a>
     @endif
 
     @push('scripts')

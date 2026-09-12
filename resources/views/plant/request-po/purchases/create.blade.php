@@ -9,10 +9,23 @@
     $pageTitle = $isQuotationForm
         ? 'Create Quotation'
         : ($isPoFromQuotation ? 'Create Purchase Order from Quotation' : 'New Purchase Order');
+    $prIdsList = $purchaseRequest
+        ? $purchaseRequest->items
+            ->map(fn($item) => $item->productRequestItem?->product_request_id ?? $item->product_request_id)
+            ->filter()
+            ->unique()
+            ->map(fn($id) => '#'.$id)
+            ->values()
+            ->implode(', ')
+        : '';
+    if (! $prIdsList && $purchaseRequest?->product_request_id) {
+        $prIdsList = '#'.$purchaseRequest->product_request_id;
+    }
+
     $pageSubtitle = $isPoFromQuotation
         ? 'Quotation '.$sourceQuotation->reference_no.' · '.$sourceQuotation->plant->name
         : ($purchaseRequest
-            ? 'From product request'.($purchaseRequest->product_request_id ? ' #'.$purchaseRequest->product_request_id : '').' · '.$purchaseRequest->plant->name
+            ? 'From product request'.($prIdsList ? ' '.$prIdsList : '').' · '.$purchaseRequest->plant->name
             : 'Enter supplier, rate, quantity & GST per product');
     $supplierNames = $suppliers->pluck('name', 'id');
     $purchaseProductCatalog = $products->map(function ($p) {
@@ -40,7 +53,7 @@
                 @if($isPoFromQuotation)
                     <span class="badge bg-info text-dark">Quotation {{ $sourceQuotation->reference_no }}</span>
                 @elseif($purchaseRequest)
-                    <span class="badge bg-primary">From Product Request{{ $purchaseRequest->product_request_id ? ' #'.$purchaseRequest->product_request_id : '' }}</span>
+                    <span class="badge bg-primary">From Product Request {{ $prIdsList }}</span>
                 @endif
             </div>
             <p class="mb-0 small text-muted">
@@ -88,9 +101,7 @@
                                 <th class="purchase-col-num" style="min-width: 5rem;">Disc%</th>
                                 <th class="purchase-col-num purchase-col-gst">GST%</th>
                                 <th class="purchase-col-num purchase-col-total">Line total</th>
-                                @if(!$showLinkedLines)
                                 <th style="width: 2.5rem"></th>
-                                @endif
                             </tr>
                         </thead>
                         <tbody id="purchase-lines">
@@ -128,6 +139,11 @@
                                 <td class="purchase-col-num purchase-col-total purchase-line-total-cell">
                                     <span class="purchase-line-total">₹0.00</span>
                                 </td>
+                                <td class="text-center align-middle">
+                                    <button type="button" class="btn btn-link text-danger p-0 align-middle" onclick="removeDynamicRow(this)" title="Remove item">
+                                        <i class="bi bi-trash fs-6"></i>
+                                    </button>
+                                </td>
                             </tr>
                             @endforeach
                             @elseif($purchaseRequest)
@@ -142,7 +158,7 @@
                                 }
                                 $defaultGstRate = $prItem ? $prItem->gst_rate : 18;
                                 $defaultUnitPrice = $item->unit_price > 0 ? $item->unit_price : ($prItem ? $prItem->unit_price : 0);
-                                $defaultSupplierId = $item->supplier_id ?? ($prItem?->supplier_id);
+                                $defaultSupplierId = $item->supplier_id ?? $prItem?->supplier_id ?? request()->integer('supplier_id');
                                 $requestedLabel = $item->displayName();
                                 $requestedSize = $item->size ?? $prItem?->size ?? $item->product?->size;
                                 $selectedProductId = old("items.$i.product_id", $item->product_id ?: $prItem?->product_id);
@@ -197,6 +213,11 @@
                                 </td>
                                 <td class="purchase-col-num purchase-col-total purchase-line-total-cell">
                                     <span class="purchase-line-total">₹0.00</span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <button type="button" class="btn btn-link text-danger p-0 align-middle" onclick="removeDynamicRow(this)" title="Remove item">
+                                        <i class="bi bi-trash fs-6"></i>
+                                    </button>
                                 </td>
                             </tr>
                             @endforeach

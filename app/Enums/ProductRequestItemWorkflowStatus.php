@@ -4,7 +4,7 @@ namespace App\Enums;
 
 enum ProductRequestItemWorkflowStatus: string
 {
-    case SendQuotation = 'send_quotation';
+    case AddQuotation = 'add_quotation';
     case Pending = 'pending';
     case CreatePo = 'create_po';
     case PoCreated = 'po_created';
@@ -14,7 +14,7 @@ enum ProductRequestItemWorkflowStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::SendQuotation => 'Send Quotation',
+            self::AddQuotation => 'Add Quotation',
             self::Pending => 'Pending',
             self::CreatePo => 'Create PO',
             self::PoCreated => 'PO Created',

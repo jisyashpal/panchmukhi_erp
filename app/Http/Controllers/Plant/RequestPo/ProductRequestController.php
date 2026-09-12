@@ -14,6 +14,7 @@ use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
 use App\Models\Plant;
 use App\Models\SubCategory;
+use App\Models\Supplier;
 use App\Services\NotificationService;
 use App\Support\PermissionSlug;
 use Illuminate\Http\RedirectResponse;
@@ -80,6 +81,7 @@ class ProductRequestController extends Controller
             'items' => $query->paginate(20)->withQueryString(),
             'products' => Product::orderBy('name')->get(),
             'plants' => $isPurchaser ? Plant::orderBy('name')->get() : collect(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'isPurchaser' => $isPurchaser,
             'activeStatus' => $status,
             'pdfDefaults' => [
@@ -172,10 +174,22 @@ class ProductRequestController extends Controller
             ->with('success', 'Product request submitted.');
     }
 
-    public function show(ProductRequest $productRequest): View
+    public function show(Request $request, ProductRequest $productRequest): View
     {
         $this->authorizePlantAccess($productRequest);
-        $productRequest->load(['plant', 'requester', 'items.product', 'items.subCategory', 'items.supplier', 'items.purchaseRequestItem.purchaseRequest.purchases.items', 'purchaseRequest.purchases']);
+        $productRequest->load(['plant', 'requester', 'updater', 'items.product', 'items.subCategory', 'items.supplier', 'items.purchaseRequestItem.purchaseRequest.purchases.items', 'purchaseRequest.purchases']);
+
+        if ($request->filled('item_ids') || $request->filled('item_id')) {
+            $rawIds = $request->input('item_ids', $request->input('item_id'));
+            $itemIds = is_array($rawIds) ? $rawIds : explode(',', (string) $rawIds);
+            $itemIds = array_filter(array_map('intval', $itemIds));
+            if (! empty($itemIds)) {
+                $filteredItems = $productRequest->items->filter(fn ($item) => in_array($item->id, $itemIds, true));
+                if ($filteredItems->isNotEmpty()) {
+                    $productRequest->setRelation('items', $filteredItems);
+                }
+            }
+        }
 
         return view('plant.request-po.product-requests.show', compact('productRequest'));
     }
@@ -183,7 +197,9 @@ class ProductRequestController extends Controller
     public function edit(Request $request, ProductRequest $productRequest): View|RedirectResponse
     {
         $this->authorizePlantAccess($productRequest);
-        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        if (! auth()->user()->canManagePurchaseRequests() && ! auth()->user()->canManagePlantPurchases()) {
+            $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        }
 
         if (in_array($productRequest->status, [RequestStatus::Completed, RequestStatus::Cancelled])) {
             return redirect()->route('plant.product-requests.index')
@@ -191,7 +207,14 @@ class ProductRequestController extends Controller
         }
 
         $query = $productRequest->items()->with(['product']);
-        if ($request->filled('item_id')) {
+        if ($request->filled('item_ids')) {
+            $rawIds = $request->input('item_ids');
+            $itemIds = is_array($rawIds) ? $rawIds : explode(',', (string) $rawIds);
+            $itemIds = array_filter(array_map('intval', $itemIds));
+            if (! empty($itemIds)) {
+                $query->whereIn('id', $itemIds);
+            }
+        } elseif ($request->filled('item_id')) {
             $query->where('id', $request->integer('item_id'));
         }
         $items = $query->get();
@@ -209,14 +232,17 @@ class ProductRequestController extends Controller
 
         $productRequest->setRelation('items', $editableItems);
         $products = Product::where('is_active', true)->orderBy('name')->get();
+        $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        return view('plant.request-po.product-requests.edit', compact('productRequest', 'products'));
+        return view('plant.request-po.product-requests.edit', compact('productRequest', 'products', 'suppliers'));
     }
 
     public function update(Request $request, ProductRequest $productRequest): RedirectResponse
     {
         $this->authorizePlantAccess($productRequest);
-        $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        if (! auth()->user()->canManagePurchaseRequests() && ! auth()->user()->canManagePlantPurchases()) {
+            $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS);
+        }
 
         if (in_array($productRequest->status, [RequestStatus::Completed, RequestStatus::Cancelled])) {
             return redirect()->route('plant.product-requests.index')
@@ -224,11 +250,13 @@ class ProductRequestController extends Controller
         }
 
         $data = $request->validate([
+            'requester_name' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'exists:product_request_items,id'],
             'items.*.item_name' => ['nullable', 'string', 'max:255'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.supplier_id' => ['nullable', 'exists:suppliers,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
             'items.*.remarks' => ['nullable', 'string'],
@@ -244,9 +272,16 @@ class ProductRequestController extends Controller
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($productRequest, $data, $request) {
-            $productRequest->update([
+            $updatePayload = [
                 'remarks' => $data['remarks'] ?? null,
-            ]);
+                'updated_by' => auth()->id(),
+            ];
+
+            if (isset($data['requester_name']) && trim($data['requester_name']) !== '') {
+                $updatePayload['requester_name'] = trim($data['requester_name']);
+            }
+
+            $productRequest->update($updatePayload);
 
             foreach ($data['items'] as $index => $itemData) {
                 $item = $productRequest->items()->find($itemData['id']);
@@ -263,6 +298,9 @@ class ProductRequestController extends Controller
                     if (array_key_exists('product_id', $itemData)) {
                         $updateData['product_id'] = $itemData['product_id'] ?: null;
                     }
+                    if (array_key_exists('supplier_id', $itemData)) {
+                        $updateData['supplier_id'] = $itemData['supplier_id'] ?: null;
+                    }
 
                     if ($request->hasFile("items.{$index}.image")) {
                         $file = $request->file("items.{$index}.image");
@@ -276,14 +314,22 @@ class ProductRequestController extends Controller
             }
         });
 
-        return redirect()->route('plant.product-requests.index')
+        return redirect()->route('plant.product-requests.show', $productRequest)
             ->with('success', 'Product request updated successfully.');
     }
 
-    public function exportForSupplier(ProductRequest $productRequest): StreamedResponse
+    public function exportForSupplier(Request $request, ProductRequest $productRequest): StreamedResponse|RedirectResponse
     {
         $this->authorizePermission(PermissionSlug::PLANT_MANAGE_PURCHASES);
         $this->authorizePlantAccess($productRequest);
+
+        $data = $request->validate([
+            'supplier_id' => ['required', 'exists:suppliers,id'],
+        ], [
+            'supplier_id.required' => 'Please select a supplier before exporting inquiry.',
+        ]);
+
+        $supplier = Supplier::findOrFail($data['supplier_id']);
 
         $productRequest->load([
             'plant',
@@ -297,7 +343,11 @@ class ProductRequestController extends Controller
             fn (ProductRequestItem $item) => $item->canSelectForPo()
         );
 
-        return $this->streamSupplierExport($items->isNotEmpty() ? $items : $productRequest->items);
+        if ($items->contains(fn (ProductRequestItem $item) => ! $item->product_id)) {
+            return back()->with('error', 'One or more items do not have a catalog product assigned. Please click "+ Create Product" to link the product first.');
+        }
+
+        return $this->streamSupplierExport($items->isNotEmpty() ? $items : $productRequest->items, $supplier);
     }
 
     public function bulkExportForSupplier(Request $request): StreamedResponse|RedirectResponse
@@ -310,27 +360,59 @@ class ProductRequestController extends Controller
             return $items;
         }
 
-        return $this->streamSupplierExport($items);
+        if ($items->contains(fn (ProductRequestItem $item) => ! $item->product_id)) {
+            return back()->with('error', 'One or more selected items do not have a catalog product assigned. Please click "+ Create Product" to link the product first.');
+        }
+
+        $data = $request->validate([
+            'supplier_id' => ['required', 'exists:suppliers,id'],
+        ], [
+            'supplier_id.required' => 'Please select a supplier before exporting inquiry.',
+        ]);
+
+        $supplier = Supplier::findOrFail($data['supplier_id']);
+
+        return $this->streamSupplierExport($items, $supplier);
     }
 
     /**
      * @param  Collection<int, ProductRequestItem>  $items
      */
-    protected function streamSupplierExport(Collection $items): StreamedResponse
+    protected function streamSupplierExport(Collection $items, ?Supplier $supplier = null): StreamedResponse
     {
+        $updateData = ['exported_at' => now()];
+        if ($supplier) {
+            $updateData['supplier_id'] = $supplier->id;
+        }
+
+        ProductRequestItem::whereIn('id', $items->pluck('id'))->update($updateData);
+
         $plants = $items->map(fn ($item) => $item->productRequest?->plant?->name)->filter()->unique()->values();
         $requestIds = $items->pluck('product_request_id')->unique()->sort()->values();
         $ids = $requestIds->implode('-');
         $plantSlug = $plants->count() === 1
             ? strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $plants->first()))
             : 'multi-plant';
-        $filename = 'supplier-inquiry-'.$plantSlug.'-'.$ids.'.csv';
+        $supplierSlug = $supplier ? '-'.strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $supplier->name)) : '';
+        $filename = 'supplier-inquiry'.$supplierSlug.'-'.$plantSlug.'-'.$ids.'.csv';
 
-        return response()->streamDownload(function () use ($items, $plants, $requestIds) {
+        return response()->streamDownload(function () use ($items, $plants, $requestIds, $supplier) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
 
             fputcsv($out, ['Supplier Inquiry / Quotation Request']);
+            if ($supplier) {
+                fputcsv($out, ['To (Supplier)', $supplier->name]);
+                if ($supplier->contact_person) {
+                    fputcsv($out, ['Contact Person', $supplier->contact_person]);
+                }
+                if ($supplier->phone || $supplier->email) {
+                    fputcsv($out, ['Contact Info', trim(($supplier->phone ?? '').' '.($supplier->email ?? ''))]);
+                }
+                if ($supplier->gstin) {
+                    fputcsv($out, ['GSTIN', $supplier->gstin]);
+                }
+            }
             fputcsv($out, ['Plant / Site', $plants->implode(', ')]);
             fputcsv($out, ['Date', now()->format('d-m-Y')]);
             fputcsv($out, ['Product Request #', $requestIds->map(fn ($id) => '#'.$id)->implode(', ')]);
@@ -429,6 +511,10 @@ class ProductRequestController extends Controller
             return back()->with('error', 'Select at least one product.');
         }
 
+        if ($items->contains(fn (ProductRequestItem $item) => ! $item->product_id)) {
+            return back()->with('error', 'One or more selected items do not have a catalog product assigned. Please click "+ Create Product" to link the product first.');
+        }
+
         if ($items->contains(fn (ProductRequestItem $item) => $item->productRequest?->status === RequestStatus::Cancelled)) {
             return back()->with('error', 'Cancelled product requests cannot be included.');
         }
@@ -445,7 +531,17 @@ class ProductRequestController extends Controller
         $count = $items->count();
         $plantName = $items->first()->productRequest?->plant?->name ?? 'site';
 
-        $params = ['purchase_request_id' => $purchaseRequest->id];
+        $inquiryIds = $items
+            ->map(fn (ProductRequestItem $item) => $item->product_request_id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $inquiryId = $inquiryIds->isNotEmpty()
+            ? $inquiryIds->implode(',')
+            : ($purchaseRequest->product_request_id ?? $purchaseRequest->id);
+
+        $params = ['inquiry_id' => $inquiryId];
         if ($createType === 'po') {
             $params['document_type'] = 'purchase_order';
         }
@@ -491,6 +587,7 @@ class ProductRequestController extends Controller
                 if ($item->purchaseRequestItem) {
                     $item->purchaseRequestItem->update([
                         'purchase_request_id' => $purchaseRequest->id,
+                        'supplier_id' => $item->supplier_id ?? $item->purchaseRequestItem->supplier_id,
                     ]);
 
                     continue;
@@ -605,9 +702,13 @@ class ProductRequestController extends Controller
         $hasPurchaseOrder = fn ($q) => $q->where('document_type', \App\Enums\PurchaseDocumentType::PurchaseOrder);
 
         match ($status) {
-            ProductRequestItemWorkflowStatus::SendQuotation->value,
             ProductRequestItemWorkflowStatus::Pending->value => $query
                 ->whereNot('product_requests.status', RequestStatus::Cancelled)
+                ->whereNull('product_request_items.exported_at')
+                ->whereDoesntHave('purchaseRequestItem.purchaseRequest.purchases'),
+            ProductRequestItemWorkflowStatus::AddQuotation->value => $query
+                ->whereNot('product_requests.status', RequestStatus::Cancelled)
+                ->whereNotNull('product_request_items.exported_at')
                 ->whereDoesntHave('purchaseRequestItem.purchaseRequest.purchases'),
             ProductRequestItemWorkflowStatus::CreatePo->value => $query
                 ->whereHas('purchaseRequestItem.purchaseRequest.purchases', $hasQuotation)

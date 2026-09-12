@@ -22,6 +22,7 @@ class ProductRequest extends Model
         'decline_reason',
         'reviewed_by',
         'reviewed_at',
+        'updated_by',
     ];
 
     protected function casts(): array
@@ -45,6 +46,11 @@ class ProductRequest extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function items(): HasMany

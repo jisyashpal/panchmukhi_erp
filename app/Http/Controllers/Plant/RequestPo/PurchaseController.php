@@ -129,8 +129,16 @@ class PurchaseController extends Controller
             }
         }
 
+        $rawInquiry = $request->input('inquiry_id') ?? $request->input('purchase_request_id');
+        $inquiryIds = [];
+        if (is_string($rawInquiry)) {
+            $inquiryIds = array_filter(array_map('intval', explode(',', $rawInquiry)));
+        } elseif (is_numeric($rawInquiry)) {
+            $inquiryIds = [(int) $rawInquiry];
+        }
+
         $purchaseRequest = $sourceQuotation?->purchaseRequest
-            ?? ($request->filled('purchase_request_id')
+            ?? (! empty($inquiryIds)
                 ? PurchaseRequest::with([
                     'items.product',
                     'items.productRequestItem.product',
@@ -138,7 +146,11 @@ class PurchaseController extends Controller
                     'items.supplier',
                     'plant',
                     'productRequest.items',
-                ])->findOrFail($request->integer('purchase_request_id'))
+                ])
+                ->whereIn('product_request_id', $inquiryIds)
+                ->orWhereIn('id', $inquiryIds)
+                ->latest()
+                ->first()
                 : null);
 
         if ($purchaseRequest && ! $sourceQuotation) {
@@ -236,9 +248,28 @@ class PurchaseController extends Controller
                     : PurchaseDocumentType::PurchaseOrder);
 
         if (($data['purchase_request_id'] ?? null) && ! $sourceQuotation) {
-            $purchaseRequest = PurchaseRequest::findOrFail($data['purchase_request_id']);
+            $purchaseRequest = PurchaseRequest::with('items')->findOrFail($data['purchase_request_id']);
             if ($purchaseRequest->purchases()->exists()) {
                 return back()->with('error', 'Quotation or purchase order already exists for this request.');
+            }
+
+            $submittedProductIds = collect($data['items'])
+                ->pluck('product_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $unsubmittedPrItems = $purchaseRequest->items->filter(function ($prItem) use ($submittedProductIds) {
+                return ! in_array((int) $prItem->product_id, $submittedProductIds, true);
+            });
+
+            foreach ($unsubmittedPrItems as $unsubmitted) {
+                $unsubmitted->delete();
+            }
+
+            if ($purchaseRequest->items()->count() === 0) {
+                $purchaseRequest->delete();
+                $data['purchase_request_id'] = null;
             }
         }
 

@@ -131,11 +131,11 @@ trait StreamsPurchasePdf
             foreach ($purchase->items as $index => $item) {
                 fputcsv($out, [
                     $index + 1,
-                    $item->product->name,
-                    $item->product->sku ?? '',
-                    $item->product->size ?? '',
+                    $item->product?->name ?? '—',
+                    $item->product?->sku ?? '',
+                    $item->product?->size ?? '',
                     number_format((float) $item->quantity, 2, '.', ''),
-                    $item->product->unit?->name ?? '',
+                    $item->product?->unit?->name ?? '',
                     number_format((float) $item->unit_price, 2, '.', ''),
                     number_format((float) $item->gst_rate, 2, '.', ''),
                     number_format((float) $item->taxable_amount, 2, '.', ''),

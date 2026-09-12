@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Plant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use \App\Models\ProductRequest;
 use Tests\TestCase;
 
 class PlantPortalTest extends TestCase
@@ -636,6 +637,75 @@ class PlantPortalTest extends TestCase
         ]);
     }
 
+    public function test_purchaser_sees_edit_pr_button_on_add_quotation_tab(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser($plant);
+        $product = Product::factory()->create();
+
+        $productRequest = \App\Models\ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
+            'status' => \App\Enums\RequestStatus::Submitted,
+        ]);
+
+        $item = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $product->id,
+            'quantity' => 5,
+            'exported_at' => now(),
+        ]);
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.index', ['status' => 'add_quotation']))
+            ->assertStatus(200)
+            ->assertSee('Edit');
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.edit', [$productRequest, 'item_ids' => [$item->id]]))
+            ->assertStatus(200)
+            ->assertSee($product->name);
+    }
+
+    public function test_purchaser_can_edit_specific_inquiry_group_items(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser($plant);
+        $productA = Product::factory()->create(['name' => 'Product Alpha']);
+        $productB = Product::factory()->create(['name' => 'Product Beta']);
+        $supplier = \App\Models\Supplier::factory()->create();
+
+        $productRequest = \App\Models\ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
+            'status' => \App\Enums\RequestStatus::Submitted,
+        ]);
+
+        $itemA = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $productA->id,
+            'supplier_id' => $supplier->id,
+            'quantity' => 10,
+            'exported_at' => now(),
+        ]);
+
+        $itemB = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $productB->id,
+            'quantity' => 5,
+        ]);
+
+        // When editing Inquiry for itemA group
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.edit', [$productRequest, 'item_ids' => [$itemA->id]]))
+            ->assertStatus(200)
+            ->assertSee('Product Alpha');
+    }
+
     public function test_purchaser_can_access_create_purchase_page(): void
     {
         $plant = Plant::factory()->create();
@@ -746,21 +816,6 @@ class PlantPortalTest extends TestCase
         ]);
 
         $this->actingAs($purchaser)
-            ->post(route('plant.product-requests.bulk-convert'), [
-                'product_request_item_ids' => [$item->id],
-            ])
-            ->assertRedirect();
-
-        $purchaseRequest = \App\Models\PurchaseRequest::first();
-        $this->assertNotNull($purchaseRequest);
-        $this->assertDatabaseHas('purchase_request_items', [
-            'purchase_request_id' => $purchaseRequest->id,
-            'product_request_item_id' => $item->id,
-            'product_id' => null,
-            'item_name' => 'Custom TMT Bar',
-        ]);
-
-        $this->actingAs($purchaser)
             ->post(route('plant.products.store'), [
                 'product_request_id' => $productRequest->id,
                 'product_request_item_id' => $item->id,
@@ -780,11 +835,16 @@ class PlantPortalTest extends TestCase
         $catalogProduct = Product::where('name', 'Linked TMT Bar 12mm')->first();
         $this->assertNotNull($catalogProduct);
 
-        $this->assertDatabaseHas('product_request_items', [
-            'id' => $item->id,
-            'product_id' => $catalogProduct->id,
-        ]);
+        $this->actingAs($purchaser)
+            ->post(route('plant.product-requests.bulk-convert'), [
+                'product_request_item_ids' => [$item->id],
+            ])
+            ->assertRedirect();
+
+        $purchaseRequest = \App\Models\PurchaseRequest::first();
+        $this->assertNotNull($purchaseRequest);
         $this->assertDatabaseHas('purchase_request_items', [
+            'purchase_request_id' => $purchaseRequest->id,
             'product_request_item_id' => $item->id,
             'product_id' => $catalogProduct->id,
         ]);
@@ -891,7 +951,7 @@ class PlantPortalTest extends TestCase
         $purchaseRequest = \App\Models\PurchaseRequest::first();
         $this->assertNotNull($purchaseRequest);
         $response->assertRedirect(route('plant.purchases.create', [
-            'purchase_request_id' => $purchaseRequest->id,
+            'inquiry_id' => $requests->pluck('id')->implode(','),
         ]));
 
         $this->assertEquals(2, $purchaseRequest->items()->count());
@@ -1027,7 +1087,7 @@ class PlantPortalTest extends TestCase
         $merged = \App\Models\PurchaseRequest::first();
         $this->assertEquals(2, $merged->items()->count());
         $response->assertRedirect(route('plant.purchases.create', [
-            'purchase_request_id' => $merged->id,
+            'inquiry_id' => $itemA->product_request_id,
         ]));
     }
 
@@ -1055,9 +1115,12 @@ class PlantPortalTest extends TestCase
             'quantity' => 8,
         ]);
 
+        $supplier = \App\Models\Supplier::factory()->create();
+
         $response = $this->actingAs($purchaser)
             ->post(route('plant.product-requests.bulk-export-supplier'), [
                 'product_request_item_ids' => [$itemA->id],
+                'supplier_id' => $supplier->id,
             ]);
 
         $response->assertOk();
@@ -1071,9 +1134,36 @@ class PlantPortalTest extends TestCase
         $plant = Plant::factory()->create();
         $purchaser = $this->purchaser();
         $supplier = \App\Models\Supplier::factory()->create();
+        $productPending = Product::factory()->create(['name' => 'PendingItem']);
         $productQuoted = Product::factory()->create(['name' => 'QuotedItem']);
         $productOrdered = Product::factory()->create(['name' => 'OrderedItem']);
         $productDispatched = Product::factory()->create(['name' => 'DispatchedItem']);
+
+        $pendingRequest = \App\Models\ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'Site',
+            'status' => RequestStatus::Submitted,
+        ]);
+        \App\Models\ProductRequestItem::create([
+            'product_request_id' => $pendingRequest->id,
+            'product_id' => $productPending->id,
+            'quantity' => 1,
+        ]);
+
+        $productExported = Product::factory()->create(['name' => 'ExportedItem']);
+        $exportedRequest = \App\Models\ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $purchaser->id,
+            'requester_name' => 'Site',
+            'status' => RequestStatus::Submitted,
+        ]);
+        $exportedItem = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $exportedRequest->id,
+            'product_id' => $productExported->id,
+            'quantity' => 1,
+            'exported_at' => now(),
+        ]);
 
         $quotedRequest = \App\Models\ProductRequest::create([
             'plant_id' => $plant->id,
@@ -1081,10 +1171,35 @@ class PlantPortalTest extends TestCase
             'requester_name' => 'Site',
             'status' => RequestStatus::Submitted,
         ]);
-        \App\Models\ProductRequestItem::create([
+        $quotedItem = \App\Models\ProductRequestItem::create([
             'product_request_id' => $quotedRequest->id,
             'product_id' => $productQuoted->id,
             'quantity' => 1,
+            'exported_at' => now(),
+        ]);
+        $quotedPurchaseRequest = \App\Models\PurchaseRequest::create([
+            'plant_id' => $plant->id,
+            'product_request_id' => $quotedRequest->id,
+            'requested_by' => $purchaser->id,
+            'plant_status' => RequestStatus::Completed,
+            'status' => RequestStatus::Completed,
+        ]);
+        \App\Models\PurchaseRequestItem::create([
+            'purchase_request_id' => $quotedPurchaseRequest->id,
+            'product_request_item_id' => $quotedItem->id,
+            'product_id' => $productQuoted->id,
+            'quantity' => 1,
+            'unit_price' => 10,
+        ]);
+        \App\Models\Purchase::create([
+            'plant_id' => $plant->id,
+            'supplier_id' => $supplier->id,
+            'purchase_request_id' => $quotedPurchaseRequest->id,
+            'document_type' => \App\Enums\PurchaseDocumentType::Quotation,
+            'reference_no' => 'QUOTE-TEST-1',
+            'status' => \App\Enums\PurchaseStatus::Ordered,
+            'subtotal' => 10,
+            'grand_total' => 10,
         ]);
 
         $orderedRequest = \App\Models\ProductRequest::create([
@@ -1175,12 +1290,11 @@ class PlantPortalTest extends TestCase
         $this->actingAs($purchaser)
             ->get(route('plant.product-requests.index'))
             ->assertOk()
-            ->assertSee('Send Quotation')
             ->assertSee('PENDING')
-            ->assertViewHas('items', function ($items) use ($productQuoted, $productOrdered, $productDispatched) {
+            ->assertViewHas('items', function ($items) use ($productPending, $productOrdered, $productDispatched) {
                 $productIds = $items->pluck('product_id');
 
-                return $productIds->contains($productQuoted->id)
+                return $productIds->contains($productPending->id)
                     && ! $productIds->contains($productOrdered->id)
                     && ! $productIds->contains($productDispatched->id);
             });
@@ -1188,34 +1302,35 @@ class PlantPortalTest extends TestCase
         $this->actingAs($purchaser)
             ->get(route('plant.product-requests.index', ['status' => 'all']))
             ->assertOk()
-            ->assertViewHas('items', function ($items) use ($productQuoted, $productOrdered, $productDispatched) {
+            ->assertViewHas('items', function ($items) use ($productPending, $productQuoted, $productOrdered, $productDispatched) {
                 $productIds = $items->pluck('product_id');
 
-                return $productIds->contains($productQuoted->id)
+                return $productIds->contains($productPending->id)
+                    && $productIds->contains($productQuoted->id)
                     && $productIds->contains($productOrdered->id)
                     && $productIds->contains($productDispatched->id);
             });
 
         $this->actingAs($purchaser)
-            ->get(route('plant.product-requests.index', ['status' => 'send_quotation']))
+            ->get(route('plant.product-requests.index', ['status' => 'add_quotation']))
+            ->assertOk()
+            ->assertViewHas('items', function ($items) use ($productExported, $productQuoted, $productOrdered, $productDispatched) {
+                $productIds = $items->pluck('product_id');
+
+                return $productIds->contains($productExported->id)
+                    && ! $productIds->contains($productQuoted->id)
+                    && ! $productIds->contains($productOrdered->id)
+                    && ! $productIds->contains($productDispatched->id);
+            });
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.index', ['status' => 'create_po']))
             ->assertOk()
             ->assertViewHas('items', function ($items) use ($productQuoted, $productOrdered, $productDispatched) {
                 $productIds = $items->pluck('product_id');
 
                 return $productIds->contains($productQuoted->id)
                     && ! $productIds->contains($productOrdered->id)
-                    && ! $productIds->contains($productDispatched->id);
-            });
-
-        $this->actingAs($purchaser)
-            ->get(route('plant.product-requests.index', ['status' => 'po_created']))
-            ->assertOk()
-            ->assertSee('PO Created')
-            ->assertViewHas('items', function ($items) use ($productQuoted, $productOrdered, $productDispatched) {
-                $productIds = $items->pluck('product_id');
-
-                return $productIds->contains($productOrdered->id)
-                    && ! $productIds->contains($productQuoted->id)
                     && ! $productIds->contains($productDispatched->id);
             });
 

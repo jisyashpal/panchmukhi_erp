@@ -204,7 +204,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('purchase_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->text('comment');
+            $table->text('body');
             $table->timestamps();
         });
 

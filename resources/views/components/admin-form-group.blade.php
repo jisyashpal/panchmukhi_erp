@@ -1,9 +1,9 @@
-@props(['label', 'name' => null, 'col' => 'col-md-4', 'required' => false, 'errorBag' => null, 'createHref' => null, 'createLabel' => 'Create'])
+@props(['label', 'name' => null, 'col' => 'col-md-4', 'required' => false, 'errorBag' => null, 'createHref' => null, 'createLabel' => 'Create', 'labelColor' => ''])
 
 <div {{ $attributes->merge(['class' => trim($col.' admin-form-group')]) }}>
     @if ($label)
         <div class="d-flex justify-content-between align-items-baseline gap-2 flex-wrap">
-            <label class="form-label mb-0" @if($name) for="{{ $name }}" @endif>
+            <label class="form-label mb-0 {{ $labelColor }}" @if($name) for="{{ $name }}" @endif>
                 {{ $label }}
                 @if($required)<span class="text-danger">*</span>@endif
             </label>

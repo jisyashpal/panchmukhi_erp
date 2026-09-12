@@ -14,8 +14,20 @@
             @method('PUT')
             
             <div class="row g-3">
-                <x-admin-form-group label="Remarks" name="remarks" col="col-md-12">
-                    <textarea name="remarks" class="form-control @error('remarks') is-invalid @enderror" rows="2">{{ old('remarks', $productRequest->remarks) }}</textarea>
+                <x-admin-form-group label="Requested By" name="requested_by_display" col="col-md-4">
+                    <input type="text"
+                           value="{{ $productRequest->displayRequesterName() }}"
+                           class="form-control bg-light"
+                           readonly>
+                </x-admin-form-group>
+                <x-admin-form-group label="Updated By" name="updated_by_display" col="col-md-4">
+                    <input type="text"
+                           value="{{ auth()->user()->name }}"
+                           class="form-control bg-light"
+                           readonly>
+                </x-admin-form-group>
+                <x-admin-form-group label="Remarks" name="remarks" col="col-md-4">
+                    <textarea name="remarks" class="form-control @error('remarks') is-invalid @enderror" rows="1" placeholder="Enter remarks (optional)">{{ old('remarks', $productRequest->remarks) }}</textarea>
                 </x-admin-form-group>
             </div>
 
@@ -25,8 +37,11 @@
                     <thead>
                         <tr>
                             <th style="min-width: 250px;">Product</th>
-                            <th class="text-end" style="width: 180px;">Quantity</th>
-                            <th style="width: 150px;">Priority</th>
+                            @if(isset($suppliers))
+                                <th style="min-width: 200px;">Supplier</th>
+                            @endif
+                            <th class="text-end" style="width: 150px;">Quantity</th>
+                            <th style="width: 140px;">Priority</th>
                             <th>Vehicle No / Machine No</th>
                             <th>Image</th>
                         </tr>
@@ -48,6 +63,18 @@
                                            class="item-product-id">
                                     <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
                                 </td>
+                                @if(isset($suppliers))
+                                    <td>
+                                        <select name="items[{{ $i }}][supplier_id]" class="form-select form-select-sm">
+                                            <option value="">-- Select Supplier --</option>
+                                            @foreach($suppliers as $supplier)
+                                                <option value="{{ $supplier->id }}" @selected(old('items.'.$i.'.supplier_id', $item->supplier_id) == $supplier->id)>
+                                                    {{ $supplier->name }} {{ $supplier->city ? '('.$supplier->city.')' : '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                @endif
                                 <td class="text-end">
                                     <input type="number" step="1" min="1" name="items[{{ $i }}][quantity]" 
                                            value="{{ old('items.'.$i.'.quantity', $item->quantity) }}" 

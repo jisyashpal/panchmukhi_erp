@@ -1088,3 +1088,15 @@ a.admin-stat-card:hover .stat-label {
         position: sticky;
     }
 }
+
+.sticky-selection-bar {
+    position: sticky;
+    top:  80px;
+    z-index: 1010;
+    background: #ffffff;
+    padding: 0.65rem 1rem;
+    border-radius: var(--admin-radius-sm);
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
