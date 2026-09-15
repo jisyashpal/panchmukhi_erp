@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Ho\Inventory;
 use App\Enums\StockMovementType;
 use App\Enums\StockReferenceType;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ManagesProductCatalog;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
@@ -29,6 +30,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockController extends Controller
 {
+    use ManagesProductCatalog;
+
     public function __construct(
         protected StockService $stockService
     ) {}
@@ -400,11 +403,13 @@ class StockController extends Controller
             $headers[0] = preg_replace('/[\x{EF}\x{BB}\x{BF}]/u', '', (string) $headers[0]);
         }
 
-        $normalizedHeaders = array_map(fn ($h) => strtolower(trim((string) $h)), $headers);
+        $normalizeHeader = fn ($header) => trim((string) preg_replace('/[^a-z0-9]+/i', ' ', strtolower(trim((string) $header))));
+        $normalizedHeaders = array_map($normalizeHeader, $headers);
 
         $findHeader = function (array $candidates) use ($normalizedHeaders) {
             foreach ($candidates as $cand) {
-                $pos = array_search(strtolower($cand), $normalizedHeaders, true);
+                $normalizedCandidate = trim((string) preg_replace('/[^a-z0-9]+/i', ' ', strtolower($cand)));
+                $pos = array_search($normalizedCandidate, $normalizedHeaders, true);
                 if ($pos !== false) {
                     return $pos;
                 }
@@ -416,10 +421,12 @@ class StockController extends Controller
         $colCategory = $findHeader(['cat.', 'cat', 'category']);
         $colSubCategory = $findHeader(['item type', 'itemtype', 'sub category', 'subcategory', 'sub_category']);
         $colProdName = $findHeader(['item description', 'itemdescription', 'product name', 'productname', 'item name', 'itemname', 'description']);
-        $colPartNo = $findHeader(['part number', 'partnumber', 'part no', 'partno', 'size', 'sku', 'part']);
+        $colPartNo = $findHeader(['part number', 'partnumber', 'part no', 'partno', 'size', 'part']);
+        $colSku = $findHeader(['sku', 'product sku', 'product code']);
         $colBrand = $findHeader(['company name', 'companyname', 'brand', 'company']);
         $colQty = $findHeader(['qty', 'quantity', 'count']);
         $colUnit = $findHeader(['unit', 'units', 'uom']);
+        $colDate = $findHeader(['date', 'moved at', 'movement date', 'transaction date']);
 
         if ($colProdName === false && $colPartNo === false) {
             return back()->withErrors(['csv_file' => 'File must contain an "Item Description" or "Part Number" column to identify products.']);
@@ -432,6 +439,10 @@ class StockController extends Controller
         $rowCount = 0;
         $updatedCount = 0;
         $createdProductCount = 0;
+        $existingProductCount = 0;
+        $duplicateRowCount = 0;
+        $duplicateRowDetails = [];
+        $seenProductIds = [];
         $rowErrors = [];
 
         DB::beginTransaction();
@@ -446,11 +457,23 @@ class StockController extends Controller
                 $subName = $colSubCategory !== false ? trim((string) ($row[$colSubCategory] ?? '')) : '';
                 $prodName = $colProdName !== false ? trim((string) ($row[$colProdName] ?? '')) : '';
                 $partNo = $colPartNo !== false ? trim((string) ($row[$colPartNo] ?? '')) : '';
+                $skuValue = $colSku !== false ? trim((string) ($row[$colSku] ?? '')) : '';
                 $brandName = $colBrand !== false ? trim((string) ($row[$colBrand] ?? '')) : '';
                 $rawQty = $colQty !== false ? trim((string) ($row[$colQty] ?? '')) : '';
                 $unitAbbr = $colUnit !== false ? trim((string) ($row[$colUnit] ?? '')) : 'nos';
+                $rawDate = $colDate !== false ? trim((string) ($row[$colDate] ?? '')) : '';
                 if (empty($unitAbbr)) {
                     $unitAbbr = 'nos';
+                }
+
+                $movementDate = null;
+                if ($rawDate !== '') {
+                    try {
+                        $movementDate = \Carbon\Carbon::parse($rawDate)->toDateString();
+                    } catch (\Throwable $e) {
+                        $rowErrors[] = "Row {$rowCount}: Invalid date '{$rawDate}'. Please use a valid date value.";
+                        continue;
+                    }
                 }
 
                 if (! is_numeric($rawQty) || (float) $rawQty < 0) {
@@ -459,21 +482,46 @@ class StockController extends Controller
                 }
                 $qty = (float) $rawQty;
 
-                if (empty($prodName) && empty($partNo)) {
+                if (empty($prodName) && empty($partNo) && empty($skuValue)) {
                     $rowErrors[] = "Row {$rowCount}: Item Description or Part Number is required.";
                     continue;
                 }
 
-                // 1. Try finding existing product by Part Number / SKU / Name
-                $product = null;
-                if (! empty($partNo)) {
-                    $product = Product::where('sku', $partNo)
-                        ->orWhere('size', $partNo)
-                        ->first();
-                }
+                // 1. Resolve catalog references first, then match the complete identity by IDs.
+                // Names alone are not sufficient because different catalog entries may share them.
+                $category = ! empty($catName)
+                    ? Category::where('name', $catName)->first()
+                    : null;
+                $subCategory = $category && ! empty($subName)
+                    ? SubCategory::where('category_id', $category->id)->where('name', $subName)->first()
+                    : null;
+                $brand = ! empty($brandName)
+                    ? Brand::where('name', $brandName)->first()
+                    : null;
 
-                if (! $product && ! empty($prodName)) {
-                    $product = Product::where('name', $prodName)->first();
+                $product = Product::query()
+                    ->when($category, fn ($query) => $query->where('category_id', $category->id), fn ($query) => $query->whereRaw('1 = 0'))
+                    ->where('sub_category_id', $subCategory?->id)
+                    ->where('brand_id', $brand?->id)
+                    ->when($prodName !== '', fn ($query) => $query->where('name', $prodName))
+                    ->where(function ($query) use ($partNo, $skuValue) {
+                        if ($skuValue !== '') {
+                            $query->where('sku', $skuValue);
+                        } elseif ($partNo === '') {
+                            $query->whereNull('size');
+                        } else {
+                            $query->where('size', $partNo);
+                        }
+                    })
+                    ->first();
+
+                if ($product) {
+                    if (in_array($product->id, $seenProductIds, true)) {
+                        $duplicateRowCount++;
+                        $duplicateRowDetails[] = 'Excel row '.($rowCount + 1).' ('.$prodName.', part '.($partNo ?: $skuValue ?: '-').', matched part '.($product->size ?: $product->sku).')';
+                    } else {
+                        $existingProductCount++;
+                    }
                 }
 
                 // 2. If product not found, auto-create if enabled
@@ -517,10 +565,15 @@ class StockController extends Controller
                         $brand = Brand::firstOrCreate(['name' => $brandName]);
                     }
 
-                    // Generate clean SKU
-                    $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $category->name);
-                    $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $prodName);
-                    $baseSku = strtoupper(substr($cleanCategory, 0, 3)).'_'.strtoupper(substr($cleanName, 0, 4));
+                    // Keep bulk-created products on the same SKU convention as product creation.
+                    $baseSku = $this->buildProductSku(
+                        $category->name,
+                        $subCategory?->name ?? '',
+                        $brand?->name ?? '',
+                        $prodName,
+                        $partNo,
+                        ''
+                    );
                     $sku = $baseSku;
                     $counter = 1;
                     while (Product::where('sku', $sku)->exists()) {
@@ -543,6 +596,8 @@ class StockController extends Controller
                     $createdProductCount++;
                 }
 
+                $seenProductIds[] = $product->id;
+
                 // 3. Update stock balance for plant
                 if ($updateMode === 'add') {
                     if ($qty > 0) {
@@ -552,7 +607,8 @@ class StockController extends Controller
                             quantity: $qty,
                             performedBy: $performedBy,
                             referenceType: StockReferenceType::StockIn,
-                            meta: ['notes' => 'Bulk stock upload (Stock In) for '.$plant->name]
+                            meta: ['notes' => 'Bulk stock upload (Stock In) for '.$plant->name],
+                            movedAt: $movementDate
                         );
                         $updatedCount++;
                     }
@@ -569,7 +625,8 @@ class StockController extends Controller
                                 quantity: $delta,
                                 performedBy: $performedBy,
                                 referenceType: StockReferenceType::Adjustment,
-                                meta: ['notes' => 'Bulk stock adjustment (Set balance to '.$qty.') for '.$plant->name]
+                                meta: ['notes' => 'Bulk stock adjustment (Set balance to '.$qty.') for '.$plant->name],
+                                movedAt: $movementDate
                             );
                         } else {
                             $this->stockService->recordOut(
@@ -579,7 +636,8 @@ class StockController extends Controller
                                 referenceType: StockReferenceType::Adjustment,
                                 referenceId: null,
                                 performedBy: $performedBy,
-                                notes: 'Bulk stock adjustment (Set balance to '.$qty.') for '.$plant->name
+                                notes: 'Bulk stock adjustment (Set balance to '.$qty.') for '.$plant->name,
+                                movedAt: $movementDate
                             );
                         }
                         $updatedCount++;
@@ -597,6 +655,12 @@ class StockController extends Controller
         $message = "Bulk stock upload complete for {$plant->name}. {$updatedCount} items updated.";
         if ($createdProductCount > 0) {
             $message .= " ({$createdProductCount} new products created).";
+        }
+        if ($existingProductCount > 0) {
+            $message .= " {$existingProductCount} existing products reused.";
+        }
+        if ($duplicateRowCount > 0) {
+            $message .= " {$duplicateRowCount} duplicate rows reused from this file: ".implode(', ', $duplicateRowDetails).'.';
         }
 
         if (count($rowErrors) > 0) {

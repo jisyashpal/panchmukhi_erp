@@ -58,6 +58,9 @@ Route::middleware(['auth', 'plant_portal'])
         });
 
         Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASES)->group(function () {
+            Route::get('purchases/bulk-upload', [PurchaseController::class, 'bulkUploadForm'])->name('purchases.bulk-upload');
+            Route::post('purchases/bulk-upload', [PurchaseController::class, 'bulkUpload'])->name('purchases.bulk-upload.store');
+            Route::get('purchases/bulk-upload/sample', [PurchaseController::class, 'downloadBulkSample'])->name('purchases.bulk-upload.sample');
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
             Route::get('product-requests/{product_request}/export-supplier', [ProductRequestController::class, 'exportForSupplier'])->name('product-requests.export-supplier');

@@ -119,7 +119,7 @@
                         <i class="bi bi-info-circle me-1 text-info"></i>Supported CSV Format
                     </h5>
                     <p class="text-secondary small mb-3">
-                        Your CSV file can directly use your standard spreadsheet column headers:
+                        Your CSV file can directly use your standard spreadsheet column headers. For historical FY uploads, an optional <strong>Date</strong> column is supported and will be used as the stock movement date.
                     </p>
 
                     <div class="table-responsive mb-3">
@@ -133,6 +133,7 @@
                                     <th>COMPANY NAME</th>
                                     <th>Qty</th>
                                     <th>UNIT</th>
+                                    <th>Date</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -144,6 +145,7 @@
                                     <td>TATA</td>
                                     <td>2</td>
                                     <td>NOS</td>
+                                    <td>2024-04-15</td>
                                 </tr>
                                 <tr>
                                     <td>Hyva</td>
@@ -153,6 +155,7 @@
                                     <td>TATA</td>
                                     <td>3</td>
                                     <td>NOS</td>
+                                    <td>2024-05-10</td>
                                 </tr>
                                 <tr>
                                     <td>General</td>
@@ -162,6 +165,7 @@
                                     <td>GENERIC</td>
                                     <td>30</td>
                                     <td>NOS</td>
+                                    <td>2024-06-02</td>
                                 </tr>
                             </tbody>
                         </table>

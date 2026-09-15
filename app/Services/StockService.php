@@ -77,9 +77,10 @@ class StockService
         int $performedBy,
         StockReferenceType $referenceType = StockReferenceType::StockIn,
         ?int $referenceId = null,
-        array $meta = []
+        array $meta = [],
+        $movedAt = null
     ): void {
-        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $meta) {
+        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $meta, $movedAt) {
             $this->applyMovement(
                 $plantId,
                 $productId,
@@ -89,7 +90,8 @@ class StockService
                 $referenceId,
                 $performedBy,
                 $meta['notes'] ?? 'Manual stock in',
-                $meta
+                $meta,
+                $movedAt
             );
         });
     }
@@ -102,9 +104,10 @@ class StockService
         ?int $referenceId,
         int $performedBy,
         ?string $notes = null,
-        array $meta = []
+        array $meta = [],
+        $movedAt = null
     ): void {
-        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $notes, $meta) {
+        DB::transaction(function () use ($plantId, $productId, $quantity, $referenceType, $referenceId, $performedBy, $notes, $meta, $movedAt) {
             $this->assertAvailable($plantId, $productId, $quantity);
 
             $this->applyMovement(
@@ -116,7 +119,8 @@ class StockService
                 $referenceId,
                 $performedBy,
                 $notes,
-                $meta
+                $meta,
+                $movedAt
             );
         });
     }
@@ -144,8 +148,11 @@ class StockService
         ?int $referenceId,
         int $performedBy,
         ?string $notes,
-        array $meta = []
+        array $meta = [],
+        $movedAt = null
     ): void {
+        $movementDate = $movedAt ? \Illuminate\Support\Facades\Date::parse($movedAt) : now();
+
         StockMovement::create([
             'plant_id' => $plantId,
             'product_id' => $productId,
@@ -161,7 +168,7 @@ class StockService
             'photo_confirmed' => (bool) ($meta['photo_confirmed'] ?? false),
             'reason' => $meta['reason'] ?? null,
             'notes' => $notes,
-            'moved_at' => now(),
+            'moved_at' => $movementDate,
         ]);
 
         $balance = StockBalance::firstOrCreate(

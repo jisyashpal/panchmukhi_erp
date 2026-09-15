@@ -316,33 +316,14 @@ trait ManagesProducts
                     $brand = \App\Models\Brand::firstOrCreate(['name' => $brandName]);
                 }
 
-                // Normalize names
-                $cleanCategory = preg_replace('/[^A-Za-z0-9]/', '', $category->name);
-                $cleanSubCategory = $subCategory ? preg_replace('/[^A-Za-z0-9]/', '', $subCategory->name) : '';
-                $cleanSize = preg_replace('/[^A-Za-z0-9]/', '', $size);
-                $cleanBrand = $brand ? preg_replace('/[^A-Za-z0-9]/', '', $brand->name) : '';
-                $cleanName = preg_replace('/[^A-Za-z0-9]/', '', $prodName);
-
-                $categoryPart = strtoupper(substr($cleanCategory, 0, 3));
-                $subCategoryPart = $cleanSubCategory !== '' ? strtoupper(substr($cleanSubCategory, 0, 3)) : '';
-                $sizePart = $cleanSize !== '' ? strtoupper($cleanSize) : '';    
-                $brandPart = $cleanBrand !== '' ? strtoupper(substr($cleanBrand, 0, 3)) : '';
-                $namePart = $cleanName !== '' ? strtoupper(substr($cleanName, 0, 3)) : '';
-
-                // Generate SKU
-                $sku = $categoryPart;
-                if ($subCategoryPart !== '') {
-                    $sku .= '_' . $subCategoryPart;
-                }
-                if ($brandPart !== '') {
-                    $sku .= '_' . $brandPart;
-                }
-                if ($namePart !== '') {
-                    $sku .= '_' . $namePart;
-                }
-                if ($sizePart !== '') {
-                    $sku .= '_' . $sizePart;
-                }
+                $sku = $this->buildProductSku(
+                    $category->name,
+                    $subCategory?->name ?? '',
+                    $brand?->name ?? '',
+                    $prodName,
+                    $size,
+                    ''
+                );
 
                 // Ensure SKU is unique (handle duplicates)
                 $baseSku = $sku;
@@ -350,7 +331,13 @@ trait ManagesProducts
                 while (\App\Models\Product::where('sku', $sku)->exists()) {
                     // Check if exact same product already exists to avoid redundant creation
                     $existing = \App\Models\Product::where('sku', $sku)->first();
-                    if ($existing->name === $prodName && $existing->category_id === $category->id && $existing->sub_category_id === ($subCategory ? $subCategory->id : null)) {
+                    if (
+                        $existing->name === $prodName
+                        && $existing->category_id === $category->id
+                        && $existing->sub_category_id === ($subCategory ? $subCategory->id : null)
+                        && $existing->brand_id === ($brand ? $brand->id : null)
+                        && $existing->size === ($size ?: null)
+                    ) {
                         // Product already exists with same name and category, update it or skip
                         break;
                     }
@@ -362,7 +349,9 @@ trait ManagesProducts
                     [
                         'name' => $prodName,
                         'category_id' => $category->id,
-                        'sub_category_id' => $subCategory ? $subCategory->id : null
+                        'sub_category_id' => $subCategory ? $subCategory->id : null,
+                        'brand_id' => $brand ? $brand->id : null,
+                        'size' => $size ?: null,
                     ],
                     [
                         'sku' => $sku,

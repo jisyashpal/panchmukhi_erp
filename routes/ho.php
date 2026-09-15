@@ -66,6 +66,9 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
                 Route::get('purchase-list', [PurchaseListController::class, 'index'])->name('purchase-list.index');
                 Route::post('purchase-list/{supplier}/payments', [PurchaseListController::class, 'storePayment'])->name('purchase-list.payments.store');
                 Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
+                Route::get('purchases/bulk-upload', [PurchaseController::class, 'bulkUploadForm'])->name('purchases.bulk-upload');
+                Route::post('purchases/bulk-upload', [PurchaseController::class, 'bulkUpload'])->name('purchases.bulk-upload.store');
+                Route::get('purchases/bulk-upload/sample', [PurchaseController::class, 'downloadBulkSample'])->name('purchases.bulk-upload.sample');
                 Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
                 Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
                 Route::get('purchases/{purchase}/excel', [PurchaseController::class, 'excel'])->name('purchases.excel');

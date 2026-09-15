@@ -1,7 +1,11 @@
 @extends($portalLayout ?? 'layouts.ho')
 @section('title', 'Purchases')
 @section('content')
-<x-admin-page-header title="Purchases" subtitle="Track purchase orders — status, supplier and amounts" />
+<x-admin-page-header title="Purchases" subtitle="Track purchase orders — status, supplier and amounts">
+    <a href="{{ route('ho.purchases.bulk-upload') }}" class="btn btn-admin-outline btn-sm">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Bulk Upload
+    </a>
+</x-admin-page-header>
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         @if(isset($financialYear))

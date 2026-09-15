@@ -8,6 +8,7 @@ use App\Enums\RequestStatus;
 use App\Http\Controllers\Concerns\AuthorizesPermissions;
 use App\Http\Controllers\Concerns\BelongsToUserPlant;
 use App\Http\Controllers\Concerns\CreatesPurchaseOrders;
+use App\Http\Controllers\Concerns\ManagesPurchaseImports;
 use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
@@ -35,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PurchaseController extends Controller
 {
-    use AuthorizesPermissions, BelongsToUserPlant, CreatesPurchaseOrders, StreamsPurchasePdf;
+    use AuthorizesPermissions, BelongsToUserPlant, CreatesPurchaseOrders, ManagesPurchaseImports, StreamsPurchasePdf;
 
     public function __construct(
         protected StockService $stockService,

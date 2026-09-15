@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Ho\RequestPo;
 
+use App\Http\Controllers\Concerns\ManagesPurchaseImports;
 use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
 use App\Models\Purchase;
@@ -17,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PurchaseController extends Controller
 {
-    use StreamsPurchasePdf;
+    use ManagesPurchaseImports, StreamsPurchasePdf;
 
     public function __construct(
         protected PurchasePricingService $pricing,

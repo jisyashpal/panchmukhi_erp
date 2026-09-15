@@ -8,7 +8,14 @@
 <x-admin-page-header
     title="Purchases"
     :subtitle="$isPurchaser ? 'Quotations and purchase orders' : 'View purchase orders for this plant'"
-/>
+>
+    <a href="{{ route('plant.purchases.bulk-upload') }}" class="btn btn-admin-outline btn-sm me-2">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Bulk Upload
+    </a>
+    <a href="{{ route('plant.purchases.create') }}" class="btn btn-admin-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>Create Purchase
+    </a>
+</x-admin-page-header>
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">

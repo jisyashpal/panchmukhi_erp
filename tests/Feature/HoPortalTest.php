@@ -3,13 +3,19 @@
 namespace Tests\Feature;
 
 use App\Enums\RequestStatus;
+use App\Enums\StockMovementType;
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Plant;
 use App\Models\Product;
 use App\Models\ProductRequest;
 use App\Models\ProductRequestItem;
 use App\Models\Role;
-use App\Models\Plant;
+use App\Models\StockMovement;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Tests\TestCase;
 
 class HoPortalTest extends TestCase
@@ -247,6 +253,56 @@ class HoPortalTest extends TestCase
             'product_id' => $product->id,
             'quantity' => 5,
         ]);
+    }
+
+    public function test_ho_operator_can_bulk_upload_historical_stock_with_custom_date(): void
+    {
+        $ho = $this->hoOperator();
+        $plant = Plant::factory()->create();
+        $category = Category::factory()->create(['name' => 'Hyva']);
+        $subCategory = \App\Models\SubCategory::create([
+            'category_id' => $category->id,
+            'name' => 'Valve',
+            'slug' => 'valve',
+            'is_active' => true,
+        ]);
+        $brand = Brand::factory()->create(['name' => 'TATA']);
+        $unit = Unit::factory()->create(['name' => 'Nos', 'abbreviation' => 'NOS']);
+        $product = Product::factory()->create([
+            'name' => 'Historical Valve',
+            'size' => 'HV-01',
+            'category_id' => $category->id,
+            'sub_category_id' => $subCategory->id,
+            'brand_id' => $brand->id,
+            'unit_id' => $unit->id,
+        ]);
+
+        $csv = "Cat.,Item Type,Item Description,Part Number,COMPANY NAME,Qty,UNIT,Date\n"
+            . "Hyva,Valve,Historical Valve,HV-01,TATA,12,NOS,2024-04-15\n";
+
+        $response = $this->actingAs($ho)->post(route('ho.stocks.bulk-upload.store'), [
+            'plant_id' => $plant->id,
+            'update_mode' => 'add',
+            'auto_create_products' => '1',
+            'csv_file' => File::fake()->createWithContent('historical_stock.csv', $csv),
+        ]);
+
+        $response->assertRedirect(route('ho.stocks.index'));
+
+        $this->assertDatabaseHas('stock_movements', [
+            'plant_id' => $plant->id,
+            'product_id' => $product->id,
+            'type' => StockMovementType::In->value,
+            'quantity' => '12.00',
+        ]);
+
+        $movement = StockMovement::query()
+            ->where('plant_id', $plant->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        $this->assertNotNull($movement);
+        $this->assertSame('2024-04-15', $movement->moved_at->format('Y-m-d'));
     }
 
     public function test_ho_operator_can_view_profile(): void
