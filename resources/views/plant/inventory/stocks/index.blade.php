@@ -1,13 +1,13 @@
 @extends('layouts.plant')
 @section('title', 'Stocks')
 @section('content')
-<x-admin-page-header title="Stock Balances" subtitle="{{ ($isPurchaser ?? false) ? 'Inventory across all plants' : 'Current inventory in this plant' }}">
+<x-admin-page-header title="Stock Balances" subtitle="{{ ($isPurchaser ?? false) ? 'Inventory across all plants' : 'Current inventory'.($currentPlant?->name ? ' at '.$currentPlant->name : ' in this plant') }}">
 </x-admin-page-header>
 
 <div class="admin-filters mb-3">
     <form method="GET" class="row g-2 align-items-end">
         @if($isPurchaser ?? false)
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
             <label class="form-label small">Plant</label>
             <select name="plant_id" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">All plants</option>
@@ -17,23 +17,32 @@
             </select>
         </div>
         @endif
-        <div class="col-12 col-md-4 position-relative">
+        <div class="col-12 col-md-2">
+            <label class="form-label small">Category</label>
+            <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All categories</option>
+                @foreach($categories as $c)
+                    <option value="{{ $c->id }}" @selected(request('category_id') == $c->id)>{{ $c->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-12 col-md-3 position-relative">
             <label class="form-label small">Search Item Name / SKU</label>
             <input type="text" name="search" id="product-search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Enter item name or SKU..." autocomplete="off">
             <div id="autocomplete-suggestions" class="autocomplete-suggestions d-none shadow border rounded-bottom bg-white"></div>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
             <label class="form-label small">Filter by Product</label>
-            <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <select name="product_id" id="product-id-filter" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">All products</option>
                 @foreach($products as $p)
-                    <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
+                    <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }} — {{ $p->category?->name ?? 'No category' }} / {{ $p->subCategory?->name ?? 'No item type' }} ({{ $p->sku }})</option>
                 @endforeach
             </select>
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-admin-primary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-            @if(request()->anyFilled(['product_id', 'search', 'plant_id']))
+            @if(request()->anyFilled(['product_id', 'search', 'plant_id', 'category_id']))
                 <a href="{{ route('plant.stocks.index') }}" class="btn btn-admin-outline btn-sm">Clear</a>
             @endif
         </div>
@@ -66,6 +75,7 @@
                     @endif
                     <td class="fw-semibold">
                         {{ $b->product->name }}
+                        <div class="text-muted small">{{ $b->product->category?->name ?? '—' }} / {{ $b->product->subCategory?->name ?? '—' }}</div>
                         @if($isLow)
                             <span class="badge bg-danger ms-2" style="font-size: 0.65rem;">Low Stock</span>
                         @endif
@@ -82,7 +92,7 @@
                     @if($isPurchaser ?? false)
                     <td class="small text-muted">—</td>
                     @endif
-                    <td class="fw-semibold">{{ $selectedProduct->name }}</td>
+                    <td class="fw-semibold">{{ $selectedProduct->name }}<div class="text-muted small">{{ $selectedProduct->category?->name ?? '—' }} / {{ $selectedProduct->subCategory?->name ?? '—' }}</div></td>
                     <td><code class="small text-muted">{{ $selectedProduct->sku }}</code></td>
                     <td class="text-end text-muted">{{ $selectedProduct->reorder_level }} {{ $selectedProduct->unit->abbreviation ?? '' }}</td>
                     <td class="text-end fw-bold text-muted">0 {{ $selectedProduct->unit->abbreviation ?? '' }}</td>
@@ -129,6 +139,8 @@
         'id' => $p->id,
         'name' => $p->name,
         'sku' => $p->sku ?? '',
+        'category' => $p->category?->name ?? '',
+        'item_type' => $p->subCategory?->name ?? '',
     ])->values();
 @endphp
 <script type="application/json" id="stock-products-data">@json($stockProductSearch)</script>
@@ -148,9 +160,19 @@ document.addEventListener('DOMContentLoaded', function() {
         renderItem: function (p) {
             const div = document.createElement('div');
             div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-            div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
+            div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.category || 'No category'} / ${p.item_type || 'No item type'} · ${p.sku || 'No SKU'}</span>`;
             div.addEventListener('click', function() {
-                searchInput.value = p.name;
+                searchInput.value = '';
+                const productSelect = document.getElementById('product-id-filter');
+                if (productSelect) {
+                    if (![...productSelect.options].some(function (opt) { return opt.value === String(p.id); })) {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.name;
+                        productSelect.appendChild(option);
+                    }
+                    productSelect.value = String(p.id);
+                }
                 infinite.reset();
                 suggestionsBox.classList.add('d-none');
                 searchInput.form.submit();

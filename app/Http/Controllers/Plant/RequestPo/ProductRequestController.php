@@ -58,7 +58,7 @@ class ProductRequestController extends Controller
             ->when(! $isPurchaser, fn ($q) => $q->where('product_requests.plant_id', $this->plantId()))
             ->when($isPurchaser && $request->filled('plant_id'), fn ($q) => $q->where('product_requests.plant_id', $request->integer('plant_id')))
             ->when($request->filled('product_id'), fn ($q) => $q->where('product_request_items.product_id', $request->integer('product_id')))
-            ->when($request->filled('search'), function ($q) use ($request) {
+            ->when($request->filled('search') && ! $request->filled('product_id'), function ($q) use ($request) {
                 $search = $request->string('search');
                 $q->where(function ($q) use ($search) {
                     $q->where('product_request_items.item_name', 'like', '%'.$search.'%')
@@ -79,7 +79,7 @@ class ProductRequestController extends Controller
 
         return view('plant.request-po.product-requests.index', [
             'items' => $query->paginate(20)->withQueryString(),
-            'products' => Product::orderBy('name')->get(),
+            'products' => Product::with(['category:id,name', 'subCategory:id,name'])->orderBy('name')->get(['id', 'name', 'sku', 'category_id', 'sub_category_id']),
             'plants' => $isPurchaser ? Plant::orderBy('name')->get() : collect(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'isPurchaser' => $isPurchaser,

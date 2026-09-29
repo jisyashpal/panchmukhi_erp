@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\StockMovementType;
+use App\Enums\StockReferenceType;
 use App\Models\ProductUseEntry;
 use App\Models\Purchase;
+use App\Models\StockMovement;
 use App\Models\PurchaseItem;
 use App\Models\SupplierPayment;
 use App\Support\ReportFilters;
@@ -24,8 +27,9 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
-        return ProductUseEntry::query()
-            ->with(['plant', 'vehicle', 'product.category', 'replacedProduct', 'subCategory', 'recorder'])
+        $movements = StockMovement::query()
+            ->with(['plant', 'vehicle', 'product.category', 'subCategory', 'performer'])
+            ->where('type', StockMovementType::Out)
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
             ->when($filters->productId, fn ($q) => $q->where('product_id', $filters->productId))
             ->when($filters->vehicleId, fn ($q) => $q->where('vehicle_id', $filters->vehicleId))
@@ -33,13 +37,12 @@ class ReportService
                 'product',
                 fn ($pq) => $pq->where('category_id', $filters->categoryId)
             ))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('used_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('used_at', '<=', $filters->dateTo))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('moved_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('moved_at', '<=', $filters->dateTo))
             ->when($filters->search, function ($q) use ($filters) {
                 $term = '%'.$filters->search.'%';
                 $q->where(function ($q) use ($term) {
-                    $q->whereHas('product', fn ($pq) => $pq->where('name', 'like', $term))
-                        ->orWhereHas('replacedProduct', fn ($pq) => $pq->where('name', 'like', $term))
+                    $q->whereHas('product', fn ($pq) => $pq->where('name', 'like', $term)->orWhere('sku', 'like', $term))
                         ->orWhereHas('subCategory', fn ($sq) => $sq->where('name', 'like', $term))
                         ->orWhereHas('plant', fn ($sq) => $sq->where('name', 'like', $term))
                         ->orWhereHas('vehicle', function ($vq) use ($term) {
@@ -48,9 +51,28 @@ class ReportService
                         });
                 });
             })
-            ->latest('used_at')
+            ->latest('moved_at')
+            ->latest('id')
             ->when(! $forExport, fn ($q) => $q->limit(500))
             ->get();
+
+        $useIds = $movements
+            ->filter(fn (StockMovement $movement) => $movement->reference_type === StockReferenceType::ProductUse && $movement->reference_id)
+            ->pluck('reference_id')
+            ->unique()
+            ->values();
+
+        $uses = $useIds->isEmpty()
+            ? collect()
+            : ProductUseEntry::with(['replacedProduct', 'subCategory'])->whereIn('id', $useIds)->get()->keyBy('id');
+
+        return $movements->each(function (StockMovement $movement) use ($uses) {
+            $use = $movement->reference_type === StockReferenceType::ProductUse
+                ? $uses->get($movement->reference_id)
+                : null;
+
+            $movement->setRelation('productUse', $use);
+        });
     }
 
     public function categoryWisePurchaseAmount(?ReportFilters $filters = null): \Illuminate\Support\Collection
@@ -79,6 +101,189 @@ class ReportService
                   '.$topItemsAggregate.' as top_items'
             )
             ->orderByDesc('total_amount')
+            ->get();
+    }
+
+    public function productWisePurchaseAmount(?ReportFilters $filters = null): \Illuminate\Support\Collection
+    {
+        $filters ??= new ReportFilters;
+
+        return PurchaseItem::query()
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->join('products', 'products.id', '=', 'purchase_items.product_id')
+            ->join('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('units', 'units.id', '=', 'products.unit_id')
+            ->when($filters->plantId, fn ($q) => $q->where('purchases.plant_id', $filters->plantId))
+            ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
+            ->when($filters->productId, fn ($q) => $q->where('products.id', $filters->productId))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('purchases.ordered_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('purchases.ordered_at', '<=', $filters->dateTo))
+            ->when($filters->search, function ($q) use ($filters) {
+                $term = '%'.$filters->search.'%';
+                $q->where(function ($q) use ($term) {
+                    $q->where('products.name', 'like', $term)
+                        ->orWhere('products.sku', 'like', $term)
+                        ->orWhere('categories.name', 'like', $term);
+                });
+            })
+            ->groupBy(
+                'products.id',
+                'products.name',
+                'products.sku',
+                'categories.id',
+                'categories.name',
+                'units.abbreviation',
+                'units.name'
+            )
+            ->selectRaw(
+                'products.id as product_id,
+                 products.name as product_name,
+                 products.sku as sku,
+                 categories.id as category_id,
+                 categories.name as category_name,
+                 COALESCE(units.abbreviation, units.name) as unit,
+                 SUM(purchase_items.line_total) as total_amount,
+                 SUM(purchase_items.quantity) as total_qty,
+                 COUNT(DISTINCT purchases.id) as order_count,
+                 COUNT(DISTINCT purchases.supplier_id) as supplier_count,
+                 CASE WHEN SUM(purchase_items.quantity) > 0
+                      THEN ROUND(SUM(purchase_items.line_total) / SUM(purchase_items.quantity), 2)
+                      ELSE 0 END as avg_unit_price,
+                 MAX(purchases.ordered_at) as last_purchased_at'
+            )
+            ->orderByDesc('total_amount')
+            ->get();
+    }
+
+    /**
+     * Date-wise purchase register: every PO line item as its own row.
+     *
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Support\Collection
+     */
+    public function purchaseItemRegister(?ReportFilters $filters = null, bool $forExport = false, bool $oldestFirst = false)
+    {
+        $query = $this->purchaseItemRegisterQuery($filters)
+            ->select(
+                'purchase_items.id',
+                'purchases.reference_no',
+                'purchases.ordered_at',
+                'purchases.id as purchase_id',
+                'purchases.status',
+                'plants.name as plant_name',
+                'suppliers.name as supplier_name',
+                'products.id as product_id',
+                'products.name as product_name',
+                'products.sku as sku',
+                'categories.name as category_name',
+                'purchase_items.quantity',
+                'purchase_items.unit_price',
+                'purchase_items.line_total'
+            )
+            ->selectRaw('COALESCE(units.abbreviation, units.name) as unit');
+
+        if ($oldestFirst) {
+            $query->orderBy('purchases.ordered_at')
+                ->orderBy('purchases.id')
+                ->orderBy('purchase_items.id');
+        } else {
+            $query->orderByDesc('purchases.ordered_at')
+                ->orderByDesc('purchases.id')
+                ->orderBy('purchase_items.id');
+        }
+
+        if ($forExport) {
+            return $query->get();
+        }
+
+        return $query->paginate(50)->withQueryString();
+    }
+
+    public function purchaseItemRegisterTotals(?ReportFilters $filters = null): object
+    {
+        $row = $this->purchaseItemRegisterQuery($filters)
+            ->selectRaw(
+                'COUNT(purchase_items.id) as line_count,
+                 SUM(purchase_items.quantity) as total_qty,
+                 SUM(purchase_items.line_total) as total_amount,
+                 COUNT(DISTINCT purchases.id) as order_count'
+            )
+            ->first();
+
+        return (object) [
+            'line_count' => (int) ($row->line_count ?? 0),
+            'total_qty' => (float) ($row->total_qty ?? 0),
+            'total_amount' => (float) ($row->total_amount ?? 0),
+            'order_count' => (int) ($row->order_count ?? 0),
+        ];
+    }
+
+    private function purchaseItemRegisterQuery(?ReportFilters $filters)
+    {
+        $filters ??= new ReportFilters;
+
+        return PurchaseItem::query()
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->join('products', 'products.id', '=', 'purchase_items.product_id')
+            ->join('categories', 'categories.id', '=', 'products.category_id')
+            ->join('plants', 'plants.id', '=', 'purchases.plant_id')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchases.supplier_id')
+            ->leftJoin('units', 'units.id', '=', 'products.unit_id')
+            ->when($filters->plantId, fn ($q) => $q->where('purchases.plant_id', $filters->plantId))
+            ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
+            ->when($filters->productId, fn ($q) => $q->where('products.id', $filters->productId))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('purchases.ordered_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('purchases.ordered_at', '<=', $filters->dateTo))
+            ->when($filters->search, function ($q) use ($filters) {
+                $term = '%'.$filters->search.'%';
+                $q->where(function ($q) use ($term) {
+                    $q->where('products.name', 'like', $term)
+                        ->orWhere('products.sku', 'like', $term)
+                        ->orWhere('categories.name', 'like', $term)
+                        ->orWhere('purchases.reference_no', 'like', $term)
+                        ->orWhere('suppliers.name', 'like', $term)
+                        ->orWhere('plants.name', 'like', $term);
+                });
+            });
+    }
+
+    /**
+     * All purchase line items for a given product (drill-down ledger).
+     */
+    public function productPurchaseLedger(int $productId, ?ReportFilters $filters = null): \Illuminate\Support\Collection
+    {
+        $filters ??= new ReportFilters;
+
+        return PurchaseItem::query()
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->join('products', 'products.id', '=', 'purchase_items.product_id')
+            ->join('plants', 'plants.id', '=', 'purchases.plant_id')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchases.supplier_id')
+            ->where('products.id', $productId)
+            ->when($filters->plantId, fn ($q) => $q->where('purchases.plant_id', $filters->plantId))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('purchases.ordered_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('purchases.ordered_at', '<=', $filters->dateTo))
+            ->when($filters->search, function ($q) use ($filters) {
+                $term = '%'.$filters->search.'%';
+                $q->where(function ($q) use ($term) {
+                    $q->where('purchases.reference_no', 'like', $term)
+                        ->orWhere('suppliers.name', 'like', $term)
+                        ->orWhere('plants.name', 'like', $term);
+                });
+            })
+            ->select(
+                'purchase_items.id',
+                'purchases.reference_no',
+                'purchases.ordered_at',
+                'purchases.id as purchase_id',
+                'plants.name as plant_name',
+                'suppliers.name as supplier_name',
+                'products.name as product_name',
+                'purchase_items.quantity',
+                'purchase_items.unit_price',
+                'purchase_items.line_total',
+                'purchases.status'
+            )
+            ->orderByDesc('purchases.ordered_at')
             ->get();
     }
 
@@ -128,35 +333,46 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
-        return ProductUseEntry::query()
-            ->join('products', 'products.id', '=', 'product_use_entries.product_id')
-            ->join('categories', 'categories.id', '=', 'products.category_id')
-            ->when($filters->plantId, fn ($q) => $q->where('product_use_entries.plant_id', $filters->plantId))
-            ->when($filters->productId, fn ($q) => $q->where('product_use_entries.product_id', $filters->productId))
-            ->when($filters->vehicleId, fn ($q) => $q->where('product_use_entries.vehicle_id', $filters->vehicleId))
+        return StockMovement::query()
+            ->join('products', 'products.id', '=', 'stock_movements.product_id')
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('product_use_entries', function ($join) {
+                $join->on('product_use_entries.id', '=', 'stock_movements.reference_id')
+                    ->where('stock_movements.reference_type', '=', StockReferenceType::ProductUse->value);
+            })
+            ->where('stock_movements.type', StockMovementType::Out)
+            ->when($filters->plantId, fn ($q) => $q->where('stock_movements.plant_id', $filters->plantId))
+            ->when($filters->productId, fn ($q) => $q->where('stock_movements.product_id', $filters->productId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('stock_movements.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('product_use_entries.used_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('product_use_entries.used_at', '<=', $filters->dateTo))
-            ->when($filters->search, fn ($q) => $q->where('products.name', 'like', '%'.$filters->search.'%'))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('stock_movements.moved_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('stock_movements.moved_at', '<=', $filters->dateTo))
+            ->when($filters->search, function ($q) use ($filters) {
+                $term = '%'.$filters->search.'%';
+                $q->where(function ($q) use ($term) {
+                    $q->where('products.name', 'like', $term)
+                        ->orWhere('products.sku', 'like', $term);
+                });
+            })
             ->groupBy(
-                'product_use_entries.product_id',
+                'stock_movements.product_id',
                 'products.name',
                 'categories.id',
                 'categories.name'
             )
             ->selectRaw(
-                'product_use_entries.product_id,
+                'stock_movements.product_id,
                  products.name as product_name,
                  categories.id as category_id,
                  categories.name as category_name,
-                 COUNT(product_use_entries.id) as use_count,
-                 SUM(product_use_entries.quantity) as total_qty,
-                 ROUND(AVG(product_use_entries.quantity), 2) as avg_qty_per_use,
-                 SUM(product_use_entries.life_hours) as total_life_hours,
-                 ROUND(AVG(product_use_entries.life_hours), 1) as avg_life_hours,
-                 MAX(product_use_entries.used_at) as last_used_at,
-                 COUNT(DISTINCT product_use_entries.plant_id) as plant_count,
-                 COUNT(DISTINCT product_use_entries.vehicle_id) as vehicle_count'
+                 COUNT(stock_movements.id) as use_count,
+                 SUM(stock_movements.quantity) as total_qty,
+                 ROUND(AVG(stock_movements.quantity), 2) as avg_qty_per_use,
+                 COALESCE(SUM(product_use_entries.life_hours), 0) as total_life_hours,
+                 COALESCE(ROUND(AVG(product_use_entries.life_hours), 1), 0) as avg_life_hours,
+                 MAX(stock_movements.moved_at) as last_used_at,
+                 COUNT(DISTINCT stock_movements.plant_id) as plant_count,
+                 COUNT(DISTINCT stock_movements.vehicle_id) as vehicle_count'
             )
             ->having('use_count', '>', 1)
             ->orderByDesc('use_count')
@@ -168,25 +384,30 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
-        return ProductUseEntry::query()
-            ->join('products', 'products.id', '=', 'product_use_entries.product_id')
+        return StockMovement::query()
+            ->join('products', 'products.id', '=', 'stock_movements.product_id')
             ->join('categories', 'categories.id', '=', 'products.category_id')
-            ->when($filters->plantId, fn ($q) => $q->where('product_use_entries.plant_id', $filters->plantId))
-            ->when($filters->vehicleId, fn ($q) => $q->where('product_use_entries.vehicle_id', $filters->vehicleId))
+            ->leftJoin('product_use_entries', function ($join) {
+                $join->on('product_use_entries.id', '=', 'stock_movements.reference_id')
+                    ->where('stock_movements.reference_type', '=', StockReferenceType::ProductUse->value);
+            })
+            ->where('stock_movements.type', StockMovementType::Out)
+            ->when($filters->plantId, fn ($q) => $q->where('stock_movements.plant_id', $filters->plantId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('stock_movements.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('product_use_entries.used_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('product_use_entries.used_at', '<=', $filters->dateTo))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('stock_movements.moved_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('stock_movements.moved_at', '<=', $filters->dateTo))
             ->when($filters->search, fn ($q) => $q->where('categories.name', 'like', '%'.$filters->search.'%'))
             ->groupBy('categories.id', 'categories.name')
             ->selectRaw(
                 'categories.id as category_id,
                  categories.name as category_name,
-                 SUM(product_use_entries.quantity) as total_qty,
-                 SUM(product_use_entries.life_hours) as total_life_hours,
-                 COUNT(product_use_entries.id) as usage_count,
-                 ROUND(AVG(product_use_entries.life_hours), 1) as avg_life_hours,
-                 COUNT(DISTINCT product_use_entries.product_id) as product_count,
-                 COUNT(DISTINCT product_use_entries.vehicle_id) as vehicle_count'
+                 SUM(stock_movements.quantity) as total_qty,
+                 COALESCE(SUM(product_use_entries.life_hours), 0) as total_life_hours,
+                 COUNT(stock_movements.id) as usage_count,
+                 COALESCE(ROUND(AVG(product_use_entries.life_hours), 1), 0) as avg_life_hours,
+                 COUNT(DISTINCT stock_movements.product_id) as product_count,
+                 COUNT(DISTINCT stock_movements.vehicle_id) as vehicle_count'
             )
             ->orderByDesc('total_qty')
             ->get();
@@ -335,18 +556,22 @@ class ReportService
                 }));
         };
 
-        // --- Stock In (from Purchase receipts) ---
+        $purchaseRates = DB::table('purchase_items')
+            ->select('purchase_id', 'product_id', DB::raw('MAX(unit_price) as unit_price'))
+            ->groupBy('purchase_id', 'product_id');
+
+        // Stock In includes every inward movement. Purchase receipts still supply the amount.
         $inRows = $applyCommon(
             DB::table('stock_movements as sm')
                 ->join('products as p', 'p.id', '=', 'sm.product_id')
                 ->join('categories as c', 'c.id', '=', 'p.category_id')
                 ->leftJoin('units as u', 'u.id', '=', 'p.unit_id')
-                ->join('purchase_items as pi', fn ($j) => $j
-                    ->on('pi.purchase_id', '=', 'sm.reference_id')
-                    ->on('pi.product_id', '=', 'sm.product_id')
-                )
+                ->leftJoinSub($purchaseRates, 'pi', function ($join) {
+                    $join->on('pi.purchase_id', '=', 'sm.reference_id')
+                        ->on('pi.product_id', '=', 'sm.product_id')
+                        ->where('sm.reference_type', '=', 'purchase');
+                })
                 ->where('sm.type', 'in')
-                ->where('sm.reference_type', 'purchase')
         )
             ->select(
                 'p.id as product_id',

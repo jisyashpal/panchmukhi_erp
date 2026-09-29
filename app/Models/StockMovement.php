@@ -17,6 +17,7 @@ class StockMovement extends Model
         'vehicle_id',
         'type',
         'quantity',
+        'unit_price',
         'reference_type',
         'reference_id',
         'performed_by',
@@ -33,6 +34,7 @@ class StockMovement extends Model
             'type' => StockMovementType::class,
             'reference_type' => StockReferenceType::class,
             'quantity' => 'decimal:2',
+            'unit_price' => 'decimal:2',
             'photo_confirmed' => 'boolean',
             'moved_at' => 'datetime',
         ];
@@ -66,5 +68,10 @@ class StockMovement extends Model
     public function performer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'performed_by');
+    }
+
+    public function productUse(): BelongsTo
+    {
+        return $this->belongsTo(ProductUseEntry::class, 'reference_id');
     }
 }

@@ -79,6 +79,37 @@ class PlantPortalTest extends TestCase
         ]);
     }
 
+    public function test_plant_in_charge_can_create_product_request_with_decimal_quantity(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $product = Product::factory()->create();
+
+        $this->actingAs($inCharge)
+            ->get(route('plant.product-requests.create'))
+            ->assertOk()
+            ->assertSee('step="0.01"', false)
+            ->assertSee('min="0.01"', false);
+
+        $this->actingAs($inCharge)
+            ->post(route('plant.product-requests.store'), [
+                'requester_name' => 'Site Supervisor',
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'item_name' => $product->name,
+                        'quantity' => 2.5,
+                        'priority' => 'medium',
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $item = \App\Models\ProductRequestItem::where('product_id', $product->id)->first();
+        $this->assertNotNull($item);
+        $this->assertEquals(2.5, (float) $item->quantity);
+    }
+
     public function test_site_incharge_creates_request_with_priority_and_purchaser_sees_it(): void
     {
         $plant = Plant::factory()->create();
@@ -450,6 +481,94 @@ class PlantPortalTest extends TestCase
         $response->assertViewHas('balances', function ($balances) use ($productA, $productB) {
             return $balances->contains('product_id', $productA->id) 
                 && !$balances->contains('product_id', $productB->id);
+        });
+    }
+
+    public function test_plant_in_charge_stock_filters_are_scoped_to_their_plant(): void
+    {
+        $plant = Plant::factory()->create();
+        $otherPlant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $ownCategory = \App\Models\Category::factory()->create(['name' => 'Own Category']);
+        $otherCategory = \App\Models\Category::factory()->create(['name' => 'Other Category']);
+        $ownProduct = Product::factory()->create([
+            'name' => 'Own Plant Item',
+            'sku' => 'OWN-SKU-1',
+            'category_id' => $ownCategory->id,
+        ]);
+        $otherProduct = Product::factory()->create([
+            'name' => 'Other Plant Item',
+            'sku' => 'OTHER-SKU-1',
+            'category_id' => $otherCategory->id,
+        ]);
+
+        \App\Models\StockBalance::create([
+            'plant_id' => $plant->id,
+            'product_id' => $ownProduct->id,
+            'quantity' => 11,
+        ]);
+
+        \App\Models\StockBalance::create([
+            'plant_id' => $otherPlant->id,
+            'product_id' => $otherProduct->id,
+            'quantity' => 99,
+        ]);
+
+        $response = $this->actingAs($inCharge)
+            ->get(route('plant.stocks.index', ['plant_id' => $otherPlant->id]))
+            ->assertOk()
+            ->assertSee('Own Plant Item', false)
+            ->assertDontSee('Other Plant Item', false)
+            ->assertSee('Own Category', false)
+            ->assertDontSee('Other Category', false);
+
+        $response->assertViewHas('balances', function ($balances) use ($ownProduct, $otherProduct) {
+            return $balances->contains('product_id', $ownProduct->id)
+                && ! $balances->contains('product_id', $otherProduct->id);
+        });
+
+        $response->assertViewHas('products', function ($products) use ($ownProduct, $otherProduct) {
+            return $products->contains('id', $ownProduct->id)
+                && ! $products->contains('id', $otherProduct->id);
+        });
+
+        $searchResponse = $this->actingAs($inCharge)
+            ->get(route('plant.stocks.index', ['search' => 'OTHER-SKU-1']))
+            ->assertOk()
+            ->assertDontSee('Other Plant Item', false);
+
+        $searchResponse->assertViewHas('balances', fn ($balances) => $balances->isEmpty());
+    }
+
+    public function test_plant_in_charge_can_filter_stocks_by_category(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $categoryA = \App\Models\Category::factory()->create(['name' => 'Hyva Parts']);
+        $categoryB = \App\Models\Category::factory()->create(['name' => 'JCB Parts']);
+        $productA = Product::factory()->create(['name' => 'Hyva Valve', 'category_id' => $categoryA->id]);
+        $productB = Product::factory()->create(['name' => 'JCB Lamp', 'category_id' => $categoryB->id]);
+
+        \App\Models\StockBalance::create([
+            'plant_id' => $plant->id,
+            'product_id' => $productA->id,
+            'quantity' => 4,
+        ]);
+        \App\Models\StockBalance::create([
+            'plant_id' => $plant->id,
+            'product_id' => $productB->id,
+            'quantity' => 7,
+        ]);
+
+        $response = $this->actingAs($inCharge)
+            ->get(route('plant.stocks.index', ['category_id' => $categoryA->id]))
+            ->assertOk()
+            ->assertSee('Hyva Valve', false)
+            ->assertDontSee('JCB Lamp', false);
+
+        $response->assertViewHas('products', function ($products) use ($productA, $productB) {
+            return $products->contains('id', $productA->id)
+                && ! $products->contains('id', $productB->id);
         });
     }
  

@@ -35,7 +35,7 @@
 </div>
 <div class="col-md-1">
     <label class="form-label">Qty <span class="text-danger">*</span></label>
-    <input type="number" step="1" min="1" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
+    <input type="number" step="0.01" min="0.01" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
         required class="form-control form-control-sm">
 </div>
 <div class="col-md-1">

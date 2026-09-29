@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const nameInput = document.getElementById('name');
     const sizeInput = document.getElementById('size');
+    const skuCodeInput = document.getElementById('sku_code');
     const skuInput = document.getElementById('sku');
     const categorySelect = document.getElementById('category_id');
     const subCategorySelect = document.getElementById('sub_category_id');
@@ -63,12 +64,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const cleanSkuCode = skuCodeInput ? skuCodeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : '';
         const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
         const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
         const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
-        const sizePart = cleanSize || '';   
+        const sizePart = cleanSize || '';
         const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : '';
+        const skuCodePart = cleanSkuCode || '';
         const namePart = cleanName ? cleanName.substring(0, 3) : '';
 
         let sku = catPart;
@@ -77,6 +80,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (brandPart) {
             sku += '_' + brandPart;
+        }
+        if (skuCodePart) {
+            sku += '_' + skuCodePart;
         }
         if (namePart) {
             sku += '_' + namePart;
@@ -90,6 +96,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     nameInput.addEventListener('input', generateSku);
     sizeInput.addEventListener('input', generateSku);
+    if (skuCodeInput) {
+        skuCodeInput.addEventListener('input', generateSku);
+    }
     categorySelect.addEventListener('change', filterSubCategories);
     subCategorySelect.addEventListener('change', generateSku);
     if (brandSelect) {

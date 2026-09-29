@@ -56,7 +56,7 @@ return [
                         'route' => 'plant.purchases.index',
                         'icon' => 'bi-receipt',
                         'permission' => PermissionSlug::PLANT_VIEW_PURCHASES,
-                        'routes' => ['plant.purchases.index', 'plant.purchases.show'],
+                        'routes' => ['plant.purchases.index', 'plant.purchases.show', 'plant.purchases.bulk-upload', 'plant.purchases.bulk-upload.store', 'plant.purchases.bulk-upload.sample'],
                         'hide_if' => PermissionSlug::PLANT_DISPATCH_ORDERS,
                     ],
                     [
@@ -75,6 +75,9 @@ return [
                             'plant.purchases.email',
                             'plant.purchases.receive',
                             'plant.purchases.receive.store',
+                            'plant.purchases.bulk-upload',
+                            'plant.purchases.bulk-upload.store',
+                            'plant.purchases.bulk-upload.sample',
                         ],
                     ],
                     [
@@ -156,9 +159,10 @@ return [
                     PermissionSlug::HO_VIEW_PURCHASES,
                 ],
                 'children' => [
-                    ['label' => 'Product Requests', 'route' => 'ho.product-requests.index', 'icon' => 'bi-clipboard-check', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.*']],
+                    ['label' => 'Create Request', 'route' => 'ho.product-requests.create', 'icon' => 'bi-plus-circle', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.create']],
+                    ['label' => 'Product Requests', 'route' => 'ho.product-requests.index', 'icon' => 'bi-clipboard-check', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.index', 'ho.product-requests.show']],
                     ['label' => 'Purchase List', 'route' => 'ho.purchase-list.index', 'icon' => 'bi-receipt', 'permission' => PermissionSlug::HO_VIEW_PURCHASES, 'routes' => ['ho.purchase-list.*']],
-                    ['label' => 'Purchases', 'route' => 'ho.purchases.index', 'icon' => 'bi-cart-check', 'permission' => PermissionSlug::HO_VIEW_PURCHASES, 'routes' => ['ho.purchases.index', 'ho.purchases.show']],
+                    ['label' => 'Purchases', 'route' => 'ho.purchases.index', 'icon' => 'bi-cart-check', 'permission' => PermissionSlug::HO_VIEW_PURCHASES, 'routes' => ['ho.purchases.*']],
                 ],
             ],
             [
@@ -198,6 +202,8 @@ return [
                 'children' => [
                     ['label' => 'Product Life Usage', 'route' => 'ho.reports.product-life', 'icon' => 'bi-clock-history', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.product-life']],
                     ['label' => 'Category Purchase', 'route' => 'ho.reports.category-purchase', 'icon' => 'bi-pie-chart', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.category-purchase']],
+                    ['label' => 'Product Purchase', 'route' => 'ho.reports.product-purchase', 'icon' => 'bi-box-seam', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.product-purchase', 'ho.reports.product-purchase.ledger']],
+                    ['label' => 'Purchase Item List', 'route' => 'ho.reports.purchase-items', 'icon' => 'bi-list-ul', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.purchase-items']],
                     ['label' => 'Multiple Usage', 'route' => 'ho.reports.multiple-usage', 'icon' => 'bi-exclamation-diamond', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.multiple-usage']],
                     ['label' => 'Usage by Category', 'route' => 'ho.reports.usage-by-category', 'icon' => 'bi-diagram-3', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.usage-by-category']],
                     ['label' => 'Party Purchase Summary', 'route' => 'ho.reports.party-purchase', 'icon' => 'bi-building', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.party-purchase', 'ho.reports.party-ledger']],
@@ -267,7 +273,8 @@ return [
                 'routes' => ['ho.*'],
                 'children' => [
                     ['label' => 'HO Dashboard', 'route' => 'ho.dashboard', 'icon' => 'bi-speedometer2', 'permission' => PermissionSlug::HO_ACCESS, 'routes' => ['ho.dashboard']],
-                    ['label' => 'Product Requests', 'route' => 'ho.product-requests.index', 'icon' => 'bi-clipboard-check', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.*']],
+                    ['label' => 'Create Request', 'route' => 'ho.product-requests.create', 'icon' => 'bi-plus-circle', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.create']],
+                    ['label' => 'Product Requests', 'route' => 'ho.product-requests.index', 'icon' => 'bi-clipboard-check', 'permission' => PermissionSlug::HO_MANAGE_PRODUCT_REQUESTS, 'routes' => ['ho.product-requests.index', 'ho.product-requests.show']],
                     ['label' => 'Purchases & PO', 'route' => 'ho.purchases.index', 'icon' => 'bi-cart', 'permission' => PermissionSlug::HO_VIEW_PURCHASES, 'routes' => ['ho.purchases.*']],
                     ['label' => 'Stocks', 'route' => 'ho.stocks.index', 'icon' => 'bi-boxes', 'permission' => PermissionSlug::HO_MANAGE_STOCKS, 'routes' => ['ho.stocks.*']],
                     ['label' => 'Reports', 'route' => 'ho.reports.index', 'icon' => 'bi-bar-chart-line', 'permission' => PermissionSlug::HO_VIEW_REPORTS, 'routes' => ['ho.reports.*']],

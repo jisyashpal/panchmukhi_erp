@@ -76,7 +76,7 @@
                                     </td>
                                 @endif
                                 <td class="text-end">
-                                    <input type="number" step="1" min="1" name="items[{{ $i }}][quantity]" 
+                                    <input type="number" step="0.01" min="0.01" name="items[{{ $i }}][quantity]" 
                                            value="{{ old('items.'.$i.'.quantity', $item->quantity) }}" 
                                            required class="form-control text-end @error('items.'.$i.'.quantity') is-invalid @enderror" style="max-width: 150px; display: inline-block;">
                                 </td>
@@ -124,6 +124,8 @@
             'id' => $p->id,
             'name' => $p->name,
             'sku' => $p->sku ?? '',
+            'category' => $p->category?->name ?? '',
+            'item_type' => $p->subCategory?->name ?? '',
         ];
     })->values() : collect();
 @endphp
@@ -171,7 +173,7 @@
             div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
                 + product.name
                 + '</span> <span class="text-muted small">'
-                + (product.sku || 'No SKU')
+                + ((product.category || 'No category') + ' / ' + (product.item_type || 'No item type') + ' · ' + (product.sku || 'No SKU'))
                 + '</span>';
             div.addEventListener('mousedown', function (event) {
                 event.preventDefault();

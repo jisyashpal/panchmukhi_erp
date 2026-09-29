@@ -63,14 +63,18 @@
 
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">New item (ab laga rahe ho) <span class="text-danger">*</span></label>
-                        <select name="product_id" id="product_id" class="form-select @error('product_id') is-invalid @enderror" required>
-                            <option value="">— Select Product —</option>
+                        <select name="product_id" id="product_id" class="form-select searchable-item-select @error('product_id') is-invalid @enderror" required>
+                            <option value="">Search Item Name / SKU</option>
                             @foreach($products as $p)
                                 <option value="{{ $p->id }}"
+                                    data-name="{{ $p->name }}"
+                                    data-sku="{{ $p->sku }}"
+                                    data-category="{{ $p->category?->name }}"
+                                    data-item-type="{{ $p->subCategory?->name }}"
                                     data-category-id="{{ $p->category_id }}"
                                     data-sub-category-id="{{ $p->sub_category_id }}"
                                     @selected(old('product_id') == $p->id)>
-                                    {{ $p->name }}@if($p->category) ({{ $p->category->name }})@endif
+                                    {{ $p->name }}
                                 </option>
                             @endforeach
                         </select>
@@ -357,6 +361,13 @@
         subCategorySelect.addEventListener('change', function () {
             filterProducts();
             loadLastEntry();
+        });
+        productSelect.addEventListener('change', function () {
+            if (productSelect.value) {
+                return;
+            }
+            categorySelect.value = '';
+            categorySelect.dispatchEvent(new Event('change'));
         });
         meterTypeSelect.addEventListener('change', updateMeterLabels);
         previousReadingInput.addEventListener('input', updateLifeUsedHint);

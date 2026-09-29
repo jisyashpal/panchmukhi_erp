@@ -57,6 +57,76 @@ class ReportController extends Controller
         ]);
     }
 
+    public function productPurchase(Request $request): View|StreamedResponse
+    {
+        $filters = ReportFilters::fromRequest($request);
+
+        if ($request->query('export') === 'excel') {
+            return $this->exportProductPurchase($filters);
+        }
+
+        return view('ho.reports.product-purchase', [
+            ...$this->filterOptions(),
+            'filters' => $filters,
+            'rows' => $this->reports->productWisePurchaseAmount($filters),
+        ]);
+    }
+
+    public function purchaseItems(Request $request): View|StreamedResponse
+    {
+        $filters = ReportFilters::fromRequest($request);
+
+        if ($request->query('export') === 'excel') {
+            return $this->exportPurchaseItems($filters);
+        }
+
+        if ($request->query('export') === 'all') {
+            return $this->exportPurchaseItems(new ReportFilters, allTime: true);
+        }
+
+        return view('ho.reports.purchase-items', [
+            ...$this->filterOptions(),
+            'filters' => $filters,
+            'items' => $this->reports->purchaseItemRegister($filters),
+            'totals' => $this->reports->purchaseItemRegisterTotals($filters),
+        ]);
+    }
+
+    public function productPurchaseLedger(Request $request, Product $product): View|StreamedResponse
+    {
+        $filters = ReportFilters::fromRequest($request);
+        $items = $this->reports->productPurchaseLedger($product->id, $filters);
+
+        if ($request->query('export') === 'excel') {
+            return SpreadsheetDownload::csv("product-purchase-ledger-{$product->id}.csv", [
+                'Date',
+                'PO Ref',
+                'Plant',
+                'Supplier',
+                'Qty',
+                'Unit Price',
+                'Line Total',
+                'Status',
+            ], $items->map(fn ($r) => [
+                $r->ordered_at ? \Carbon\Carbon::parse($r->ordered_at)->format('d M Y') : '',
+                $r->reference_no,
+                $r->plant_name,
+                $r->supplier_name ?? '—',
+                $r->quantity,
+                $r->unit_price,
+                $r->line_total,
+                $r->status,
+            ]));
+        }
+
+        return view('ho.reports.product-purchase-ledger', [
+            ...$this->filterOptions(),
+            'filters' => $filters,
+            'product' => $product,
+            'items' => $items,
+        ]);
+    }
+
     public function multipleUsage(Request $request): View|StreamedResponse
     {
         $filters = ReportFilters::fromRequest($request);
@@ -150,23 +220,24 @@ class ReportController extends Controller
             'Recorded By',
             'Notes',
         ], $entries->map(function ($e) {
-            $unit = $e->meterUnitLabel();
+            $use = $e->productUse;
+            $unit = $use?->meterUnitLabel() ?? '';
 
             return [
-                $e->used_at->format('d M Y'),
+                $e->moved_at->format('d M Y'),
                 $e->plant->name,
                 $e->vehicle?->displayLabel() ?? '',
                 $e->product->name,
-                $e->replacedProduct?->name ?? '',
+                $use?->replacedProduct?->name ?? '',
                 $e->product->category?->name ?? '',
-                $e->subCategory?->name ?? '',
-                $e->meter_type === 'km' ? 'KM' : 'Hours',
-                $e->previous_reading !== null ? $e->previous_reading.' '.$unit : '',
-                $e->current_reading !== null ? $e->current_reading.' '.$unit : '',
-                $e->life_hours.' '.$unit,
+                $use?->subCategory?->name ?? $e->subCategory?->name ?? '',
+                $use ? ($use->meter_type === 'km' ? 'KM' : 'Hours') : '',
+                $use?->previous_reading !== null ? $use->previous_reading.' '.$unit : '',
+                $use?->current_reading !== null ? $use->current_reading.' '.$unit : '',
+                $use ? $use->life_hours.' '.$unit : '',
                 $e->quantity,
-                $e->usage_count,
-                $e->recorder->name ?? '',
+                $use?->usage_count ?? 1,
+                $e->performer->name ?? '',
                 $e->notes ?? '',
             ];
         }));
@@ -243,6 +314,68 @@ class ReportController extends Controller
                         $r->total_life_hours,
                         $r->avg_life_hours,
                     ]));
+    }
+
+    private function exportPurchaseItems(ReportFilters $filters, bool $allTime = false): StreamedResponse
+    {
+        $items = $this->reports->purchaseItemRegister($filters, forExport: true, oldestFirst: $allTime);
+
+        return SpreadsheetDownload::csv($allTime ? 'all-purchase-items.csv' : 'purchase-items-report.csv', [
+            'Date',
+            'PO Ref',
+            'Plant',
+            'Supplier',
+            'Product',
+            'SKU',
+            'Category',
+            'Unit',
+            'Qty',
+            'Unit Price',
+            'Line Total',
+            'Status',
+        ], $items->map(fn ($r) => [
+            $r->ordered_at ? \Carbon\Carbon::parse($r->ordered_at)->format('d M Y') : '',
+            $r->reference_no,
+            $r->plant_name,
+            $r->supplier_name ?? '',
+            $r->product_name,
+            $r->sku ?? '',
+            $r->category_name,
+            $r->unit ?? '',
+            $r->quantity,
+            $r->unit_price,
+            $r->line_total,
+            $r->status,
+        ]));
+    }
+
+    private function exportProductPurchase(ReportFilters $filters): StreamedResponse
+    {
+        $rows = $this->reports->productWisePurchaseAmount($filters);
+
+        return SpreadsheetDownload::csv('product-purchase-report.csv', [
+            'Product',
+            'SKU',
+            'Category',
+            'Unit',
+            'Orders',
+            'Suppliers',
+            'Total Qty',
+            'Avg Rate',
+            'Total Amount',
+            'Last Purchased',
+        ], $rows->map(fn ($r) => [
+            $r->product_name,
+            $r->sku ?? '',
+            $r->category_name,
+            $r->unit ?? '',
+            $r->order_count,
+            $r->supplier_count,
+            $r->total_qty,
+            $r->avg_unit_price,
+            $r->total_amount,
+            $r->last_purchased_at ? \Carbon\Carbon::parse($r->last_purchased_at)->format('d M Y') : '',
+        ]));
     }
 
     private function exportPartyPurchase(ReportFilters $filters): StreamedResponse

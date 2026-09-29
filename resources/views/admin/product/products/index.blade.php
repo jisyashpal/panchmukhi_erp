@@ -66,6 +66,7 @@
                         <th>Item Type</th>
                         <th>Brand</th>
                         <th>Unit</th>
+                        <th class="text-end">Current Stock</th>
                         <th class="text-end">Reorder Level</th>
                         <th>Status</th>
                         <th class="text-end">Actions</th>
@@ -81,6 +82,7 @@
                             <td>{{ $p->subCategory?->name ?? '—' }}</td>
                             <td>{{ $p->brand?->name ?? '—' }}</td>
                             <td>{{ $p->unit->name }} <span class="text-muted small">({{ $p->unit->abbreviation }})</span></td>
+                            <td class="text-end">{{ number_format((float) ($p->current_stock ?? 0), 2) }} <span class="text-muted small">{{ $p->unit->abbreviation }}</span></td>
                             <td class="text-end">{{ number_format($p->reorder_level) }}</td>
                             <td>
                                 @if($p->is_active)
@@ -89,13 +91,15 @@
                                     <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
                                 @endif
                             </td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
                                 <x-admin-action-edit :href="route('admin.products.edit', $p)" />
+                                <x-admin-action-delete :action="route('admin.products.destroy', $p)"
+                                    confirm="Delete this product?" />
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10">
+                            <td colspan="11">
                                 <div class="admin-empty"><i class="bi bi-box-seam d-block"></i>No products found</div>
                             </td>
                         </tr>
@@ -133,11 +137,20 @@
             }
         </style>
         @include('partials.infinite-suggestions')
+        @php
+            $productSearchData = $allProducts->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku,
+                'category' => $p->category?->name ?? '',
+                'item_type' => $p->subCategory?->name ?? '',
+            ])->values();
+        @endphp
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const searchInput = document.getElementById('product-search');
                 const suggestionsBox = document.getElementById('autocomplete-suggestions');
-                const products = @json($allProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku]));
+                const products = @json($productSearchData);
 
                 if (!searchInput || !suggestionsBox) return;
 
@@ -146,9 +159,9 @@
                     renderItem: function (p) {
                         const div = document.createElement('div');
                         div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                        div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
+                        div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.category || 'No category'} / ${p.item_type || 'No item type'} · ${p.sku || 'No SKU'}</span>`;
                         div.addEventListener('click', function () {
-                            searchInput.value = p.name;
+                            searchInput.value = p.sku || p.name;
                             infinite.reset();
                             suggestionsBox.classList.add('d-none');
                             searchInput.form.submit();

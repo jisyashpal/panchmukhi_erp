@@ -54,18 +54,22 @@ class DashboardController extends Controller
             ->join('purchase_items', 'purchase_items.purchase_id', '=', 'purchases.id');
         $resolver->applyToQuery($purchaseQtyQuery, 'purchases.ordered_at', $request);
 
-        // Category-wise Stock In qty + amount
+        $purchaseAmounts = DB::table('purchase_items')
+            ->select('purchase_id', 'product_id', DB::raw('SUM(line_total) as line_total'))
+            ->groupBy('purchase_id', 'product_id');
+
+        // Category-wise Stock In qty + amount. Qty includes every inward movement.
         $categoryInQuery = DB::table('stock_movements as sm')
             ->join('products as p', 'p.id', '=', 'sm.product_id')
             ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->join('purchase_items as pi', fn ($j) => $j
-                ->on('pi.purchase_id', '=', 'sm.reference_id')
-                ->on('pi.product_id', '=', 'sm.product_id')
-            )
+            ->leftJoinSub($purchaseAmounts, 'pi', function ($join) {
+                $join->on('pi.purchase_id', '=', 'sm.reference_id')
+                    ->on('pi.product_id', '=', 'sm.product_id')
+                    ->where('sm.reference_type', '=', StockReferenceType::Purchase->value);
+            })
             ->where('sm.type', StockMovementType::In->value)
-            ->where('sm.reference_type', StockReferenceType::Purchase->value)
             ->when($plantId, fn ($q) => $q->where('sm.plant_id', $plantId))
-            ->select('c.name as category', DB::raw('SUM(sm.quantity) as in_qty'), DB::raw('SUM(pi.line_total) as in_amount'))
+            ->select('c.name as category', DB::raw('SUM(sm.quantity) as in_qty'), DB::raw('SUM(COALESCE(pi.line_total, 0)) as in_amount'))
             ->groupBy('c.id', 'c.name')
             ->orderByDesc('in_amount')
             ->whereDate('sm.moved_at', '>=', $range->dateFrom)

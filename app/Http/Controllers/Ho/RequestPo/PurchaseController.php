@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Ho\RequestPo;
 
+use App\Http\Controllers\Concerns\EditsPurchases;
 use App\Http\Controllers\Concerns\ManagesPurchaseImports;
 use App\Http\Controllers\Concerns\StreamsPurchasePdf;
 use App\Http\Controllers\Controller;
@@ -18,7 +19,17 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PurchaseController extends Controller
 {
-    use ManagesPurchaseImports, StreamsPurchasePdf;
+    use EditsPurchases, ManagesPurchaseImports, StreamsPurchasePdf;
+
+    protected function purchasePortal(): string
+    {
+        return 'ho';
+    }
+
+    protected function restrictPurchaseEdit(): bool
+    {
+        return false;
+    }
 
     public function __construct(
         protected PurchasePricingService $pricing,
@@ -50,6 +61,25 @@ class PurchaseController extends Controller
             'purchases' => $purchases,
             'plants' => Plant::orderBy('name')->get(),
         ]);
+    }
+
+    public function edit(Purchase $purchase): View|RedirectResponse
+    {
+        $this->authorizeSuperAdminPurchaseEdit();
+
+        return $this->showPurchaseEditForm($purchase);
+    }
+
+    public function update(Request $request, Purchase $purchase): RedirectResponse
+    {
+        $this->authorizeSuperAdminPurchaseEdit();
+
+        return $this->savePurchaseEdit($request, $purchase);
+    }
+
+    protected function authorizeSuperAdminPurchaseEdit(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
     }
 
     public function show(Purchase $purchase): View

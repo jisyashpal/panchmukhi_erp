@@ -26,11 +26,11 @@
             <input type="hidden" name="status" value="{{ request('status') }}">
         @endif
         <div class="col-md-4">
-            <label class="form-label small">Product</label>
-            <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <label class="form-label small">Search Item Name / SKU</label>
+            <select name="product_id" class="form-select form-select-sm searchable-item-select" onchange="this.form.submit()">
                 <option value="">All products</option>
                 @foreach($products as $p)
-                    <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
+                    <option value="{{ $p->id }}" data-name="{{ $p->name }}" data-sku="{{ $p->sku }}" data-category="{{ $p->category?->name }}" data-item-type="{{ $p->subCategory?->name }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
                 @endforeach
             </select>
         </div>

@@ -134,11 +134,20 @@
             }
         </style>
         @include('partials.infinite-suggestions')
+        @php
+            $productSearchData = $allProducts->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku,
+                'category' => $p->category?->name ?? '',
+                'item_type' => $p->subCategory?->name ?? '',
+            ])->values();
+        @endphp
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const searchInput = document.getElementById('product-search');
                 const suggestionsBox = document.getElementById('autocomplete-suggestions');
-                const products = @json($allProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku]));
+                const products = @json($productSearchData);
 
                 if (!searchInput || !suggestionsBox) return;
 
@@ -147,9 +156,9 @@
                     renderItem: function (p) {
                         const div = document.createElement('div');
                         div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                        div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
+                        div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.category || 'No category'} / ${p.item_type || 'No item type'} · ${p.sku || 'No SKU'}</span>`;
                         div.addEventListener('click', function () {
-                            searchInput.value = p.name;
+                            searchInput.value = p.sku || p.name;
                             infinite.reset();
                             suggestionsBox.classList.add('d-none');
                             searchInput.form.submit();

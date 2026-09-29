@@ -12,11 +12,11 @@
             @endif
             <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
         @else
-            <select name="items[{{ $i }}][product_id]" required class="form-select form-select-sm stock-in-po-input">
-                <option value="">— Select product —</option>
+            <select name="items[{{ $i }}][product_id]" required class="form-select form-select-sm stock-in-po-input searchable-item-select">
+                <option value="">Search Item Name / SKU</option>
                 @foreach($products as $p)
-                    <option value="{{ $p->id }}" @selected(old("items.$i.product_id") == $p->id)>
-                        {{ $p->name }}@if($p->sku) ({{ $p->sku }})@endif
+                    <option value="{{ $p->id }}" data-name="{{ $p->name }}" data-sku="{{ $p->sku }}" data-category="{{ $p->category?->name }}" data-item-type="{{ $p->subCategory?->name }}" @selected(old("items.$i.product_id") == $p->id)>
+                        {{ $p->name }}
                     </option>
                 @endforeach
             </select>

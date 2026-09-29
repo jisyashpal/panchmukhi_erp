@@ -738,13 +738,18 @@ a.admin-stat-card:hover .stat-label {
     font-weight: 500;
     margin-bottom: 1.25rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
 }
 
 .admin-alert-success {
     background: #ecfdf5;
     color: #047857;
+}
+
+.admin-alert-warning {
+    background: #fffbeb;
+    color: #b45309;
 }
 
 .admin-alert-danger {
@@ -1063,6 +1068,43 @@ a.admin-stat-card:hover .stat-label {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--admin-text, #1e293b);
+}
+
+.searchable-item-select-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.item-sku-suggestions {
+    position: fixed;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 2000;
+    display: none;
+}
+
+.item-sku-suggestions.is-open {
+    display: block;
+}
+
+.item-sku-suggestions .suggestion-item {
+    cursor: pointer;
+    transition: background 0.15s ease-in-out;
+}
+
+.item-sku-suggestions .suggestion-item:hover {
+    background-color: #f8f9fa;
+}
+
+.item-sku-suggestions .suggestion-item:last-child {
+    border-bottom: none !important;
 }
 
 .purchase-create-table td.purchase-col-action {

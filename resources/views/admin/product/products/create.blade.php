@@ -1,5 +1,19 @@
 @extends('layouts.admin')
 @section('title', 'Add Products')
+@php
+    $catalogReturn = array_filter([
+        'redirect' => 'products.create',
+        'pc_name' => request('name'),
+        'pc_size' => request('size'),
+        'pc_sku_code' => request('sku_code'),
+        'pc_category_id' => request('category_id'),
+        'pc_sub_category_id' => request('sub_category_id'),
+        'pc_brand_id' => request('brand_id'),
+        'pc_unit_id' => request('unit_id'),
+        'pc_reorder_level' => request('reorder_level'),
+        'category_id' => request('category_id'),
+    ], fn ($value) => $value !== null && $value !== '');
+@endphp
 @section('content')
 <x-admin-page-header title="Add Products" subtitle="Add new products to the catalog">
     <a href="{{ route('admin.products.index') }}" class="btn btn-admin-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
@@ -71,7 +85,7 @@
             <div class="col-md-3">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label class="form-label small fw-semibold text-secondary mb-0">Category <span class="text-danger">*</span></label>
-                    <a href="{{ route('admin.categories.create', ['redirect' => 'products.create']) }}" class="text-primary small" style="text-decoration: none;">
+                    <a href="{{ route('admin.categories.create', $catalogReturn) }}" class="text-primary small js-create-catalog" data-catalog="category" style="text-decoration: none;">
                         <i class="bi bi-plus-circle me-1"></i>Create
                     </a>
                 </div>
@@ -85,7 +99,7 @@
             <div class="col-md-3">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label class="form-label small fw-semibold text-secondary mb-0">Item Type</label>
-                    <a href="{{ route('admin.sub-categories.create', ['redirect' => 'products.create']) }}" class="text-primary small" style="text-decoration: none;">
+                    <a href="{{ route('admin.sub-categories.create', $catalogReturn) }}" class="text-primary small js-create-catalog" data-catalog="sub-category" style="text-decoration: none;">
                         <i class="bi bi-plus-circle me-1"></i>Create
                     </a>
                 </div>
@@ -99,7 +113,7 @@
             <div class="col-md-2">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label class="form-label small fw-semibold text-secondary mb-0">Brand</label>
-                    <a href="{{ route('admin.brands.create', ['redirect' => 'products.create']) }}" class="text-primary small" style="text-decoration: none;">
+                    <a href="{{ route('admin.brands.create', $catalogReturn) }}" class="text-primary small js-create-catalog" data-catalog="brand" style="text-decoration: none;">
                         <i class="bi bi-plus-circle me-1"></i>Create
                     </a>
                 </div>
@@ -113,7 +127,7 @@
             <div class="col-md-2">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label class="form-label small fw-semibold text-secondary mb-0">Unit <span class="text-danger">*</span></label>
-                    <a href="{{ route('admin.units.create', ['redirect' => 'products.create']) }}" class="text-primary small" style="text-decoration: none;">
+                    <a href="{{ route('admin.units.create', $catalogReturn) }}" class="text-primary small js-create-catalog" data-catalog="unit" style="text-decoration: none;">
                         <i class="bi bi-plus-circle me-1"></i>Create
                     </a>
                 </div>
@@ -132,181 +146,6 @@
 </template>
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const container = document.getElementById('products-container');
-    const addRowBtn = document.getElementById('add-row-btn');
-    const template = document.getElementById('product-row-template').innerHTML;
-    let rowIndex = 0;
-
-    function getOrStoreOriginalOptions(select) {
-        if (!select.originalOptions) {
-            select.originalOptions = Array.from(select.options);
-        }
-        return select.originalOptions;
-    }
-
-    function filterSubCategories(row) {
-        const categorySelect = row.querySelector('.product-category');
-        const subCategorySelect = row.querySelector('.product-subcategory');
-        if (!categorySelect || !subCategorySelect) return;
-
-        const selectedCategoryId = categorySelect.value;
-        const originalOptions = getOrStoreOriginalOptions(subCategorySelect);
-
-        subCategorySelect.innerHTML = '';
-        
-        if (!selectedCategoryId) {
-            subCategorySelect.disabled = true;
-            const defaultOpt = originalOptions[0].cloneNode(true);
-            defaultOpt.text = 'Select Category First';
-            subCategorySelect.appendChild(defaultOpt);
-            subCategorySelect.value = '';
-            generateRowSku(row);
-            return;
-        }
-
-        subCategorySelect.disabled = false;
-        subCategorySelect.appendChild(originalOptions[0]); // placeholder
-
-        originalOptions.slice(1).forEach(option => {
-            if (option.getAttribute('data-category-id') === selectedCategoryId) {
-                subCategorySelect.appendChild(option);
-            }
-        });
-        subCategorySelect.value = '';
-        generateRowSku(row);
-    }
-
-    function generateRowSku(row) {
-        const nameInput = row.querySelector('.product-name');
-        const skuCodeInput = row.querySelector('.product-sku-code');
-        const sizeInput = row.querySelector('.product-size');
-        const categorySelect = row.querySelector('.product-category');
-        const subCategorySelect = row.querySelector('.product-subcategory');
-        const brandSelect = row.querySelector('.product-brand');
-        const skuInput = row.querySelector('.product-sku');
-        
-        if (!nameInput || !sizeInput || !categorySelect || !subCategorySelect || !skuInput) return;
-
-        const categoryOption = categorySelect.options[categorySelect.selectedIndex];
-        const categoryName = (categoryOption && categoryOption.value) ? categoryOption.text : '';
-        const subCategoryOption = subCategorySelect.options[subCategorySelect.selectedIndex];
-        const subCategoryName = (subCategoryOption && subCategoryOption.value) ? subCategoryOption.text : '';
-        const brandOption = brandSelect ? brandSelect.options[brandSelect.selectedIndex] : null;
-        const brandName = (brandOption && brandOption.value) ? brandOption.text : '';
-
-        const cleanCategory = categoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        const cleanSubCategory = subCategoryName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        const cleanSize = sizeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        const cleanBrand = brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        const cleanSkuCode = skuCodeInput ? skuCodeInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : '';
-        const cleanName = nameInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-
-        const catPart = cleanCategory ? cleanCategory.substring(0, 3) : '';
-        const subPart = cleanSubCategory ? cleanSubCategory.substring(0, 3) : '';
-        const sizePart = cleanSize || '';
-        const brandPart = cleanBrand ? cleanBrand.substring(0, 3) : ''; 
-        const skuCodePart = cleanSkuCode || '';
-        const namePart = cleanName ? cleanName.substring(0, 3) : '';
-
-        let sku = catPart;
-        if (subPart) {
-            sku += '_' + subPart;
-        }
-        if (brandPart) {
-            sku += '_' + brandPart;
-        }
-        if (skuCodePart) {
-            sku += '_' + skuCodePart;
-        }
-        if (namePart) {
-            sku += '_' + namePart;
-        }
-        if (sizePart) {
-            sku += '_' + sizePart;
-        }
-
-        skuInput.value = sku;
-    }
-
-    function initializeRow(row) {
-        const categorySelect = row.querySelector('.product-category');
-        const subCategorySelect = row.querySelector('.product-subcategory');
-        const brandSelect = row.querySelector('.product-brand');
-        const nameInput = row.querySelector('.product-name');
-        const skuCodeInput = row.querySelector('.product-sku-code');
-        const sizeInput = row.querySelector('.product-size');
-
-        if (categorySelect) {
-            categorySelect.addEventListener('change', function () {
-                filterSubCategories(row);
-                generateRowSku(row);
-            });
-            filterSubCategories(row);
-        }
-
-        if (subCategorySelect) {
-            subCategorySelect.addEventListener('change', function () {
-                generateRowSku(row);
-            });
-        }
-
-        if (brandSelect) {
-            brandSelect.addEventListener('change', function () {
-                generateRowSku(row);
-            });
-        }
-
-        if (skuCodeInput) {
-            skuCodeInput.addEventListener('input', function () {
-                generateRowSku(row);
-            });
-        }
-
-        if (nameInput) {
-            nameInput.addEventListener('input', function () {
-                generateRowSku(row);
-            });
-        }
-
-        if (sizeInput) {
-            sizeInput.addEventListener('input', function () {
-                generateRowSku(row);
-            });
-        }
-
-        const removeBtn = row.querySelector('.remove-row-btn');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function () {
-                const rows = container.querySelectorAll('.product-row-group');
-                if (rows.length > 1) {
-                    row.remove();
-                } else {
-                    alert('At least one product entry is required.');
-                }
-            });
-        }
-    }
-
-    function addRow() {
-        const html = template.replace(/__INDEX__/g, rowIndex);
-        const div = document.createElement('div');
-        div.className = 'product-row-group border rounded p-3 mb-3 bg-light position-relative';
-        div.setAttribute('data-index', rowIndex);
-        div.innerHTML = html;
-        container.appendChild(div);
-        initializeRow(div);
-        rowIndex++;
-    }
-
-    if (addRowBtn) {
-        addRowBtn.addEventListener('click', addRow);
-    }
-
-    // Add first row on load
-    addRow();
-});
-</script>
+@include('partials.product-create-form-script')
 @endpush
 @endsection

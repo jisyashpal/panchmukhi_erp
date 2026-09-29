@@ -48,11 +48,11 @@
         @endif
         @if($products)
             <div class="col-6 col-md-3">
-                <label class="form-label">Product</label>
-                <select name="product_id" class="form-select form-select-sm">
+                <label class="form-label">Search Item Name / SKU</label>
+                <select name="product_id" class="form-select form-select-sm searchable-item-select">
                     <option value="">All products</option>
                     @foreach($products as $product)
-                        <option value="{{ $product->id }}" @selected(request('product_id') == $product->id)>{{ $product->name }}</option>
+                        <option value="{{ $product->id }}" data-name="{{ $product->name }}" data-sku="{{ $product->sku }}" data-category="{{ $product->category?->name }}" data-item-type="{{ $product->subCategory?->name }}" @selected(request('product_id') == $product->id)>{{ $product->name }}</option>
                     @endforeach
                 </select>
             </div>

@@ -51,10 +51,10 @@
             </div>
             <div class="col-12 col-md-2">
                 <label class="form-label small">Filter by Product</label>
-                <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="product_id" id="product-id-filter" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All products</option>
                     @foreach($products as $p)
-                        <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
+                        <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }} — {{ $p->category?->name ?? 'No category' }} / {{ $p->subCategory?->name ?? 'No item type' }} ({{ $p->sku }})</option>
                     @endforeach
                 </select>
             </div>
@@ -824,6 +824,8 @@
             'id' => $p->id,
             'name' => $p->name,
             'sku' => $p->sku ?? '',
+            'category' => $p->category?->name ?? '',
+            'item_type' => $p->subCategory?->name ?? '',
         ])->values();
     @endphp
     <script type="application/json" id="products-search-data">@json($productSearchData)</script>
@@ -843,9 +845,13 @@
                 renderItem: function (p) {
                     const div = document.createElement('div');
                     div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-                    div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
+                    div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.category || 'No category'} / ${p.item_type || 'No item type'} · ${p.sku || 'No SKU'}</span>`;
                     div.addEventListener('click', function () {
-                        searchInput.value = p.name;
+                        const productSelect = document.getElementById('product-id-filter');
+                        searchInput.value = '';
+                        if (productSelect) {
+                            productSelect.value = String(p.id);
+                        }
                         infinite.reset();
                         suggestionsBox.classList.add('d-none');
                         searchInput.form.submit();

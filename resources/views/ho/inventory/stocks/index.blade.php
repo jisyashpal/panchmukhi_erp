@@ -2,8 +2,11 @@
 @section('title', 'Stocks')
 @section('content')
 <x-admin-page-header title="Stocks" subtitle="Current balances and {{ $financialYearRange->displayLabel() }} movement summary">
-    <a href="{{ route('ho.stocks.bulk-upload') }}" class="btn btn-primary btn-sm me-1">
-        <i class="bi bi-file-earmark-arrow-up me-1"></i>Bulk Upload
+    <a href="{{ route('ho.stocks.stock-in.bulk-upload') }}" class="btn btn-primary btn-sm me-1">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Stock In Bulk
+    </a>
+    <a href="{{ route('ho.stocks.stock-out.bulk-upload') }}" class="btn btn-outline-warning btn-sm me-1">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Stock Out Bulk
     </a>
     <a href="{{ route('ho.stocks.stock-in') }}" class="btn btn-success btn-sm me-1">
         <i class="bi bi-box-arrow-in-down me-1"></i>Stock In
@@ -52,10 +55,10 @@
         </div>
         <div class="col-12 col-md-3">
             <label class="form-label small">Filter by Item Name</label>
-            <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <select name="product_id" id="product-id-filter" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">All items</option>
                 @foreach($products as $p)
-                    <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }}</option>
+                    <option value="{{ $p->id }}" @selected(request('product_id') == $p->id)>{{ $p->name }} — {{ $p->category?->name ?? 'No category' }} / {{ $p->subCategory?->name ?? 'No item type' }} ({{ $p->sku }})</option>
                 @endforeach
             </select>
         </div>
@@ -75,6 +78,7 @@
                 <tr>
                     <th>Plant</th>
                     <th>Category</th>
+                    <th>Item Type</th>
                     <th>Item Name</th>
                     <th class="text-end">Current Qty</th>
                     <th class="text-end">FY Stock In</th>
@@ -87,7 +91,8 @@
                 <tr>
                     <td>{{ $b->plant->name }}</td>
                     <td>{{ $b->product->category?->name ?? '—' }}</td>
-                    <td class="fw-semibold">{{ $b->product->name }}</td>
+                    <td>{{ $b->product->subCategory?->name ?? '—' }}</td>
+                    <td class="fw-semibold">{{ $b->product->name }}<div class="text-muted small">{{ $b->product->sku }}</div></td>
                     <td class="text-end">{{ $b->quantity }} {{ $b->product->unit->abbreviation ?? '' }}</td>
                     <td class="text-end text-success">{{ $b->fy_stock_in }} {{ $b->product->unit->abbreviation ?? '' }}</td>
                     <td class="text-end text-danger">{{ $b->fy_stock_out }} {{ $b->product->unit->abbreviation ?? '' }}</td>
@@ -99,11 +104,24 @@
                     </td>
                 </tr>
                 @empty
+                @if($selectedProduct)
                 <tr>
-                    <td colspan="7">
+                    <td>{{ $plants->firstWhere('id', (int) request('plant_id'))?->name ?? 'All plants' }}</td>
+                    <td>{{ $selectedProduct->category?->name ?? '—' }}</td>
+                    <td>{{ $selectedProduct->subCategory?->name ?? '—' }}</td>
+                    <td class="fw-semibold">{{ $selectedProduct->name }}<div class="text-muted small">{{ $selectedProduct->sku }}</div></td>
+                    <td class="text-end text-danger">0 {{ $selectedProduct->unit?->abbreviation ?? '' }}</td>
+                    <td class="text-end text-success">0 {{ $selectedProduct->unit?->abbreviation ?? '' }}</td>
+                    <td class="text-end text-danger">0 {{ $selectedProduct->unit?->abbreviation ?? '' }}</td>
+                    <td></td>
+                </tr>
+                @else
+                <tr>
+                    <td colspan="8">
                         <div class="admin-empty"><i class="bi bi-boxes d-block"></i>No stock activity found for {{ $financialYearRange->displayLabel() }}</div>
                     </td>
                 </tr>
+                @endif
                 @endforelse
             </tbody>
         </table>
@@ -135,11 +153,20 @@
 }
 </style>
 @include('partials.infinite-suggestions')
+@php
+    $stockProductSearch = $products->map(fn ($p) => [
+        'id' => $p->id,
+        'name' => $p->name,
+        'sku' => $p->sku,
+        'category' => $p->category?->name ?? '',
+        'item_type' => $p->subCategory?->name ?? '',
+    ])->values();
+@endphp
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('product-search');
     const suggestionsBox = document.getElementById('autocomplete-suggestions');
-    const products = @json($products->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku]));
+    const products = @json($stockProductSearch);
 
     if (!searchInput || !suggestionsBox) return;
 
@@ -148,9 +175,13 @@ document.addEventListener('DOMContentLoaded', function() {
         renderItem: function (p) {
             const div = document.createElement('div');
             div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
-            div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.sku}</span>`;
+            div.innerHTML = `<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">${p.name}</span> <span class="text-muted small">${p.category || 'No category'} / ${p.item_type || 'No item type'} · ${p.sku || 'No SKU'}</span>`;
             div.addEventListener('click', function() {
-                searchInput.value = p.name;
+                const productSelect = document.getElementById('product-id-filter');
+                searchInput.value = '';
+                if (productSelect) {
+                    productSelect.value = String(p.id);
+                }
                 infinite.reset();
                 suggestionsBox.classList.add('d-none');
                 searchInput.form.submit();

@@ -47,4 +47,18 @@ class ReportFilters
             'search' => $this->search,
         ], fn ($value) => $value !== null && $value !== '');
     }
+
+    public function withoutDates(): self
+    {
+        return new self(
+            plantId: $this->plantId,
+            dateFrom: null,
+            dateTo: null,
+            categoryId: $this->categoryId,
+            productId: $this->productId,
+            vehicleId: $this->vehicleId,
+            search: $this->search,
+            financialYear: $this->financialYear,
+        );
+    }
 }

@@ -1,4 +1,15 @@
-@props(['products', 'subCategories', 'categories', 'containerId' => 'item-lines'])
+@props([
+    'products',
+    'subCategories',
+    'categories',
+    'containerId' => 'item-lines',
+    'canAddProduct' => null,
+    'addProductRoute' => null,
+])
+@php
+    $canAddProduct = $canAddProduct ?? auth()->user()?->canManagePlantProducts();
+    $addProductRoute = $addProductRoute ?? route('plant.products.create');
+@endphp
 <hr>
 <h2 class="h5 text-danger"> <i class="bi bi-box-seam text-danger me-2"></i> Product Items</h2>
 
@@ -28,6 +39,8 @@
             'id' => $p->id,
             'name' => $p->name,
             'sku' => $p->sku ?? '',
+            'category' => $p->category?->name ?? '',
+            'item_type' => $p->subCategory?->name ?? '',
             'size' => $p->size,
             'unit' => $p->unit?->abbreviation ?? $p->unit?->name ?? '',
             'sub_category_id' => $p->sub_category_id,
@@ -85,7 +98,7 @@
                 div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate" style="max-width:100%">'
                     + product.name
                     + '</span> <span class="text-muted small">'
-                    + (product.sku || 'No SKU')
+                    + ((product.category || 'No category') + ' / ' + (product.item_type || 'No item type') + ' · ' + (product.sku || 'No SKU'))
                     + '</span>';
                 div.addEventListener('mousedown', function (event) {
                     event.preventDefault();
@@ -96,7 +109,7 @@
                 return div;
             },
             renderTail: function () {
-                @if(auth()->user()->canManagePlantProducts())
+                @if($canAddProduct)
                 if (!activeInput || !activeRow) {
                     return null;
                 }
@@ -104,7 +117,7 @@
                 const subCatId = subCatSelect ? subCatSelect.value : '';
                 const catSelect = activeRow.querySelector('.item-category-select');
                 const addProduct = document.createElement('a');
-                addProduct.href = @json(route('plant.products.create'));
+                addProduct.href = @json($addProductRoute);
                 const params = new URLSearchParams();
                 if (activeInput.value.trim()) {
                     params.set('name', activeInput.value.trim());
@@ -235,6 +248,17 @@
                 const productIdInput = row.querySelector('.item-product-id');
                 if (productIdInput) {
                     productIdInput.value = '';
+                }
+                if (!event.target.value.trim()) {
+                    const catSelect = row.querySelector('.item-category-select');
+                    const subCatSelect = row.querySelector('.item-subcategory-select');
+                    if (catSelect) {
+                        catSelect.value = '';
+                    }
+                    if (subCatSelect) {
+                        resetDropdown(subCatSelect);
+                        subCatSelect.disabled = true;
+                    }
                 }
                 showSuggestions(event.target);
             }

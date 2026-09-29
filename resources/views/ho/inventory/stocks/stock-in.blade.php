@@ -441,8 +441,27 @@
 
 @else
 <x-admin-page-header title="Stock In" subtitle="Receive from existing POs, or create a PO with bill and record stock in">
-    <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
+    <div class="d-flex gap-2 flex-wrap">
+        <x-report-export-button />
+        <a href="{{ route('ho.stocks.stock-in.bulk-upload') }}" class="btn btn-admin-outline btn-sm">
+            <i class="bi bi-file-earmark-arrow-up me-1"></i>Bulk Upload
+        </a>
+        <a href="{{ route('ho.stocks.index') }}" class="btn btn-admin-outline btn-sm">Back</a>
+    </div>
 </x-admin-page-header>
+
+<x-report-filters
+    :plants="$plants"
+    :show-dates="true"
+    search-placeholder="Product, SKU, plant, supplier..."
+    :clear-route="route('ho.stocks.stock-in')"
+/>
+
+@include('partials.stock-movement-list', [
+    'type' => 'in',
+    'movements' => $movements,
+    'purchaseReferences' => $purchaseReferences,
+])
 
 <div class="admin-card admin-table-card mb-4">
     <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">

@@ -6,6 +6,7 @@ window.PanchmukhiInfiniteSuggestions = window.PanchmukhiInfiniteSuggestions || (
     function create(box, options) {
         options = options || {};
         const pageSize = options.pageSize || DEFAULT_PAGE_SIZE;
+        const itemLabel = options.itemLabel || 'product';
         const renderItem = options.renderItem;
         const renderTail = options.renderTail || null;
         let results = [];
@@ -35,7 +36,7 @@ window.PanchmukhiInfiniteSuggestions = window.PanchmukhiInfiniteSuggestions || (
             footer.className = 'suggestion-footer px-3 py-2 small text-muted bg-light border-top';
             footer.textContent = offset < results.length
                 ? ('Showing ' + offset + ' of ' + results.length + ' — scroll for more')
-                : (results.length + ' product' + (results.length === 1 ? '' : 's'));
+                : (results.length + ' ' + itemLabel + (results.length === 1 ? '' : 's'));
             box.appendChild(footer);
         }
 

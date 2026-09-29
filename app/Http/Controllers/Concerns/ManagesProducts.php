@@ -15,6 +15,7 @@ trait ManagesProducts
     public function index(Request $request): View
     {
         $products = Product::with(['category', 'subCategory', 'brand', 'unit'])
+            ->withSum('stockBalances as current_stock', 'quantity')
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
             ->when($request->filled('brand_id'), fn ($q) => $q->where('brand_id', $request->integer('brand_id')))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
@@ -33,7 +34,7 @@ trait ManagesProducts
 
         return view($this->catalogView('products.index'), [
             'products' => $products,
-            'allProducts' => Product::orderBy('name')->get(),
+            'allProducts' => Product::with(['category:id,name', 'subCategory:id,name'])->orderBy('name')->get(['id', 'name', 'sku', 'category_id', 'sub_category_id']),
             'categories' => $this->productFormData()['categories'],
             'brands' => $this->productFormData()['brands'],
         ]);
@@ -78,13 +79,14 @@ trait ManagesProducts
             $subCategoryName = $subCategories[$item['sub_category_id'] ?? ''] ?? '';
             $brandName = $brands[$item['brand_id'] ?? ''] ?? '';
 
+            $skuCode = $this->normalizeSkuCode($item['sku_code'] ?? '');
             $sku = $this->buildProductSku(
                 $categoryName,
                 $subCategoryName,
                 $brandName,
                 $item['name'] ?? '',
                 $item['size'] ?? '',
-                $item['sku_code'] ?? ''
+                $skuCode ?? ''
             );
 
             // Check SKU uniqueness in DB
@@ -153,7 +155,12 @@ trait ManagesProducts
 
     public function edit(Product $product): View
     {
-        return view($this->catalogView('products.edit'), array_merge(['product' => $product], $this->productFormData()));
+        $product->loadMissing(['category', 'subCategory', 'brand']);
+
+        return view($this->catalogView('products.edit'), array_merge([
+            'product' => $product,
+            'skuCode' => $this->guessProductSkuCode($product),
+        ], $this->productFormData()));
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -161,6 +168,45 @@ trait ManagesProducts
         $product->update($this->validatedProduct($request, $product));
 
         return redirect()->route($this->catalogPortal().'.products.index')->with('success', 'Product updated.');
+    }
+
+    public function destroy(Product $product): RedirectResponse
+    {
+        if (
+            $product->purchaseItems()->exists()
+            || $product->stockBalances()->exists()
+            || $product->stockMovements()->exists()
+            || $product->productUseEntries()->exists()
+        ) {
+            return redirect()->route($this->catalogPortal().'.products.index')
+                ->with('error', 'Cannot delete a product that is used in purchases, stock, or usage records.');
+        }
+
+        $categoryId = $product->category_id;
+        $subCategoryId = $product->sub_category_id;
+
+        $product->delete();
+
+        if ($subCategoryId) {
+            $subCategory = \App\Models\SubCategory::query()->find($subCategoryId);
+            if ($subCategory && ! $subCategory->products()->exists()) {
+                $subCategory->delete();
+            }
+        }
+
+        if ($categoryId) {
+            $category = \App\Models\Category::query()->find($categoryId);
+            if (
+                $category
+                && ! $category->products()->exists()
+                && ! $category->subCategories()->exists()
+                && ! $category->vehicles()->exists()
+            ) {
+                $category->delete();
+            }
+        }
+
+        return redirect()->route($this->catalogPortal().'.products.index')->with('success', 'Product deleted.');
     }
 
     public function importForm(): View

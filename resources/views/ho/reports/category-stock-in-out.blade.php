@@ -3,7 +3,7 @@
 @section('content')
 <x-admin-page-header
     title="Product-wise Stock In / Out"
-    subtitle="Stock received (from POs) and issued, listed by product"
+    subtitle="Stock received and issued, listed by product"
 >
     <x-report-export-button />
 </x-admin-page-header>

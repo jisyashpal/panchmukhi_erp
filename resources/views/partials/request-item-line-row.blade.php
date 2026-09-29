@@ -22,17 +22,17 @@
     </select>
 </div>
 <div class="col-md-2">
-    <label class="form-label">Product</label>
-    <select name="items[{{ $index }}][product_id]" class="form-select form-select-sm item-product-select" required>
-        <option value="">Select product</option>
+    <label class="form-label">Search Item Name / SKU <span class="text-danger">*</span></label>
+    <select name="items[{{ $index }}][product_id]" class="form-select form-select-sm item-product-select searchable-item-select" required>
+        <option value="">Search Item Name / SKU</option>
         @foreach($products as $p)
-            <option value="{{ $p->id }}" data-subcategory-id="{{ $p->sub_category_id }}" @selected(($oldItem['product_id'] ?? '') == $p->id)>{{ $p->name }}</option>
+            <option value="{{ $p->id }}" data-name="{{ $p->name }}" data-sku="{{ $p->sku }}" data-category="{{ $p->category?->name }}" data-item-type="{{ $p->subCategory?->name }}" data-subcategory-id="{{ $p->sub_category_id }}" @selected(($oldItem['product_id'] ?? '') == $p->id)>{{ $p->name }}</option>
         @endforeach
     </select>
 </div>
 <div class="col-md-1">
     <label class="form-label">Qty</label>
-    <input type="number" step="1" min="1" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
+    <input type="number" step="0.01" min="0.01" name="items[{{ $index }}][quantity]" value="{{ $oldItem['quantity'] ?? 1 }}"
         required class="form-control form-control-sm">
 </div>
 <div class="col-md-1">

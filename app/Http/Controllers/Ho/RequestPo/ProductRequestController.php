@@ -51,7 +51,7 @@ class ProductRequestController extends Controller
     public function create(): View
     {
         return view('ho.request-po.product-requests.create', [
-            'products' => Product::where('is_active', true)->orderBy('name')->get(),
+            'products' => Product::with('unit')->where('is_active', true)->orderBy('name')->get(),
             'subCategories' => \App\Models\SubCategory::where('is_active', true)->orderBy('name')->get(),
             'categories' => \App\Models\Category::where('is_active', true)->orderBy('name')->get(),
             'plants' => Plant::where('is_active', true)->orderBy('name')->get(),
@@ -62,10 +62,15 @@ class ProductRequestController extends Controller
     {
         $data = $request->validate([
             'plant_id' => ['required', 'exists:plants,id'],
-            'remarks' => ['nullable', 'string'],
+            'requester_name' => ['required', 'string', 'max:255'],
+            'remarks' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.item_name' => ['required', 'string', 'max:255'],
+            'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.unit' => ['nullable', 'string', 'max:100'],
+            'items.*.category_id' => ['nullable', 'exists:categories,id'],
             'items.*.sub_category_id' => ['nullable', 'exists:sub_categories,id'],
+            'items.*.size' => ['nullable', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
             'items.*.remarks' => ['nullable', 'string'],
@@ -75,12 +80,28 @@ class ProductRequestController extends Controller
         $productRequest = ProductRequest::create([
             'plant_id' => $data['plant_id'],
             'requested_by' => auth()->id(),
-            'requester_name' => auth()->user()->name,
+            'requester_name' => trim($data['requester_name']),
             'remarks' => $data['remarks'] ?? null,
             'status' => RequestStatus::Submitted,
         ]);
 
         foreach ($data['items'] as $index => $item) {
+            $productId = $item['product_id'] ?? null;
+            $itemName = trim($item['item_name']);
+            $size = isset($item['size']) ? trim((string) $item['size']) : null;
+            $unit = isset($item['unit']) ? trim((string) $item['unit']) : null;
+            $subCategoryId = $item['sub_category_id'] ?? null;
+
+            if ($productId) {
+                $product = Product::find($productId);
+                if ($product) {
+                    $itemName = $product->name;
+                    $size = $size ?: $product->size;
+                    $unit = $unit ?: ($product->unit?->abbreviation ?: $product->unit?->name);
+                    $subCategoryId = $subCategoryId ?: $product->sub_category_id;
+                }
+            }
+
             $imagePath = null;
             if ($request->hasFile("items.{$index}.image")) {
                 $file = $request->file("items.{$index}.image");
@@ -89,12 +110,12 @@ class ProductRequestController extends Controller
                 $imagePath = 'uploads/' . $fileName;
             }
 
-            $product = Product::find($item['product_id']);
-            $subCategoryId = $item['sub_category_id'] ?? ($product ? $product->sub_category_id : null);
-
             ProductRequestItem::create([
                 'product_request_id' => $productRequest->id,
-                'product_id' => $item['product_id'],
+                'product_id' => $productId,
+                'item_name' => $productId ? null : $itemName,
+                'size' => $size ?: null,
+                'unit' => $unit ?: null,
                 'sub_category_id' => $subCategoryId,
                 'quantity' => $item['quantity'],
                 'priority' => $item['priority'] ?? \App\Enums\PriorityLevel::Medium->value,

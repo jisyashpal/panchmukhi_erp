@@ -102,14 +102,18 @@
                             </td>
                             <td>
                                 <select name="items[{{ $i }}][alternative_product_id]"
-                                    class="form-select form-select-sm dispatch-alt mb-1 d-none"
+                                    class="form-select form-select-sm dispatch-alt searchable-item-select mb-1 d-none"
                                     @disabled($locked)>
-                                    <option value="">— Alternative product —</option>
+                                    <option value="">Search Item Name / SKU</option>
                                     @foreach($products as $p)
                                         @if($p->id !== ($item->original_product_id ?: $item->product_id) || $status === \App\Enums\PurchaseItemDispatchStatus::Alternative->value)
                                             <option value="{{ $p->id }}"
+                                                data-name="{{ $p->name }}"
+                                                data-sku="{{ $p->sku }}"
+                                                data-category="{{ $p->category?->name }}"
+                                                data-item-type="{{ $p->subCategory?->name }}"
                                                 @selected(old("items.$i.alternative_product_id", $item->alternative_product_id) == $p->id)>
-                                                {{ $p->name }}@if($p->sku) ({{ $p->sku }})@endif
+                                                {{ $p->name }}
                                             </option>
                                         @endif
                                     @endforeach

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Ho\Inventory;
 
 use App\Enums\PurchaseItemDispatchStatus;
 use App\Enums\PurchaseStatus;
+use App\Enums\StockMovementType;
 use App\Http\Controllers\Concerns\CreatesPurchaseOrders;
+use App\Http\Controllers\Concerns\ListsStockMovements;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -13,23 +15,32 @@ use App\Models\Plant;
 use App\Models\Supplier;
 use App\Services\PurchasePricingService;
 use App\Services\StockService;
+use App\Support\ReportFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockInController extends Controller
 {
     use CreatesPurchaseOrders;
+    use ListsStockMovements;
 
     public function __construct(
         protected StockService $stockService,
         protected PurchasePricingService $pricing
     ) {}
 
-    public function create(Request $request): View|RedirectResponse
+    public function create(Request $request): View|RedirectResponse|StreamedResponse
     {
+        $filters = ReportFilters::fromRequest($request);
+
+        if ($request->query('export') === 'excel') {
+            return $this->exportStockMovements(StockMovementType::In, $filters);
+        }
+
         $selectedPurchase = $request->filled('purchase_id')
             ? Purchase::with(['items.product', 'items.originalProduct', 'plant', 'supplier'])->find($request->integer('purchase_id'))
             : null;
@@ -49,6 +60,10 @@ class StockInController extends Controller
                 ->with('error', 'Purchaser has not dispatched PO '.$selectedPurchase->reference_no.' yet. Stock in is blocked until product-wise dispatch is submitted.');
         }
 
+        $movements = $selectedPurchase
+            ? null
+            : $this->stockService->listMovements(StockMovementType::In, $filters);
+
         return view('ho.inventory.stocks.stock-in', [
             'plants' => Plant::orderBy('name')->get(),
             'products' => Product::where('is_active', true)->orderBy('name')->get(),
@@ -63,6 +78,11 @@ class StockInController extends Controller
             'selectedPurchase' => $selectedPurchase,
             'canEditPurchase' => $selectedPurchase !== null
                 && in_array($selectedPurchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial], true),
+            'filters' => $filters,
+            'movements' => $movements,
+            'purchaseReferences' => $movements
+                ? $this->stockService->purchaseReferencesFor($movements)
+                : collect(),
         ]);
     }
 

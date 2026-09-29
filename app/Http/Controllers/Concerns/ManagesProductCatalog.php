@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\SubCategory;
 use App\Models\Unit;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 trait ManagesProductCatalog
 {
@@ -38,33 +39,83 @@ trait ManagesProductCatalog
             $brandName = $brand ? $brand->name : '';
         }
 
-        $sku = $product
-            ? $product->sku
-            : $this->buildProductSku(
-                $categoryName,
-                $subCategoryName,
-                $brandName,
-                $request->name ?? '',
-                $request->size ?? '',
-                $request->sku_code ?? ''
-            );
+        $skuCode = $this->normalizeSkuCode($request->input('sku_code'));
+        $sku = $this->buildProductSku(
+            $categoryName,
+            $subCategoryName,
+            $brandName,
+            $request->name ?? '',
+            $request->size ?? '',
+            $skuCode ?? ''
+        );
 
         $request->merge(['sku' => $sku]);
 
-        return $request->validate([
+        $data = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
             'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
             'brand_id' => ['nullable', 'exists:brands,id'],
             'unit_id' => ['required', 'exists:units,id'],
+            'sku_code' => ['nullable', 'string', 'max:20'],
             'name' => ['required', 'string', 'max:255'],
             'size' => ['nullable', 'string', 'max:50'],
-            'sku' => ['required', 'string', 'max:100', 'unique:products,sku,' . ($product?->id ?? 'NULL')],
+            'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->ignore($product?->id)],
             'reorder_level' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
         ], [], [
             'name' => 'item name',
             'size' => 'size/part',
         ]);
+
+        $data['sku'] = $sku;
+        unset($data['sku_code']);
+
+        return $data;
+    }
+
+    protected function normalizeSkuCode(?string $skuCode): ?string
+    {
+        $clean = strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', $skuCode ?? ''));
+
+        return $clean !== '' ? $clean : null;
+    }
+
+    protected function guessProductSkuCode(Product $product): ?string
+    {
+        $withoutCode = $this->buildProductSku(
+            $product->category?->name ?? '',
+            $product->subCategory?->name ?? '',
+            $product->brand?->name ?? '',
+            $product->name ?? '',
+            $product->size ?? '',
+            ''
+        );
+
+        $expected = $withoutCode === '' ? [] : explode('_', $withoutCode);
+        $actual = filled($product->sku) ? explode('_', (string) $product->sku) : [];
+
+        $prefix = 0;
+        $limit = min(count($expected), count($actual));
+        while ($prefix < $limit && $expected[$prefix] === $actual[$prefix]) {
+            $prefix++;
+        }
+
+        $suffix = 0;
+        while (
+            $suffix < (count($expected) - $prefix)
+            && $suffix < (count($actual) - $prefix)
+            && $expected[count($expected) - 1 - $suffix] === $actual[count($actual) - 1 - $suffix]
+        ) {
+            $suffix++;
+        }
+
+        if ($prefix + $suffix !== count($expected)) {
+            return null;
+        }
+
+        $middle = array_slice($actual, $prefix, count($actual) - $prefix - $suffix);
+
+        return count($middle) === 1 ? $middle[0] : null;
     }
 
     protected function buildProductSku(

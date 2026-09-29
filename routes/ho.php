@@ -69,6 +69,8 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
                 Route::get('purchases/bulk-upload', [PurchaseController::class, 'bulkUploadForm'])->name('purchases.bulk-upload');
                 Route::post('purchases/bulk-upload', [PurchaseController::class, 'bulkUpload'])->name('purchases.bulk-upload.store');
                 Route::get('purchases/bulk-upload/sample', [PurchaseController::class, 'downloadBulkSample'])->name('purchases.bulk-upload.sample');
+                Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
+                Route::put('purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
                 Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
                 Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
                 Route::get('purchases/{purchase}/excel', [PurchaseController::class, 'excel'])->name('purchases.excel');
@@ -82,9 +84,15 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
             Route::middleware('permission:'.PermissionSlug::HO_MANAGE_STOCKS)->group(function () {
                 Route::get('stocks', [StockController::class, 'index'])->name('stocks.index');
                 Route::get('stocks/movements', [StockController::class, 'show'])->name('stocks.show');
-                Route::get('stocks/bulk-upload', [StockController::class, 'bulkUploadForm'])->name('stocks.bulk-upload');
-                Route::post('stocks/bulk-upload', [StockController::class, 'bulkUpload'])->name('stocks.bulk-upload.store');
-                Route::get('stocks/bulk-upload/sample-export', [StockController::class, 'downloadBulkSample'])->name('stocks.bulk-upload.sample');
+                Route::get('stocks/bulk-upload', function () {
+                    return redirect()->route('ho.stocks.stock-in.bulk-upload', request()->query());
+                })->name('stocks.bulk-upload');
+                Route::get('stocks/stock-in/bulk-upload', [StockController::class, 'bulkUploadForm'])->name('stocks.stock-in.bulk-upload');
+                Route::post('stocks/stock-in/bulk-upload', [StockController::class, 'bulkUpload'])->name('stocks.stock-in.bulk-upload.store');
+                Route::get('stocks/stock-in/bulk-upload/sample-export', [StockController::class, 'downloadBulkSample'])->name('stocks.stock-in.bulk-upload.sample');
+                Route::get('stocks/stock-out/bulk-upload', [StockController::class, 'bulkUploadForm'])->name('stocks.stock-out.bulk-upload');
+                Route::post('stocks/stock-out/bulk-upload', [StockController::class, 'bulkUpload'])->name('stocks.stock-out.bulk-upload.store');
+                Route::get('stocks/stock-out/bulk-upload/sample-export', [StockController::class, 'downloadBulkSample'])->name('stocks.stock-out.bulk-upload.sample');
                 Route::get('stocks/stock-in', [StockInController::class, 'create'])->name('stocks.stock-in');
                 Route::post('stocks/stock-in', [StockInController::class, 'store'])->name('stocks.stock-in.store');
                 Route::put('stocks/stock-in/{purchase}', [StockInController::class, 'updatePurchase'])->name('stocks.stock-in.update-purchase');
@@ -104,6 +112,9 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
                 Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
                 Route::get('reports/product-life', [ReportController::class, 'productLife'])->name('reports.product-life');
                 Route::get('reports/category-purchase', [ReportController::class, 'categoryPurchase'])->name('reports.category-purchase');
+                Route::get('reports/product-purchase', [ReportController::class, 'productPurchase'])->name('reports.product-purchase');
+                Route::get('reports/product-purchase/{product}/ledger', [ReportController::class, 'productPurchaseLedger'])->name('reports.product-purchase.ledger');
+                Route::get('reports/purchase-items', [ReportController::class, 'purchaseItems'])->name('reports.purchase-items');
                 Route::get('reports/multiple-usage', [ReportController::class, 'multipleUsage'])->name('reports.multiple-usage');
                 Route::get('reports/usage-by-category', [ReportController::class, 'usageByCategory'])->name('reports.usage-by-category');
                 Route::get('reports/party-purchase', [ReportController::class, 'partyPurchase'])->name('reports.party-purchase');

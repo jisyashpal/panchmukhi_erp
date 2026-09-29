@@ -33,6 +33,8 @@
             'id' => $p->id,
             'name' => $p->name,
             'sku' => $p->sku ?? '',
+            'category' => $p->category?->name ?? '',
+            'item_type' => $p->subCategory?->name ?? '',
         ];
     })->values();
     $lineSource = $isPoFromQuotation ? $sourceQuotation->items : ($purchaseRequest?->items ?? collect());
@@ -519,7 +521,7 @@
                 div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
                     + product.name
                     + '</span> <span class="text-muted small">'
-                    + (product.sku || 'No SKU')
+                    + ((product.category || 'No category') + ' / ' + (product.item_type || 'No item type') + ' · ' + (product.sku || 'No SKU'))
                     + '</span>';
                 div.addEventListener('mousedown', function (event) {
                     event.preventDefault();

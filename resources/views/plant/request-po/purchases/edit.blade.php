@@ -1,13 +1,17 @@
-@extends('layouts.plant')
+@extends($portalLayout ?? 'layouts.plant')
 @section('title', 'Edit Purchase Details')
+@php
+    $purchasesIndexRoute = $purchasesIndexRoute ?? 'plant.purchases.index';
+    $purchasesUpdateRoute = $purchasesUpdateRoute ?? 'plant.purchases.update';
+@endphp
 @section('content')
 <x-admin-page-header title="Edit {{ $purchase->isQuotation() ? 'Quotation' : 'Purchase' }} Details" subtitle="{{ $purchase->isQuotation() ? 'Quotation' : 'PO' }}: {{ $purchase->reference_no }}">
-    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline btn-sm">
+    <a href="{{ route($purchasesIndexRoute) }}" class="btn btn-admin-outline btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back
     </a>
 </x-admin-page-header>
 
-<form method="POST" action="{{ route('plant.purchases.update', $purchase) }}">
+<form method="POST" action="{{ route($purchasesUpdateRoute, $purchase) }}">
     @csrf
     @method('PUT')
     
@@ -71,14 +75,22 @@
                                     <th class="text-end" style="width: 100px;">Qty</th>
                                     <th class="text-end" style="width: 130px;">Unit Price (₹)</th>
                                     <th class="text-end" style="width: 90px;">Disc %</th>
-                                    <th class="text-end" style="width: 80px;">GST %</th>
+                                    <th class="text-end" style="width: 110px;">GST %</th>
                                     <th class="text-end" style="width: 110px;">Total (₹)</th>
                                     <th class="text-center" style="width: 45px;"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($purchase->items as $i => $item)
-                                    <tr data-gstrate="{{ $item->gst_rate }}">
+                                    @php
+                                        $gstRates = [0, 5, 12, 18, 28];
+                                        $selectedGst = (float) old('items.'.$i.'.gst_rate', $item->gst_rate);
+                                        if (! in_array($selectedGst, $gstRates, false)) {
+                                            $gstRates[] = $selectedGst;
+                                            sort($gstRates, SORT_NUMERIC);
+                                        }
+                                    @endphp
+                                    <tr>
                                         <td class="position-relative">
                                             <input type="text"
                                                    value="{{ old('items.'.$i.'.item_name', $item->product?->name) }}"
@@ -110,7 +122,13 @@
                                                    value="{{ old('items.'.$i.'.discount_percent', number_format((float)($item->discount_percent ?? 0), 2, '.', '')) }}"
                                                    class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 80px;">
                                         </td>
-                                        <td class="text-end text-muted">{{ $item->gst_rate }}%</td>
+                                        <td class="text-end">
+                                            <select name="items[{{ $i }}][gst_rate]" class="form-select form-select-sm purchase-line-input text-end">
+                                                @foreach($gstRates as $rate)
+                                                    <option value="{{ $rate }}" @selected($selectedGst == $rate)>{{ $rate }} %</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
                                         <td class="text-end fw-semibold">₹<span class="purchase-line-total">0.00</span></td>
                                         <td class="text-center">
                                             <button type="button" class="btn btn-sm btn-outline-danger btn-delete-line" title="Delete product item">
@@ -134,7 +152,7 @@
                 <button type="submit" class="btn btn-admin-primary">
                     <i class="bi bi-check2-circle me-1"></i>Save Details
                 </button>
-                <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline">Cancel</a>
+                <a href="{{ route($purchasesIndexRoute) }}" class="btn btn-admin-outline">Cancel</a>
             </div>
         </div>
 
@@ -169,14 +187,14 @@
                         </tbody>
                     </table>
                     <p class="small text-muted mb-0 mt-3">
-                        <i class="bi bi-info-circle me-1"></i>Totals automatically update when you modify quantity, unit prices or toggle GST type.
+                        <i class="bi bi-info-circle me-1"></i>Totals update when you change quantity, unit price, discount, GST % or GST type.
                     </p>
                 </div>
                 <div class="admin-card-body border-top pt-0 d-none d-xl-block">
                     <button type="submit" class="btn btn-admin-primary w-100 mb-2">
                         <i class="bi bi-check2-circle me-1"></i>Save Details
                     </button>
-                    <a href="{{ route('plant.purchases.index') }}" class="btn btn-admin-outline w-100">Cancel</a>
+                    <a href="{{ route($purchasesIndexRoute) }}" class="btn btn-admin-outline w-100">Cancel</a>
                 </div>
             </div>
         </div>
@@ -189,6 +207,8 @@
             'id' => $p->id,
             'name' => $p->name,
             'sku' => $p->sku ?? '',
+            'category' => $p->category?->name ?? '',
+            'item_type' => $p->subCategory?->name ?? '',
         ];
     })->values() : collect();
 @endphp
@@ -251,7 +271,7 @@
             const qty = parseFloat(row.querySelector('[name*="[quantity]"]')?.value) || 0;
             const price = parseFloat(row.querySelector('[name*="[unit_price]"]')?.value) || 0;
             const discount = parseFloat(row.querySelector('[name*="[discount_percent]"]')?.value) || 0;
-            const gstRate = parseFloat(row.dataset.gstrate) || 0;
+            const gstRate = parseFloat(row.querySelector('[name*="[gst_rate]"]')?.value) || 0;
             const line = calcPurchaseLine(qty, price, gstRate, isInterstate, discount);
             const lineTotalEl = row.querySelector('.purchase-line-total');
             if (lineTotalEl) {
@@ -300,7 +320,7 @@
                 div.innerHTML = '<span class="fw-semibold text-dark d-block text-truncate">'
                     + product.name
                     + '</span> <span class="text-muted small">'
-                    + (product.sku || 'No SKU')
+                    + ((product.category || 'No category') + ' / ' + (product.item_type || 'No item type') + ' · ' + (product.sku || 'No SKU'))
                     + '</span>';
                 div.addEventListener('mousedown', function (event) {
                     event.preventDefault();
@@ -426,7 +446,6 @@
                 const tbody = document.querySelector('#purchase-lines tbody');
                 const i = Date.now();
                 const tr = document.createElement('tr');
-                tr.setAttribute('data-gstrate', '18');
                 tr.innerHTML = `
                     <td class="position-relative">
                         <input type="text" name="items[${i}][item_name]" class="form-control form-control-sm purchase-line-input purchase-item-name-input" placeholder="Search item name or SKU..." required autocomplete="off">
@@ -444,7 +463,15 @@
                     <td class="text-end">
                         <input type="number" step="0.01" min="0" max="100" name="items[${i}][discount_percent]" value="0.00" class="form-control form-control-sm text-end purchase-line-input purchase-discount-input" style="max-width: 80px;">
                     </td>
-                    <td class="text-end text-muted">18%</td>
+                    <td class="text-end">
+                        <select name="items[${i}][gst_rate]" class="form-select form-select-sm purchase-line-input text-end">
+                            <option value="0">0 %</option>
+                            <option value="5">5 %</option>
+                            <option value="12">12 %</option>
+                            <option value="18" selected>18 %</option>
+                            <option value="28">28 %</option>
+                        </select>
+                    </td>
                     <td class="text-end fw-semibold">₹<span class="purchase-line-total">0.00</span></td>
                     <td class="text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger btn-delete-line" title="Delete product item">
