@@ -23,6 +23,10 @@
                     </thead>
                     <tbody>
                         @foreach($purchase->items as $i => $item)
+                        @php
+                            $pending = $item->receivableQuantity();
+                            $isReceivable = $item->isReceivableForStockIn();
+                        @endphp
                         <tr>
                             <td>
                                 {{ $item->product->name }}
@@ -30,12 +34,29 @@
                             </td>
                             <td class="text-end">{{ $item->quantity }}</td>
                             <td class="text-end">
-                                <input type="number" step="0.01" name="lines[{{ $i }}][quantity]" value="{{ $item->quantity - ($item->received_quantity ?? 0) }}" class="form-control form-control-sm text-end">
+                                @if(! $isReceivable)
+                                    <span class="badge bg-warning-subtle text-warning">Dispatch pending</span>
+                                    <input type="hidden" name="lines[{{ $i }}][quantity]" value="0">
+                                @elseif($pending > 0)
+                                    <input type="number" step="0.01" min="0" max="{{ $pending }}" name="lines[{{ $i }}][quantity]" value="{{ $pending }}" class="form-control form-control-sm text-end">
+                                @else
+                                    <span class="badge bg-success-subtle text-success">Done</span>
+                                    <input type="hidden" name="lines[{{ $i }}][quantity]" value="0">
+                                @endif
                             </td>
                         </tr>
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+            <div class="mt-3" style="max-width: 16rem;">
+                <label class="form-label small" for="moved_at">Stock in date</label>
+                <input type="date" name="moved_at" id="moved_at"
+                    value="{{ old('moved_at', now()->toDateString()) }}"
+                    class="form-control form-control-sm @error('moved_at') is-invalid @enderror" required>
+                @error('moved_at')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
             </div>
             <div class="mt-3">
                 <button type="submit" class="btn btn-success btn-sm">

@@ -6,6 +6,7 @@ use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 trait ManagesCategories
@@ -32,6 +33,7 @@ trait ManagesCategories
             'is_active' => ['boolean'],
         ]);
         $data['slug'] = Str::slug($data['name']);
+        $this->assertUniqueCategory($data['name'], $data['slug']);
 
         $category = Category::create($data);
 
@@ -55,6 +57,7 @@ trait ManagesCategories
             'is_active' => ['boolean'],
         ]);
         $data['slug'] = Str::slug($data['name']);
+        $this->assertUniqueCategory($data['name'], $data['slug'], $category->id);
 
         $category->update($data);
 
@@ -71,5 +74,28 @@ trait ManagesCategories
         $category->delete();
 
         return redirect()->route($this->catalogPortal().'.categories.index')->with('success', 'Category deleted.');
+    }
+
+    private function assertUniqueCategory(string $name, string $slug, ?int $ignoreId = null): void
+    {
+        if ($slug === '') {
+            throw ValidationException::withMessages([
+                'name' => 'Enter a category name that contains letters or numbers.',
+            ]);
+        }
+
+        $exists = Category::query()
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->where(function ($query) use ($name, $slug) {
+                $query->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($name))])
+                    ->orWhere('slug', $slug);
+            })
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'name' => 'This category already exists.',
+            ]);
+        }
     }
 }

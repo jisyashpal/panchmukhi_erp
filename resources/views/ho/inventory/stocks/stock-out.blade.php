@@ -11,19 +11,6 @@
         </div>
     </x-admin-page-header>
 
-    <x-report-filters
-        :plants="$plants"
-        :vehicles="$vehicles"
-        :show-dates="true"
-        search-placeholder="Product, SKU, plant, vehicle..."
-        :clear-route="route('ho.stocks.stock-out')"
-    />
-
-    @include('partials.stock-movement-list', [
-        'type' => 'out',
-        'movements' => $movements,
-    ])
-
     <form method="POST" action="{{ route('ho.stocks.stock-out.store') }}" enctype="multipart/form-data" id="stock-out-form">
         @csrf
         <div class="row g-4">
@@ -37,8 +24,9 @@
                             <div class="col-md-6">
                                 <label class="form-label" for="plant_id">Plant</label>
                                 <select name="plant_id" id="plant_id" class="form-select form-select-sm" required>
-                                    @foreach($plants as $s)
-                                        <option value="{{ $s->id }}" @selected((int) old('plant_id', $plantId) === $s->id)>{{ $s->name }}</option>
+                                    @foreach ($plants as $s)
+                                        <option value="{{ $s->id }}" @selected((int) old('plant_id', $plantId) === $s->id)>{{ $s->name }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -67,11 +55,12 @@
                                 </div>
                             </div>
                             <div class="col-md-6" id="vehicle-field">
-                                <label class="form-label" for="vehicle_id">Vehicle / Machine <span class="text-danger">*</span></label>
+                                <label class="form-label" for="vehicle_id">Vehicle / Machine <span
+                                        class="text-danger">*</span></label>
                                 <select name="vehicle_id" id="vehicle_id"
                                     class="form-select form-select-sm @error('vehicle_id') is-invalid @enderror">
                                     <option value="">— Select vehicle / machine —</option>
-                                    @foreach($vehicles as $vehicle)
+                                    @foreach ($vehicles as $vehicle)
                                         <option value="{{ $vehicle->id }}" @selected(old('vehicle_id') == $vehicle->id)>
                                             {{ $vehicle->displayLabel() }}
                                         </option>
@@ -137,7 +126,7 @@
             </div>
 
             <div class="col-12">
-                <div class="admin-card admin-table-card mb-0">
+                <div class="admin-card admin-table-card mb-4">
                     <div class="admin-card-header d-flex justify-content-between align-items-center">
                         <h2 class="h6 mb-0">Items</h2>
                         @error('items')
@@ -179,7 +168,7 @@
             <td class="stock-out-col-filter">
                 <select class="form-select form-select-sm line-category" aria-label="Category">
                     <option value="">All categories</option>
-                    @foreach($categories as $c)
+                    @foreach ($categories as $c)
                         <option value="{{ $c->id }}">{{ $c->name }}</option>
                     @endforeach
                 </select>
@@ -187,15 +176,15 @@
             <td class="stock-out-col-filter">
                 <select class="form-select form-select-sm line-item-type" aria-label="Item Type">
                     <option value="">All item types</option>
-                    @foreach($subCategories as $sc)
-                        <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}">{{ $sc->name }}</option>
+                    @foreach ($subCategories as $sc)
+                        <option value="{{ $sc->id }}" data-category-id="{{ $sc->category_id }}">
+                            {{ $sc->name }}</option>
                     @endforeach
                 </select>
             </td>
             <td>
                 <input type="text" class="form-control form-control-sm line-search"
-                    placeholder="Type item name or SKU..." autocomplete="off" required
-                    aria-label="Search item name">
+                    placeholder="Type item name or SKU..." autocomplete="off" required aria-label="Search item name">
                 <input type="hidden" name="items[__INDEX__][product_id]" class="line-product-id" value="">
                 <div class="form-text line-product-meta d-none mb-0"></div>
                 <div class="invalid-feedback d-block line-product-error"></div>
@@ -220,16 +209,28 @@
         </tr>
     </template>
 
+    <x-report-filters :plants="$plants" :vehicles="$vehicles" :show-dates="true"
+        search-placeholder="Product, SKU, plant, vehicle..." :clear-route="route('ho.stocks.stock-out')" />
+
+    @include('partials.stock-movement-list', [
+        'type' => 'out',
+        'movements' => $movements,
+    ])
+
     @push('scripts')
         @php
-            $productOptions = $products->map(fn($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'sku' => $p->sku,
-                'category_id' => $p->category_id,
-                'sub_category_id' => $p->sub_category_id,
-                'unit' => $p->unit?->abbreviation ?? $p->unit?->name ?? '',
-            ])->values();
+            $productOptions = $products
+                ->map(
+                    fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'sku' => $p->sku,
+                        'category_id' => $p->category_id,
+                        'sub_category_id' => $p->sub_category_id,
+                        'unit' => $p->unit?->abbreviation ?? ($p->unit?->name ?? ''),
+                    ],
+                )
+                ->values();
             $oldItems = old('items');
         @endphp
         <style>
@@ -241,29 +242,71 @@
                 z-index: 2000;
                 display: none;
             }
-            #stock-out-product-suggestions.is-open { display: block; }
+
+            #stock-out-product-suggestions.is-open {
+                display: block;
+            }
+
             #stock-out-product-suggestions.is-above {
                 border-bottom-left-radius: 0;
                 border-bottom-right-radius: 0;
                 border-top-left-radius: 0.375rem;
                 border-top-right-radius: 0.375rem;
             }
-            #stock-out-product-suggestions .suggestion-item { cursor: pointer; }
+
+            #stock-out-product-suggestions .suggestion-item {
+                cursor: pointer;
+            }
+
             #stock-out-product-suggestions .suggestion-item:hover,
-            #stock-out-product-suggestions .suggestion-item.active { background-color: #f8f9fa; }
-            .stock-out-lines-table { min-width: 48rem; width: 100%; table-layout: fixed; }
-            .stock-out-lines-table .stock-out-col-num { width: 2.5rem; }
-            .stock-out-lines-table .stock-out-col-filter { width: 16%; }
-            .stock-out-lines-table .stock-out-col-avail { width: 7.5rem; }
-            .stock-out-lines-table .stock-out-col-qty { width: 6.25rem; }
-            .stock-out-lines-table .stock-out-col-amount { width: 8rem; }
-            .stock-out-lines-table .stock-out-col-action { width: 2.75rem; }
-            .stock-out-lines-table tbody td { vertical-align: top; padding-top: 0.55rem; padding-bottom: 0.55rem; }
+            #stock-out-product-suggestions .suggestion-item.active {
+                background-color: #f8f9fa;
+            }
+
+            .stock-out-lines-table {
+                min-width: 48rem;
+                width: 100%;
+                table-layout: fixed;
+            }
+
+            .stock-out-lines-table .stock-out-col-num {
+                width: 2.5rem;
+            }
+
+            .stock-out-lines-table .stock-out-col-filter {
+                width: 16%;
+            }
+
+            .stock-out-lines-table .stock-out-col-avail {
+                width: 7.5rem;
+            }
+
+            .stock-out-lines-table .stock-out-col-qty {
+                width: 6.25rem;
+            }
+
+            .stock-out-lines-table .stock-out-col-amount {
+                width: 8rem;
+            }
+
+            .stock-out-lines-table .stock-out-col-action {
+                width: 2.75rem;
+            }
+
+            .stock-out-lines-table tbody td {
+                vertical-align: top;
+                padding-top: 0.55rem;
+                padding-bottom: 0.55rem;
+            }
+
             .stock-out-lines-table .line-search,
             .stock-out-lines-table .line-category,
             .stock-out-lines-table .line-item-type,
             .stock-out-lines-table .line-quantity,
-            .stock-out-lines-table .line-amount { width: 100%; }
+            .stock-out-lines-table .line-amount {
+                width: 100%;
+            }
+
             .stock-out-lines-table .line-available {
                 min-height: calc(1.5em + 0.5rem + 2px);
                 display: flex;
@@ -272,7 +315,7 @@
         </style>
         @include('partials.infinite-suggestions')
         <script>
-            document.addEventListener('DOMContentLoaded', function () {
+            document.addEventListener('DOMContentLoaded', function() {
                 const products = @json($productOptions);
                 const stockByPlant = @json($stockByPlant ?? []);
                 const stockCheckUrl = @json(url('/api/plants'));
@@ -301,12 +344,13 @@
 
                 const infinite = window.PanchmukhiInfiniteSuggestions.create(suggestionsBox, {
                     pageSize: 25,
-                    renderItem: function (p) {
+                    renderItem: function(p) {
                         const div = document.createElement('div');
                         div.className = 'suggestion-item px-3 py-2 border-bottom text-start';
                         const available = availableFor(p.id);
-                        div.innerHTML = `<span class="fw-semibold d-block text-truncate">${p.name}</span><span class="text-muted small">${p.sku || 'No SKU'} · ${p.unit || '—'} · Stock: ${available}</span>`;
-                        div.addEventListener('mousedown', function (event) {
+                        div.innerHTML =
+                            `<span class="fw-semibold d-block text-truncate">${p.name}</span><span class="text-muted small">${p.sku || 'No SKU'} · ${p.unit || '—'} · Stock: ${available}</span>`;
+                        div.addEventListener('mousedown', function(event) {
                             event.preventDefault();
                             if (activeLine) {
                                 selectProduct(activeLine, p);
@@ -354,7 +398,8 @@
                     select.innerHTML = '';
                     select.originalOptions.forEach(option => {
                         const clone = option.cloneNode(true);
-                        if (!clone.value || !categoryId || clone.getAttribute('data-category-id') === String(categoryId)) {
+                        if (!clone.value || !categoryId || clone.getAttribute('data-category-id') === String(
+                                categoryId)) {
                             select.appendChild(clone);
                         }
                     });
@@ -391,7 +436,8 @@
                         if (categoryId && String(p.category_id) !== String(categoryId)) return false;
                         if (itemTypeId && String(p.sub_category_id) !== String(itemTypeId)) return false;
                         if (!term) return true;
-                        return p.name.toLowerCase().includes(term) || (p.sku && p.sku.toLowerCase().includes(term));
+                        return p.name.toLowerCase().includes(term) || (p.sku && p.sku.toLowerCase().includes(
+                            term));
                     });
                 }
 
@@ -419,7 +465,10 @@
                     showAvailable(line, productId);
                     try {
                         const response = await fetch(`${stockCheckUrl}/${plantId}/products/${productId}/stock`, {
-                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
                             credentials: 'same-origin',
                         });
                         if (!response.ok) throw new Error('Failed');
@@ -445,7 +494,8 @@
 
                     if (product.category_id) {
                         line.querySelector('.line-category').value = String(product.category_id);
-                        filterItemTypes(line.querySelector('.line-item-type'), product.category_id, product.sub_category_id);
+                        filterItemTypes(line.querySelector('.line-item-type'), product.category_id, product
+                            .sub_category_id);
                     }
                     if (product.sub_category_id) {
                         line.querySelector('.line-item-type').value = String(product.sub_category_id);
@@ -505,14 +555,15 @@
                     const itemTypeSelect = line.querySelector('.line-item-type');
                     filterItemTypes(itemTypeSelect, '');
 
-                    line.querySelector('.line-quantity').addEventListener('input', function () {
+                    line.querySelector('.line-quantity').addEventListener('input', function() {
                         updateLineTotal(line);
                     });
-                    line.querySelector('.line-amount').addEventListener('input', function () {
+                    line.querySelector('.line-amount').addEventListener('input', function() {
                         updateLineTotal(line);
                     });
-                    searchInput.addEventListener('input', function () {
-                        const selected = products.find(p => String(p.id) === line.querySelector('.line-product-id').value);
+                    searchInput.addEventListener('input', function() {
+                        const selected = products.find(p => String(p.id) === line.querySelector(
+                            '.line-product-id').value);
                         if (!searchInput.value.trim()) {
                             clearProduct(line);
                             clearLineFilters(line);
@@ -524,24 +575,24 @@
                         activeLine = line;
                         renderSuggestions(line);
                     });
-                    searchInput.addEventListener('focus', function () {
+                    searchInput.addEventListener('focus', function() {
                         activeLine = line;
                         renderSuggestions(line);
                     });
-                    categorySelect.addEventListener('change', function () {
+                    categorySelect.addEventListener('change', function() {
                         clearProduct(line);
                         searchInput.value = '';
                         filterItemTypes(itemTypeSelect, categorySelect.value);
                         activeLine = line;
                         renderSuggestions(line);
                     });
-                    itemTypeSelect.addEventListener('change', function () {
+                    itemTypeSelect.addEventListener('change', function() {
                         clearProduct(line);
                         searchInput.value = '';
                         activeLine = line;
                         renderSuggestions(line);
                     });
-                    line.querySelector('.remove-line-btn').addEventListener('click', function () {
+                    line.querySelector('.remove-line-btn').addEventListener('click', function() {
                         const rows = linesWrap.querySelectorAll('.stock-out-line');
                         if (rows.length <= 1) {
                             alert('At least one item is required.');
@@ -571,7 +622,8 @@
                     if (prefill && prefill.quantity) {
                         line.querySelector('.line-quantity').value = prefill.quantity;
                     }
-                    if (prefill && prefill.unit_price !== undefined && prefill.unit_price !== null && prefill.unit_price !== '') {
+                    if (prefill && prefill.unit_price !== undefined && prefill.unit_price !== null && prefill
+                        .unit_price !== '') {
                         line.querySelector('.line-amount').value = prefill.unit_price;
                     }
                     updateLineTotal(line);
@@ -592,15 +644,15 @@
                     reasonRequiredMark.classList.toggle('d-none', isVehicle);
                 }
 
-                addBtn.addEventListener('click', function () {
+                addBtn.addEventListener('click', function() {
                     addLine();
                 });
 
-                plantSelect.addEventListener('change', function () {
+                plantSelect.addEventListener('change', function() {
                     linesWrap.querySelectorAll('.stock-out-line').forEach(fetchAvailableQty);
                 });
 
-                document.getElementById('stock-out-form').addEventListener('submit', function (e) {
+                document.getElementById('stock-out-form').addEventListener('submit', function(e) {
                     const lines = Array.from(linesWrap.querySelectorAll('.stock-out-line'));
                     const seen = new Set();
                     for (const line of lines) {
@@ -636,16 +688,17 @@
                     }
                 });
 
-                document.querySelectorAll('.usage-type-input').forEach(el => el.addEventListener('change', syncUsageFields));
+                document.querySelectorAll('.usage-type-input').forEach(el => el.addEventListener('change',
+                    syncUsageFields));
 
-                document.addEventListener('click', function (e) {
+                document.addEventListener('click', function(e) {
                     if (e.target.closest('.line-search') || suggestionsBox.contains(e.target)) {
                         return;
                     }
                     hideSuggestions();
                 });
 
-                window.addEventListener('scroll', function (e) {
+                window.addEventListener('scroll', function(e) {
                     if (!suggestionsBox.classList.contains('is-open') || suggestionsBox.contains(e.target)) {
                         return;
                     }
@@ -654,7 +707,7 @@
                     }
                 }, true);
 
-                window.addEventListener('resize', function () {
+                window.addEventListener('resize', function() {
                     if (suggestionsBox.classList.contains('is-open') && activeLine) {
                         positionSuggestions(activeLine.querySelector('.line-search'));
                     }
@@ -664,9 +717,9 @@
 
                 if (Array.isArray(oldItems) && oldItems.length) {
                     oldItems.forEach((item, i) => {
-                        const error = itemErrors[`items.${i}.product_id`]?.[0]
-                            || itemErrors[`items.${i}.quantity`]?.[0]
-                            || '';
+                        const error = itemErrors[`items.${i}.product_id`]?.[0] ||
+                            itemErrors[`items.${i}.quantity`]?.[0] ||
+                            '';
                         addLine({
                             product_id: item.product_id,
                             quantity: item.quantity,
@@ -675,7 +728,9 @@
                         });
                     });
                 } else {
-                    addLine(initialProductId ? { product_id: initialProductId } : null);
+                    addLine(initialProductId ? {
+                        product_id: initialProductId
+                    } : null);
                 }
             });
         </script>

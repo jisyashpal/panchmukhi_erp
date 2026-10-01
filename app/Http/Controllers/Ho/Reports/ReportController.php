@@ -39,6 +39,7 @@ class ReportController extends Controller
             ...$this->filterOptions(),
             'filters' => $filters,
             'entries' => $this->reports->productLifeUsage($filters),
+            'summary' => $this->reports->productLifeUsageSummary($filters),
         ]);
     }
 
@@ -154,6 +155,7 @@ class ReportController extends Controller
             ...$this->filterOptions(),
             'filters' => $filters,
             'rows' => $this->reports->productUsageByCategory($filters),
+            'vehicleRows' => $this->reports->vehicleStockOutExpense($filters),
         ]);
     }
 
@@ -296,24 +298,65 @@ class ReportController extends Controller
     private function exportUsageByCategory(ReportFilters $filters): StreamedResponse
     {
         $rows = $this->reports->productUsageByCategory($filters);
+        $vehicleRows = $this->reports->vehicleStockOutExpense($filters);
 
-        return SpreadsheetDownload::csv('usage-by-category-report.csv', [
-            'Category',
-            'Total Qty Used',
-            'Usage Count',
-            'Products',
-            'Vehicles',
-            'Total Life Used',
-            'Avg Life Used/Entry',
-        ], $rows->map(fn($r) => [
-                        $r->category_name,
-                        $r->total_qty,
-                        $r->usage_count,
-                        $r->product_count,
-                        $r->vehicle_count ?? 0,
-                        $r->total_life_hours,
-                        $r->avg_life_hours,
-                    ]));
+        return response()->streamDownload(function () use ($rows, $vehicleRows) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($handle, ['Usage by Category']);
+            fputcsv($handle, [
+                'Category',
+                'Total Qty Used',
+                'Consumption Amount',
+                'Usage Count',
+                'Products',
+                'Vehicles',
+                'Total Life Used',
+                'Avg Life Used/Entry',
+            ]);
+            foreach ($rows as $r) {
+                fputcsv($handle, [
+                    $r->category_name,
+                    $r->total_qty,
+                    $r->total_amount,
+                    $r->usage_count,
+                    $r->product_count,
+                    $r->vehicle_count ?? 0,
+                    $r->total_life_hours,
+                    $r->avg_life_hours,
+                ]);
+            }
+
+            fputcsv($handle, []);
+            fputcsv($handle, ['Vehicle-wise Stock Out Expense']);
+            fputcsv($handle, [
+                'Vehicle',
+                'Categories',
+                'Products',
+                'Usage Entries',
+                'Total Qty',
+                'Amount',
+            ]);
+            foreach ($vehicleRows as $r) {
+                $vehicle = $r->vehicle_id
+                    ? trim($r->vehicle_name.($r->registration_no ? ' ('.$r->registration_no.')' : ''))
+                    : 'Other / Plant use';
+
+                fputcsv($handle, [
+                    $vehicle,
+                    $r->category_names,
+                    $r->product_count,
+                    $r->usage_count,
+                    $r->total_qty,
+                    $r->total_amount,
+                ]);
+            }
+
+            fclose($handle);
+        }, 'usage-by-category-report.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function exportPurchaseItems(ReportFilters $filters, bool $allTime = false): StreamedResponse

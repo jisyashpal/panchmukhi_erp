@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Concerns;
 use App\Models\Brand;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 trait ManagesBrands
@@ -26,7 +27,8 @@ trait ManagesBrands
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255', 'unique:brands,name']]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:255']]);
+        $this->assertUniqueBrand($data['name']);
         $brand = Brand::create($data);
 
         return $this->redirectAfterCatalogStore(
@@ -44,7 +46,8 @@ trait ManagesBrands
 
     public function update(Request $request, Brand $brand): RedirectResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255', 'unique:brands,name,'.$brand->id]]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:255']]);
+        $this->assertUniqueBrand($data['name'], $brand->id);
         $brand->update($data);
 
         return redirect()->route($this->catalogPortal().'.brands.index')->with('success', 'Brand updated.');
@@ -60,5 +63,19 @@ trait ManagesBrands
         $brand->delete();
 
         return redirect()->route($this->catalogPortal().'.brands.index')->with('success', 'Brand deleted.');
+    }
+
+    private function assertUniqueBrand(string $name, ?int $ignoreId = null): void
+    {
+        $exists = Brand::query()
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($name))])
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'name' => 'This brand already exists.',
+            ]);
+        }
     }
 }

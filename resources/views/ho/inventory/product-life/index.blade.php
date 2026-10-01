@@ -14,17 +14,17 @@
         <div class="admin-stat-card stat-accent-blue">
             <div class="stat-icon stat-icon-blue"><i class="bi bi-clock-history"></i></div>
             <div class="stat-label">Total Life Used</div>
-            <div class="stat-value">{{ number_format($entries->sum('life_hours'), 1) }}</div>
+            <div class="stat-value">{{ number_format($totals->total_life, 1) }}</div>
         </div>
         <div class="admin-stat-card stat-accent-violet">
             <div class="stat-icon stat-icon-violet"><i class="bi bi-boxes"></i></div>
             <div class="stat-label">Total Quantity Used</div>
-            <div class="stat-value">{{ number_format($entries->sum('quantity'), 0) }}</div>
+            <div class="stat-value">{{ number_format($totals->total_qty, 0) }}</div>
         </div>
         <div class="admin-stat-card stat-accent-emerald">
             <div class="stat-icon stat-icon-emerald"><i class="bi bi-arrow-repeat"></i></div>
             <div class="stat-label">Usage count sum</div>
-            <div class="stat-value">{{ number_format($entries->sum('usage_count'), 0) }}</div>
+            <div class="stat-value">{{ number_format($totals->usage_count, 0) }}</div>
         </div>
         <div class="admin-stat-card stat-accent-amber">
             <div class="stat-icon stat-icon-amber"><i class="bi bi-list-ul"></i></div>
@@ -91,5 +91,5 @@
             </table>
         </div>
     </div>
-    <div class="mt-3">{{ $entries->links() }}</div>
+    <x-table-pagination :paginator="$entries" label="entries" />
 @endsection

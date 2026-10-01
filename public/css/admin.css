@@ -967,6 +967,12 @@ a.admin-stat-card:hover .stat-label {
     max-width: 15rem;
 }
 
+.purchase-create-table.stock-in-lines .purchase-col-product {
+    width: 35%;
+    min-width: 16rem;
+    max-width: 22rem;
+}
+
 .purchase-create-table .purchase-col-product .purchase-item-name-input {
     min-width: 10rem;
 }

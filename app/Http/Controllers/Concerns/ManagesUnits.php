@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Concerns;
 use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 trait ManagesUnits
@@ -30,6 +31,7 @@ trait ManagesUnits
             'name' => ['required', 'string', 'max:255'],
             'abbreviation' => ['required', 'string', 'max:20'],
         ]);
+        $this->assertUniqueUnit($data['name'], $data['abbreviation']);
         $unit = Unit::create($data);
 
         return $this->redirectAfterCatalogStore(
@@ -51,6 +53,7 @@ trait ManagesUnits
             'name' => ['required', 'string', 'max:255'],
             'abbreviation' => ['required', 'string', 'max:20'],
         ]);
+        $this->assertUniqueUnit($data['name'], $data['abbreviation'], $unit->id);
         $unit->update($data);
 
         return redirect()->route($this->catalogPortal().'.units.index')->with('success', 'Unit updated.');
@@ -61,5 +64,23 @@ trait ManagesUnits
         $unit->delete();
 
         return redirect()->route($this->catalogPortal().'.units.index')->with('success', 'Unit deleted.');
+    }
+
+    private function assertUniqueUnit(string $name, string $abbreviation, ?int $ignoreId = null): void
+    {
+        $query = Unit::query()->when($ignoreId, fn ($unit) => $unit->whereKeyNot($ignoreId));
+        $errors = [];
+
+        if ((clone $query)->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($name))])->exists()) {
+            $errors['name'] = 'This unit already exists.';
+        }
+
+        if ((clone $query)->whereRaw('LOWER(TRIM(abbreviation)) = ?', [mb_strtolower(trim($abbreviation))])->exists()) {
+            $errors['abbreviation'] = 'This abbreviation already exists.';
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 }

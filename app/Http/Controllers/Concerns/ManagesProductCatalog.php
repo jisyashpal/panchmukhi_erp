@@ -9,6 +9,7 @@ use App\Models\SubCategory;
 use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 trait ManagesProductCatalog
 {
@@ -70,7 +71,51 @@ trait ManagesProductCatalog
         $data['sku'] = $sku;
         unset($data['sku_code']);
 
+        if ($this->productAlreadyExists($data, $product?->id)) {
+            throw ValidationException::withMessages([
+                'name' => 'This product already exists.',
+            ]);
+        }
+
         return $data;
+    }
+
+    protected function productAlreadyExists(array $item, ?int $ignoreId = null): bool
+    {
+        $name = mb_strtolower(trim((string) ($item['name'] ?? '')));
+        $size = mb_strtolower(trim((string) ($item['size'] ?? '')));
+
+        return Product::query()
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->where('category_id', $item['category_id'])
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$name])
+            ->when(
+                filled($item['sub_category_id'] ?? null),
+                fn ($query) => $query->where('sub_category_id', $item['sub_category_id']),
+                fn ($query) => $query->whereNull('sub_category_id'),
+            )
+            ->when(
+                filled($item['brand_id'] ?? null),
+                fn ($query) => $query->where('brand_id', $item['brand_id']),
+                fn ($query) => $query->whereNull('brand_id'),
+            )
+            ->when(
+                $size === '',
+                fn ($query) => $query->where(fn ($query) => $query->whereNull('size')->orWhereRaw("TRIM(size) = ''")),
+                fn ($query) => $query->whereRaw('LOWER(TRIM(size)) = ?', [$size]),
+            )
+            ->exists();
+    }
+
+    protected function productIdentityKey(array $item): string
+    {
+        return implode('|', [
+            $item['category_id'] ?? '',
+            $item['sub_category_id'] ?? '',
+            $item['brand_id'] ?? '',
+            mb_strtolower(trim((string) ($item['name'] ?? ''))),
+            mb_strtolower(trim((string) ($item['size'] ?? ''))),
+        ]);
     }
 
     protected function normalizeSkuCode(?string $skuCode): ?string

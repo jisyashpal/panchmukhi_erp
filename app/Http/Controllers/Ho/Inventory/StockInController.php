@@ -50,7 +50,7 @@ class StockInController extends Controller
                 ->with('error', 'Quotations cannot be stocked in. Create a PO first.');
         }
 
-        if ($selectedPurchase?->status === PurchaseStatus::Delivered) {
+        if ($selectedPurchase?->status === PurchaseStatus::Delivered && ! $selectedPurchase->hasPendingReceipt()) {
             return redirect()->route('ho.purchases.show', $selectedPurchase)
                 ->with('info', 'This purchase order is already fully received.');
         }
@@ -70,14 +70,29 @@ class StockInController extends Controller
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
             'purchases' => Purchase::with(['plant', 'supplier', 'items'])
                 ->purchaseOrders()
-                ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
                 ->whereNotNull('dispatched_at')
+                ->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial, PurchaseStatus::Delivered])
+                ->where(function ($query) {
+                    $query->whereIn('status', [PurchaseStatus::Ordered, PurchaseStatus::Partial])
+                        ->orWhereHas('items', function ($items) {
+                            $items->whereNull('dispatch_status')
+                                ->orWhere(function ($items) {
+                                    $items->whereIn('dispatch_status', [
+                                        PurchaseItemDispatchStatus::Dispatched->value,
+                                        PurchaseItemDispatchStatus::Alternative->value,
+                                    ])->whereColumn('received_quantity', '<', 'dispatched_quantity');
+                                });
+                        });
+                })
                 ->latest()
                 ->limit(50)
                 ->get(),
             'selectedPurchase' => $selectedPurchase,
             'canEditPurchase' => $selectedPurchase !== null
-                && in_array($selectedPurchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial], true),
+                && (
+                    in_array($selectedPurchase->status, [PurchaseStatus::Ordered, PurchaseStatus::Partial], true)
+                    || $selectedPurchase->hasPendingReceipt()
+                ),
             'filters' => $filters,
             'movements' => $movements,
             'purchaseReferences' => $movements
@@ -92,7 +107,7 @@ class StockInController extends Controller
             return back()->with('error', 'Quotations cannot be stocked in. Create a PO first.');
         }
 
-        if ($purchase->status === PurchaseStatus::Delivered) {
+        if ($purchase->status === PurchaseStatus::Delivered && ! $purchase->hasPendingReceipt()) {
             return back()->with('error', 'This purchase order is already fully received.');
         }
 
@@ -223,6 +238,8 @@ class StockInController extends Controller
                 ->whereNotIn('id', $submittedIds)
                 ->where('received_quantity', '<=', 0)
                 ->delete();
+
+            $purchase->syncStatusFromItems();
         });
 
         return redirect()
@@ -246,6 +263,7 @@ class StockInController extends Controller
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'supplier_invoice_date' => ['nullable', 'date'],
+            'moved_at' => ['required', 'date'],
             'is_interstate' => ['boolean'],
             'notes' => ['nullable', 'string'],
             'photo_confirmed' => ['required', 'boolean'],
@@ -300,7 +318,7 @@ class StockInController extends Controller
                 'quantity' => $item['quantity'],
             ])->all();
 
-            $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta);
+            $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta, $data['moved_at']);
 
             $purchase->load('items');
             foreach ($purchase->items as $item) {
@@ -316,14 +334,14 @@ class StockInController extends Controller
                 'dispatched_at' => now(),
                 'dispatched_by' => auth()->id(),
                 'received_by' => auth()->id(),
-                'received_at' => now(),
+                'received_at' => $data['moved_at'],
                 'delivered_at' => now(),
             ]);
 
             return $purchase->fresh(['items.product', 'plant', 'supplier']);
         });
 
-        return redirect()->route('ho.purchases.show', $purchase)
+        return redirect()->route('ho.stocks.stock-in')
             ->with('success', 'PO '.$purchase->reference_no.' created and stock in recorded.');
     }
 
@@ -339,6 +357,7 @@ class StockInController extends Controller
                 'max:1000',
             ],
             'notes' => ['nullable', 'string'],
+            'moved_at' => ['required', 'date'],
             'photo' => ['nullable', 'image', 'max:5120'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'exists:products,id'],
@@ -347,7 +366,7 @@ class StockInController extends Controller
 
         $purchase = Purchase::with(['items.product'])->findOrFail($data['purchase_id']);
 
-        if ($purchase->status === PurchaseStatus::Delivered) {
+        if ($purchase->status === PurchaseStatus::Delivered && ! $purchase->hasPendingReceipt()) {
             return back()->with('error', 'This purchase order is already fully received.');
         }
 
@@ -382,7 +401,7 @@ class StockInController extends Controller
 
         $meta = $this->buildStockMeta($request, $data, $purchase);
 
-        $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta);
+        $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), $meta, $data['moved_at']);
 
         $purchase->refresh()->load('items');
         $fullyReceived = $purchase->items->every(function (PurchaseItem $item) {
@@ -398,11 +417,11 @@ class StockInController extends Controller
         $purchase->update([
             'status' => $fullyReceived ? PurchaseStatus::Delivered : PurchaseStatus::Partial,
             'received_by' => auth()->id(),
-            'received_at' => now(),
+            'received_at' => $data['moved_at'],
             'delivered_at' => $fullyReceived ? now() : $purchase->delivered_at,
         ]);
 
-        return redirect()->route('ho.purchases.show', $purchase)
+        return redirect()->route('ho.stocks.stock-in')
             ->with('success', $fullyReceived
                 ? 'All receivable items stocked in.'
                 : 'Partial stock in recorded for this purchase order.');

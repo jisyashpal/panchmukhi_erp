@@ -8,27 +8,27 @@
     <x-report-filters :plants="$plants" :categories="$categories" :products="$products" :vehicles="$vehicles" :show-dates="true"
         search-placeholder="Product, vehicle, subcategory or plant..." :clear-route="route('ho.reports.product-life')" />
 
-    @if($entries->isNotEmpty())
+    @if($summary->entry_count > 0)
         <div class="admin-stat-grid mb-3">
             <div class="admin-stat-card stat-accent-blue">
                 <div class="stat-icon stat-icon-blue"><i class="bi bi-clock-history"></i></div>
                 <div class="stat-label">Total Life Used</div>
-                <div class="stat-value">{{ number_format($entries->sum(fn ($e) => (float) ($e->productUse?->life_hours ?? 0)), 1) }}</div>
+                <div class="stat-value">{{ number_format($summary->total_life, 1) }}</div>
             </div>
             <div class="admin-stat-card stat-accent-violet">
                 <div class="stat-icon stat-icon-violet"><i class="bi bi-boxes"></i></div>
                 <div class="stat-label">Total Qty Used</div>
-                <div class="stat-value">{{ number_format($entries->sum('quantity'), 0) }}</div>
+                <div class="stat-value">{{ number_format($summary->total_qty, 0) }}</div>
             </div>
             <div class="admin-stat-card stat-accent-emerald">
                 <div class="stat-icon stat-icon-emerald"><i class="bi bi-truck"></i></div>
                 <div class="stat-label">Vehicles</div>
-                <div class="stat-value">{{ number_format($entries->pluck('vehicle_id')->filter()->unique()->count(), 0) }}</div>
+                <div class="stat-value">{{ number_format($summary->vehicle_count, 0) }}</div>
             </div>
             <div class="admin-stat-card stat-accent-amber">
                 <div class="stat-icon stat-icon-amber"><i class="bi bi-calculator"></i></div>
                 <div class="stat-label">Avg Life Used / Entry</div>
-                <div class="stat-value">{{ number_format($entries->avg(fn ($e) => (float) ($e->productUse?->life_hours ?? 0)), 1) }}</div>
+                <div class="stat-value">{{ number_format($summary->avg_life, 1) }}</div>
             </div>
         </div>
     @endif
@@ -91,12 +91,12 @@
                         ])
                     @endforelse
                 </tbody>
-                @if($entries->isNotEmpty())
+                @if($summary->entry_count > 0)
                     <tfoot class="table-light fw-bold">
                         <tr>
                             <td colspan="9">Total / Summary</td>
-                            <td class="text-end text-primary">{{ number_format($entries->sum(fn ($e) => (float) ($e->productUse?->life_hours ?? 0)), 2) }}</td>
-                            <td class="text-end">{{ number_format($entries->sum('quantity'), 2) }}</td>
+                            <td class="text-end text-primary">{{ number_format($summary->total_life, 2) }}</td>
+                            <td class="text-end">{{ number_format($summary->total_qty, 2) }}</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -104,4 +104,5 @@
             </table>
         </div>
     </div>
+    <x-table-pagination :paginator="$entries" label="entries" />
 @endsection

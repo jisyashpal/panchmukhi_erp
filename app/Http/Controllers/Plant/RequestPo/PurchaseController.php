@@ -425,7 +425,7 @@ class PurchaseController extends Controller
                 ->with('error', 'Quotations cannot be received. Create a PO first.');
         }
 
-        if ($purchase->status === PurchaseStatus::Delivered) {
+        if ($purchase->status === PurchaseStatus::Delivered && ! $purchase->hasPendingReceipt()) {
             return redirect()->route('plant.purchases.index')
                 ->with('error', 'Purchase already received.');
         }
@@ -449,7 +449,7 @@ class PurchaseController extends Controller
             return back()->with('error', 'Quotations cannot be received. Create a PO first.');
         }
 
-        if ($purchase->status === PurchaseStatus::Delivered) {
+        if ($purchase->status === PurchaseStatus::Delivered && ! $purchase->hasPendingReceipt()) {
             return back()->with('error', 'Purchase already received.');
         }
 
@@ -458,6 +458,7 @@ class PurchaseController extends Controller
         }
 
         $data = $request->validate([
+            'moved_at' => ['required', 'date'],
             'lines' => ['required', 'array'],
             'lines.*.product_id' => ['required', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
@@ -481,7 +482,7 @@ class PurchaseController extends Controller
             }
         }
 
-        $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id());
+        $this->stockService->recordInFromPurchase($purchase, $lines, (int) auth()->id(), [], $data['moved_at']);
 
         $purchase->refresh()->load('items');
         $fullyReceived = $purchase->items->every(function ($item) {
@@ -497,7 +498,7 @@ class PurchaseController extends Controller
             'status' => $fullyReceived ? PurchaseStatus::Delivered : PurchaseStatus::Partial,
             'delivered_at' => $fullyReceived ? now() : $purchase->delivered_at,
             'received_by' => auth()->id(),
-            'received_at' => now(),
+            'received_at' => $data['moved_at'],
         ]);
 
         return redirect()->route('plant.purchases.index')

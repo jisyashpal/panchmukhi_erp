@@ -34,6 +34,10 @@
         (submitted {{ $purchase->dispatched_at->format('d M Y') }}@if($purchase->dispatcher) by {{ $purchase->dispatcher->name }}@endif)
     @endif.
 </div>
+@elseif($hasOpenLines && $purchase->items->contains(fn ($item) => $item->isDispatchResolved()))
+<div class="alert alert-warning">
+    Items already dispatched stay locked. Mark dispatch only for the new items, then receive them in Stock In.
+</div>
 @endif
 
 <form method="POST" action="{{ route('plant.dispatch.store', $purchase) }}" id="dispatch-form">
@@ -60,10 +64,11 @@
                         @php
                             $status = old("items.$i.dispatch_status", $item->dispatch_status?->value);
                             $orderedName = $item->originalProduct?->name ?? $item->product?->name;
+                            $lineLocked = $locked || $item->isDispatchResolved();
                         @endphp
-                        <tr class="dispatch-line" data-index="{{ $i }}">
+                        <tr class="dispatch-line" data-index="{{ $i }}" data-line-locked="{{ $lineLocked ? '1' : '0' }}">
                             <td>
-                                <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
+                                <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}" @disabled($lineLocked)>
                                 <span class="fw-semibold d-block">{{ $orderedName }}</span>
                                 @if($item->product?->sku)
                                     <code class="small text-muted">{{ $item->product->sku }}</code>
@@ -78,7 +83,7 @@
                             <td>
                                 <select name="items[{{ $i }}][dispatch_status]"
                                     class="form-select form-select-sm dispatch-status"
-                                    @disabled($locked) required>
+                                    @disabled($lineLocked) @required(! $lineLocked)>
                                     <option value="">— Select —</option>
                                     @foreach(\App\Enums\PurchaseItemDispatchStatus::cases() as $case)
                                         <option value="{{ $case->value }}" @selected($status === $case->value)>
@@ -91,19 +96,19 @@
                                 <input type="date" name="items[{{ $i }}][dispatched_at]"
                                     value="{{ old("items.$i.dispatched_at", $item->dispatched_at?->format('Y-m-d') ?? now()->format('Y-m-d')) }}"
                                     class="form-control form-control-sm dispatch-date"
-                                    @disabled($locked)>
+                                    @disabled($lineLocked)>
                             </td>
                             <td>
                                 <input type="number" step="0.01" min="0.01" max="{{ $item->quantity }}"
                                     name="items[{{ $i }}][dispatched_quantity]"
                                     value="{{ old("items.$i.dispatched_quantity", $item->dispatched_quantity ?? $item->quantity) }}"
                                     class="form-control form-control-sm text-end dispatch-qty"
-                                    @disabled($locked)>
+                                    @disabled($lineLocked)>
                             </td>
                             <td>
                                 <select name="items[{{ $i }}][alternative_product_id]"
                                     class="form-select form-select-sm dispatch-alt searchable-item-select mb-1 d-none"
-                                    @disabled($locked)>
+                                    @disabled($lineLocked)>
                                     <option value="">Search Item Name / SKU</option>
                                     @foreach($products as $p)
                                         @if($p->id !== ($item->original_product_id ?: $item->product_id) || $status === \App\Enums\PurchaseItemDispatchStatus::Alternative->value)
@@ -121,7 +126,7 @@
                                 <textarea name="items[{{ $i }}][dispatch_remark]" rows="2"
                                     class="form-control form-control-sm dispatch-remark"
                                     placeholder="Remark (required if not provided)"
-                                    @disabled($locked)>{{ old("items.$i.dispatch_remark", $item->dispatch_remark) }}</textarea>
+                                    @disabled($lineLocked)>{{ old("items.$i.dispatch_remark", $item->dispatch_remark) }}</textarea>
                             </td>
                         </tr>
                     @endforeach
@@ -168,9 +173,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const locked = @json($locked);
         document.querySelectorAll('.dispatch-line').forEach(row => {
-            if (locked) {
+            if (row.dataset.lineLocked === '1') {
                 row.querySelectorAll('input, select, textarea').forEach(el => {
                     el.setAttribute('data-locked', '1');
                 });

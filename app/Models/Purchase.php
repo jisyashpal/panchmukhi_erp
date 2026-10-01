@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PurchaseDocumentType;
+use App\Enums\PurchaseItemDispatchStatus;
 use App\Enums\PurchaseStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -167,6 +168,64 @@ class Purchase extends Model
     public function isDispatched(): bool
     {
         return $this->dispatched_at !== null;
+    }
+
+    public function hasPendingReceipt(): bool
+    {
+        $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();
+
+        return $items->contains(function (PurchaseItem $item) {
+            if ($item->dispatch_status === PurchaseItemDispatchStatus::NotProvided) {
+                return false;
+            }
+
+            if (! $item->isDispatchResolved()) {
+                return true;
+            }
+
+            return $item->receivableQuantity() > 0.0001;
+        });
+    }
+
+    public function syncStatusFromItems(): void
+    {
+        if ($this->isQuotation() || $this->status === PurchaseStatus::Cancelled) {
+            return;
+        }
+
+        $this->unsetRelation('items');
+        $this->load('items');
+
+        if ($this->items->isEmpty()) {
+            return;
+        }
+
+        if (! $this->hasPendingReceipt()) {
+            $anyReceived = $this->items->contains(
+                fn (PurchaseItem $item) => (float) $item->received_quantity > 0.0001
+            );
+
+            if ($anyReceived && $this->status !== PurchaseStatus::Delivered) {
+                $this->update([
+                    'status' => PurchaseStatus::Delivered,
+                    'delivered_at' => $this->delivered_at ?? now(),
+                ]);
+            }
+
+            return;
+        }
+
+        $anyReceived = $this->items->contains(
+            fn (PurchaseItem $item) => (float) $item->received_quantity > 0.0001
+        );
+
+        $next = $anyReceived
+            ? PurchaseStatus::Partial
+            : ($this->status === PurchaseStatus::Delivered ? PurchaseStatus::Ordered : $this->status);
+
+        if ($this->status !== $next) {
+            $this->update(['status' => $next]);
+        }
     }
 
     public function allItemsDispatchResolved(): bool

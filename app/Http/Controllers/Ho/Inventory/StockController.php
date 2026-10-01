@@ -38,6 +38,7 @@ class StockController extends Controller
     public function __construct(
         protected StockService $stockService
     ) {}
+
     public function index(Request $request): View
     {
         $range = $this->fyRangeFromSession($request);

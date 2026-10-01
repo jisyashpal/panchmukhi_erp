@@ -176,7 +176,7 @@
                                 </a>
                             @endif
                         @endif
-                        @if(auth()->user()->canManagePlantStocks() && $purchase->isDispatched() && $purchase->status !== \App\Enums\PurchaseStatus::Delivered)
+                        @if(auth()->user()->canManagePlantStocks() && $purchase->isDispatched() && ($purchase->status !== \App\Enums\PurchaseStatus::Delivered || $purchase->hasPendingReceipt()))
                             <a href="{{ route('plant.purchases.receive', $purchase) }}" class="btn btn-sm btn-success me-1">
                                 <i class="bi bi-box-arrow-in-down me-1"></i>Receive
                             </a>

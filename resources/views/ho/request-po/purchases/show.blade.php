@@ -130,7 +130,7 @@
     </div>
 </div>
 
-@if($purchase->status !== \App\Enums\PurchaseStatus::Delivered)
+@if($purchase->status !== \App\Enums\PurchaseStatus::Delivered || $purchase->hasPendingReceipt())
 <a href="{{ route('ho.stocks.stock-in', ['purchase_id' => $purchase->id]) }}" class="btn btn-success btn-sm">
     <i class="bi bi-box-arrow-in-down me-1"></i>Record stock in
 </a>

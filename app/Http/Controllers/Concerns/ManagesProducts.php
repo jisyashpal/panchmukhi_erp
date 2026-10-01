@@ -62,6 +62,7 @@ trait ManagesProducts
 
         $items = $request->input('products');
         $skus = [];
+        $identities = [];
 
         // Pre-fetch categories, subcategories and brands to avoid N+1 queries during SKU generation
         $categoryIds = collect($items)->pluck('category_id')->filter()->unique()->all();
@@ -89,6 +90,13 @@ trait ManagesProducts
                 $skuCode ?? ''
             );
 
+            $identity = $this->productIdentityKey($item);
+            if (isset($identities[$identity]) || $this->productAlreadyExists($item)) {
+                return back()->withErrors([
+                    "products.{$index}.name" => 'This product already exists.',
+                ])->withInput();
+            }
+
             // Check SKU uniqueness in DB
             $existsInDb = Product::where('sku', $sku)->exists();
             if ($existsInDb || in_array($sku, $skus)) {
@@ -97,6 +105,7 @@ trait ManagesProducts
                 ])->withInput();
             }
 
+            $identities[$identity] = true;
             $skus[] = $sku;
 
             $validatedData[] = [

@@ -10,6 +10,8 @@ use App\Models\StockMovement;
 use App\Models\PurchaseItem;
 use App\Models\SupplierPayment;
 use App\Support\ReportFilters;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ReportService
@@ -23,22 +25,67 @@ class ReportService
         };
     }
 
-    public function productLifeUsage(?ReportFilters $filters = null, bool $forExport = false): \Illuminate\Support\Collection
+    /**
+     * @return LengthAwarePaginator<int, StockMovement>|Collection<int, StockMovement>
+     */
+    public function productLifeUsage(?ReportFilters $filters = null, bool $forExport = false): LengthAwarePaginator|Collection
     {
         $filters ??= new ReportFilters;
 
-        $movements = StockMovement::query()
+        $query = $this->productLifeUsageQuery($filters)
             ->with(['plant', 'vehicle', 'product.category', 'subCategory', 'performer'])
-            ->where('type', StockMovementType::Out)
-            ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
-            ->when($filters->productId, fn ($q) => $q->where('product_id', $filters->productId))
-            ->when($filters->vehicleId, fn ($q) => $q->where('vehicle_id', $filters->vehicleId))
+            ->latest('moved_at')
+            ->latest('id');
+
+        $movements = $forExport
+            ? $query->get()
+            : $query->paginate(30)->withQueryString();
+
+        return $this->attachProductUses($movements);
+    }
+
+    public function productLifeUsageSummary(?ReportFilters $filters = null): object
+    {
+        $filters ??= new ReportFilters;
+
+        $row = $this->productLifeUsageQuery($filters)
+            ->leftJoin('product_use_entries', function ($join) {
+                $join->on('product_use_entries.id', '=', 'stock_movements.reference_id')
+                    ->where('stock_movements.reference_type', '=', StockReferenceType::ProductUse->value);
+            })
+            ->selectRaw(
+                'COUNT(stock_movements.id) as entry_count,
+                 COALESCE(SUM(stock_movements.quantity), 0) as total_qty,
+                 COALESCE(SUM(COALESCE(product_use_entries.life_hours, 0)), 0) as total_life,
+                 COUNT(DISTINCT stock_movements.vehicle_id) as vehicle_count'
+            )
+            ->first();
+
+        $count = (int) ($row->entry_count ?? 0);
+        $totalLife = (float) ($row->total_life ?? 0);
+
+        return (object) [
+            'entry_count' => $count,
+            'total_qty' => (float) ($row->total_qty ?? 0),
+            'total_life' => $totalLife,
+            'vehicle_count' => (int) ($row->vehicle_count ?? 0),
+            'avg_life' => $count > 0 ? $totalLife / $count : 0,
+        ];
+    }
+
+    private function productLifeUsageQuery(ReportFilters $filters)
+    {
+        return StockMovement::query()
+            ->where('stock_movements.type', StockMovementType::Out)
+            ->when($filters->plantId, fn ($q) => $q->where('stock_movements.plant_id', $filters->plantId))
+            ->when($filters->productId, fn ($q) => $q->where('stock_movements.product_id', $filters->productId))
+            ->when($filters->vehicleId, fn ($q) => $q->where('stock_movements.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->whereHas(
                 'product',
                 fn ($pq) => $pq->where('category_id', $filters->categoryId)
             ))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('moved_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('moved_at', '<=', $filters->dateTo))
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('stock_movements.moved_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('stock_movements.moved_at', '<=', $filters->dateTo))
             ->when($filters->search, function ($q) use ($filters) {
                 $term = '%'.$filters->search.'%';
                 $q->where(function ($q) use ($term) {
@@ -50,13 +97,20 @@ class ReportService
                                 ->orWhere('registration_no', 'like', $term);
                         });
                 });
-            })
-            ->latest('moved_at')
-            ->latest('id')
-            ->when(! $forExport, fn ($q) => $q->limit(500))
-            ->get();
+            });
+    }
 
-        $useIds = $movements
+    /**
+     * @param  LengthAwarePaginator<int, StockMovement>|Collection<int, StockMovement>  $movements
+     * @return LengthAwarePaginator<int, StockMovement>|Collection<int, StockMovement>
+     */
+    private function attachProductUses(LengthAwarePaginator|Collection $movements): LengthAwarePaginator|Collection
+    {
+        $items = $movements instanceof LengthAwarePaginator
+            ? $movements->getCollection()
+            : $movements;
+
+        $useIds = $items
             ->filter(fn (StockMovement $movement) => $movement->reference_type === StockReferenceType::ProductUse && $movement->reference_id)
             ->pluck('reference_id')
             ->unique()
@@ -66,13 +120,15 @@ class ReportService
             ? collect()
             : ProductUseEntry::with(['replacedProduct', 'subCategory'])->whereIn('id', $useIds)->get()->keyBy('id');
 
-        return $movements->each(function (StockMovement $movement) use ($uses) {
+        $items->each(function (StockMovement $movement) use ($uses) {
             $use = $movement->reference_type === StockReferenceType::ProductUse
                 ? $uses->get($movement->reference_id)
                 : null;
 
             $movement->setRelation('productUse', $use);
         });
+
+        return $movements;
     }
 
     public function categoryWisePurchaseAmount(?ReportFilters $filters = null): \Illuminate\Support\Collection
@@ -384,6 +440,46 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
+        return $this->stockOutUsageQuery($filters)
+            ->groupBy('categories.id', 'categories.name')
+            ->selectRaw(
+                'categories.id as category_id,
+                 categories.name as category_name,
+                 SUM(stock_movements.quantity) as total_qty,
+                 '.$this->stockOutAmountExpression().' as total_amount,
+                 COALESCE(SUM(product_use_entries.life_hours), 0) as total_life_hours,
+                 COUNT(stock_movements.id) as usage_count,
+                 COALESCE(ROUND(AVG(product_use_entries.life_hours), 1), 0) as avg_life_hours,
+                 COUNT(DISTINCT stock_movements.product_id) as product_count,
+                 COUNT(DISTINCT stock_movements.vehicle_id) as vehicle_count'
+            )
+            ->orderByDesc('total_amount')
+            ->get();
+    }
+
+    public function vehicleStockOutExpense(?ReportFilters $filters = null): \Illuminate\Support\Collection
+    {
+        $filters ??= new ReportFilters;
+
+        return $this->stockOutUsageQuery($filters)
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'stock_movements.vehicle_id')
+            ->groupBy('stock_movements.vehicle_id', 'vehicles.name', 'vehicles.registration_no')
+            ->selectRaw(
+                'stock_movements.vehicle_id as vehicle_id,
+                 vehicles.name as vehicle_name,
+                 vehicles.registration_no as registration_no,
+                 SUM(stock_movements.quantity) as total_qty,
+                 '.$this->stockOutAmountExpression().' as total_amount,
+                 COUNT(stock_movements.id) as usage_count,
+                 COUNT(DISTINCT stock_movements.product_id) as product_count,
+                 '.$this->categoryNamesAggregate().' as category_names'
+            )
+            ->orderByDesc('total_amount')
+            ->get();
+    }
+
+    private function stockOutUsageQuery(ReportFilters $filters)
+    {
         return StockMovement::query()
             ->join('products', 'products.id', '=', 'stock_movements.product_id')
             ->join('categories', 'categories.id', '=', 'products.category_id')
@@ -391,26 +487,39 @@ class ReportService
                 $join->on('product_use_entries.id', '=', 'stock_movements.reference_id')
                     ->where('stock_movements.reference_type', '=', StockReferenceType::ProductUse->value);
             })
+            ->leftJoinSub($this->latestPurchaseRates(), 'rates', 'rates.product_id', '=', 'stock_movements.product_id')
             ->where('stock_movements.type', StockMovementType::Out)
             ->when($filters->plantId, fn ($q) => $q->where('stock_movements.plant_id', $filters->plantId))
             ->when($filters->vehicleId, fn ($q) => $q->where('stock_movements.vehicle_id', $filters->vehicleId))
             ->when($filters->categoryId, fn ($q) => $q->where('categories.id', $filters->categoryId))
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('stock_movements.moved_at', '>=', $filters->dateFrom))
             ->when($filters->dateTo, fn ($q) => $q->whereDate('stock_movements.moved_at', '<=', $filters->dateTo))
-            ->when($filters->search, fn ($q) => $q->where('categories.name', 'like', '%'.$filters->search.'%'))
-            ->groupBy('categories.id', 'categories.name')
-            ->selectRaw(
-                'categories.id as category_id,
-                 categories.name as category_name,
-                 SUM(stock_movements.quantity) as total_qty,
-                 COALESCE(SUM(product_use_entries.life_hours), 0) as total_life_hours,
-                 COUNT(stock_movements.id) as usage_count,
-                 COALESCE(ROUND(AVG(product_use_entries.life_hours), 1), 0) as avg_life_hours,
-                 COUNT(DISTINCT stock_movements.product_id) as product_count,
-                 COUNT(DISTINCT stock_movements.vehicle_id) as vehicle_count'
-            )
-            ->orderByDesc('total_qty')
-            ->get();
+            ->when($filters->search, fn ($q) => $q->where('categories.name', 'like', '%'.$filters->search.'%'));
+    }
+
+    private function latestPurchaseRates()
+    {
+        $latestIds = DB::table('purchase_items')
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('product_id');
+
+        return DB::table('purchase_items as pi')
+            ->joinSub($latestIds, 'latest_pi', 'latest_pi.id', '=', 'pi.id')
+            ->select('pi.product_id', 'pi.unit_price');
+    }
+
+    private function stockOutAmountExpression(): string
+    {
+        return 'SUM(stock_movements.quantity * COALESCE(stock_movements.unit_price, rates.unit_price, 0))';
+    }
+
+    private function categoryNamesAggregate(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => 'REPLACE(GROUP_CONCAT(DISTINCT categories.name), ",", ", ")',
+            'pgsql' => 'STRING_AGG(DISTINCT categories.name, \', \' ORDER BY categories.name)',
+            default => 'GROUP_CONCAT(DISTINCT categories.name ORDER BY categories.name SEPARATOR ", ")',
+        };
     }
 
     public function supplierWisePurchaseTotals(?ReportFilters $filters = null): \Illuminate\Support\Collection

@@ -42,9 +42,9 @@ class StockService
     /**
      * @param  array<int, array{product_id: int, quantity: float}>  $lines
      */
-    public function recordInFromPurchase(Purchase $purchase, array $lines, int $performedBy, array $meta = []): void
+    public function recordInFromPurchase(Purchase $purchase, array $lines, int $performedBy, array $meta = [], $movedAt = null): void
     {
-        DB::transaction(function () use ($purchase, $lines, $performedBy, $meta) {
+        DB::transaction(function () use ($purchase, $lines, $performedBy, $meta, $movedAt) {
             foreach ($lines as $line) {
                 $qty = (float) $line['quantity'];
                 if ($qty <= 0) {
@@ -60,7 +60,8 @@ class StockService
                     $purchase->id,
                     $performedBy,
                     $meta['notes'] ?? 'Stock in from purchase '.$purchase->reference_no,
-                    array_merge($meta, ['supplier_id' => $purchase->supplier_id])
+                    array_merge($meta, ['supplier_id' => $purchase->supplier_id]),
+                    $movedAt
                 );
 
                 $item = $purchase->items()->where('product_id', $line['product_id'])->first();
@@ -296,7 +297,11 @@ class StockService
             $entry->id,
             $entry->recorded_by,
             $entry->notes,
-            ['sub_category_id' => $entry->sub_category_id]
+            [
+                'sub_category_id' => $entry->sub_category_id,
+                'vehicle_id' => $entry->vehicle_id,
+            ],
+            $entry->used_at
         );
     }
 

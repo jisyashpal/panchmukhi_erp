@@ -45,7 +45,7 @@
                     <span class="small text-muted">Add products or update rates before receiving</span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0 purchase-create-table">
+                    <table class="table table-sm mb-0 purchase-create-table stock-in-lines">
                         <thead>
                             <tr>
                                 <th class="purchase-col-product">Product</th>
@@ -186,7 +186,7 @@
             <h2 class="h6 mb-0"><i class="bi bi-box-arrow-in-down me-2 text-success"></i>Receive stock</h2>
         </div>
         <div class="table-responsive">
-            <table class="table table-sm mb-0 purchase-create-table">
+            <table class="table table-sm mb-0 purchase-create-table stock-in-lines">
                 <thead>
                     <tr>
                         <th class="purchase-col-product">Product</th>
@@ -236,7 +236,9 @@
                         <td class="purchase-col-num purchase-col-qty">{{ number_format($item->received_quantity, 2) }}</td>
                         <td class="purchase-col-num purchase-col-rate">
                             @if(! $isReceivable)
-                                <span class="badge bg-secondary-subtle text-secondary">Not receivable</span>
+                                <span class="badge {{ $item->dispatch_status ? 'bg-secondary-subtle text-secondary' : 'bg-warning-subtle text-warning' }}">
+                                    {{ $item->dispatch_status ? 'Not receivable' : 'Dispatch pending' }}
+                                </span>
                                 <input type="hidden" name="lines[{{ $i }}][quantity]" value="0">
                             @elseif($pending > 0)
                                 <input type="number" step="0.01" min="0" max="{{ $pending }}" name="lines[{{ $i }}][quantity]"
@@ -304,6 +306,15 @@
             <div class="admin-card mb-4">
                 <div class="admin-card-header"><h2 class="h6 mb-0">Notes</h2></div>
                 <div class="admin-card-body">
+                    <div class="mb-3">
+                        <label class="form-label small" for="receive_moved_at">Stock in date</label>
+                        <input type="date" name="moved_at" id="receive_moved_at"
+                            value="{{ old('moved_at', now()->toDateString()) }}"
+                            class="form-control form-control-sm @error('moved_at') is-invalid @enderror" required>
+                        @error('moved_at')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
                     <div>
                         <label class="form-label small" for="notes">Notes</label>
                         <textarea name="notes" id="notes" class="form-control form-control-sm" rows="3" placeholder="Optional">{{ old('notes') }}</textarea>
@@ -450,74 +461,6 @@
     </div>
 </x-admin-page-header>
 
-<x-report-filters
-    :plants="$plants"
-    :show-dates="true"
-    search-placeholder="Product, SKU, plant, supplier..."
-    :clear-route="route('ho.stocks.stock-in')"
-/>
-
-@include('partials.stock-movement-list', [
-    'type' => 'in',
-    'movements' => $movements,
-    'purchaseReferences' => $purchaseReferences,
-])
-
-<div class="admin-card admin-table-card mb-4">
-    <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <h2 class="h6 mb-0">Receive from purchase order</h2>
-        <span class="small text-muted">{{ $purchases->count() }} dispatched &amp; pending receive</span>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
-            <thead>
-                <tr>
-                    <th>PO Ref</th>
-                    <th>Plant</th>
-                    <th>Supplier</th>
-                    <th class="text-end">Items</th>
-                    <th class="text-end">Pending qty</th>
-                    <th>Status</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($purchases as $po)
-                @php
-                    $pendingQty = $po->items->sum(fn ($item) => max(0, (float) $item->quantity - (float) $item->received_quantity));
-                @endphp
-                <tr>
-                    <td><code class="small">{{ $po->reference_no }}</code></td>
-                    <td>{{ $po->plant->name }}</td>
-                    <td>{{ $po->supplier->name }}</td>
-                    <td class="text-end">{{ $po->items->count() }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($pendingQty, 2) }}</td>
-                    <td><x-status-badge :status="$po->status" /></td>
-                    <td class="text-end text-nowrap">
-                        <a href="{{ route('ho.stocks.stock-in', ['purchase_id' => $po->id]) }}" class="btn btn-sm btn-success me-1">
-                            <i class="bi bi-box-arrow-in-down me-1"></i>Record in stock
-                        </a>
-                        <a href="{{ route('ho.purchases.show', $po) }}" class="btn btn-sm btn-admin-outline">
-                            <i class="bi bi-eye me-1"></i>View
-                        </a>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="7">
-                        <div class="admin-empty py-4">
-                            <i class="bi bi-receipt d-block"></i>
-                            No dispatched purchase orders pending stock in
-                            <div class="small text-muted mt-1">Purchaser must submit product-wise dispatch first</div>
-                        </div>
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
-
 <form method="POST" action="{{ route('ho.stocks.stock-in.store') }}" enctype="multipart/form-data" id="manual-stock-in-form">
     @csrf
     <input type="hidden" name="manual" value="1">
@@ -564,7 +507,7 @@
                     <span class="small text-muted">Unit price is GST exclusive</span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0 purchase-create-table">
+                    <table class="table table-sm mb-0 purchase-create-table stock-in-lines">
                         <thead>
                             <tr>
                                 <th class="purchase-col-product">Product</th>
@@ -667,6 +610,15 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+                        <div>
+                            <label class="form-label small" for="manual_moved_at">Stock in date</label>
+                            <input type="date" name="moved_at" id="manual_moved_at"
+                                value="{{ old('moved_at', now()->toDateString()) }}"
+                                class="form-control form-control-sm @error('moved_at') is-invalid @enderror" required>
+                            @error('moved_at')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
                         <div class="purchase-gst-type-box rounded border bg-light px-3 py-2">
                             <input type="hidden" name="is_interstate" value="0">
                             <div class="form-check mb-0">
@@ -731,6 +683,74 @@
         'products' => $products,
     ])
 </template>
+
+<x-report-filters
+    :plants="$plants"
+    :show-dates="true"
+    search-placeholder="Product, SKU, plant, supplier..."
+    :clear-route="route('ho.stocks.stock-in')"
+/>
+
+@include('partials.stock-movement-list', [
+    'type' => 'in',
+    'movements' => $movements,
+    'purchaseReferences' => $purchaseReferences,
+])
+
+<div class="admin-card admin-table-card mb-4">
+    <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 class="h6 mb-0">Receive from purchase order</h2>
+        <span class="small text-muted">{{ $purchases->count() }} dispatched &amp; pending receive</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>PO Ref</th>
+                    <th>Plant</th>
+                    <th>Supplier</th>
+                    <th class="text-end">Items</th>
+                    <th class="text-end">Pending qty</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($purchases as $po)
+                @php
+                    $pendingQty = $po->items->sum(fn ($item) => max(0, (float) $item->quantity - (float) $item->received_quantity));
+                @endphp
+                <tr>
+                    <td><code class="small">{{ $po->reference_no }}</code></td>
+                    <td>{{ $po->plant->name }}</td>
+                    <td>{{ $po->supplier->name }}</td>
+                    <td class="text-end">{{ $po->items->count() }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($pendingQty, 2) }}</td>
+                    <td><x-status-badge :status="$po->status" /></td>
+                    <td class="text-end text-nowrap">
+                        <a href="{{ route('ho.stocks.stock-in', ['purchase_id' => $po->id]) }}" class="btn btn-sm btn-success me-1">
+                            <i class="bi bi-box-arrow-in-down me-1"></i>Record in stock
+                        </a>
+                        <a href="{{ route('ho.purchases.show', $po) }}" class="btn btn-sm btn-admin-outline">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="7">
+                        <div class="admin-empty py-4">
+                            <i class="bi bi-receipt d-block"></i>
+                            No dispatched purchase orders pending stock in
+                            <div class="small text-muted mt-1">Purchaser must submit product-wise dispatch first</div>
+                        </div>
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
 
 @push('scripts')
 <script>

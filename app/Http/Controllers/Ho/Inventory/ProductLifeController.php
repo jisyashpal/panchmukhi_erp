@@ -2,26 +2,24 @@
 
 namespace App\Http\Controllers\Ho\Inventory;
 
+use App\Enums\StockMovementType;
+use App\Enums\StockReferenceType;
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductUseEntry;
 use App\Models\Plant;
-use App\Models\SubCategory;
+use App\Models\StockMovement;
 use App\Models\Vehicle;
-use App\Services\StockService;
 use App\Support\FinancialYearResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ProductLifeController extends Controller
 {
-    public function __construct(
-        protected StockService $stockService
-    ) {}
 
     public function index(Request $request): View
     {
@@ -32,29 +30,34 @@ class ProductLifeController extends Controller
 
         app(FinancialYearResolver::class)->applyToQuery($query, 'used_at', $request);
 
+        $totals = (clone $query)->setEagerLoads([])->selectRaw(
+            'COALESCE(SUM(life_hours), 0) as total_life,
+             COALESCE(SUM(quantity), 0) as total_qty,
+             COALESCE(SUM(usage_count), 0) as usage_count'
+        )->first();
+
         $entries = $query->latest('used_at')
+            ->latest('id')
             ->paginate(20)
             ->withQueryString();
 
         return view('ho.inventory.product-life.index', [
             'entries'  => $entries,
+            'totals'   => $totals,
             'plants'   => Plant::orderBy('name')->get(),
             'products' => Product::with('category')->orderBy('name')->get(),
             'vehicles' => Vehicle::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
-    public function create(Request $request): View
+    public function create(): View
     {
-        $plantId = $request->integer('plant_id') ?: null;
+        $stockOuts = $this->availableStockOuts();
 
         return view('ho.inventory.product-life.create', [
-            'plants'        => Plant::orderBy('name')->get(),
-            'categories'    => Category::where('is_active', true)->orderBy('name')->get(),
-            'subCategories' => SubCategory::where('is_active', true)->orderBy('name')->get(),
-            'products'      => Product::with('category')->where('is_active', true)->orderBy('name')->get(),
-            'vehicles'      => Vehicle::where('is_active', true)->with('category')->orderBy('name')->get(),
-            'plantId'       => $plantId,
+            'stockOuts' => $stockOuts,
+            'plants' => $stockOuts->pluck('plant')->filter()->unique('id')->sortBy('name')->values(),
+            'vehicles' => $stockOuts->pluck('vehicle')->filter()->unique('id')->sortBy('name')->values(),
         ]);
     }
 
@@ -73,6 +76,7 @@ class ProductLifeController extends Controller
             ->where('sub_category_id', $subCategoryId)
             ->with(['product', 'subCategory', 'replacedProduct'])
             ->latest('used_at')
+            ->latest('id')
             ->first();
 
         if (! $entry) {
@@ -100,22 +104,12 @@ class ProductLifeController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'plant_id' => ['required', 'exists:plants,id'],
-            'vehicle_id' => ['required', 'exists:vehicles,id'],
-            'product_id' => ['required', 'exists:products,id'],
-            'category_id' => ['nullable', 'exists:categories,id'],
-            'sub_category_id' => ['required', 'exists:sub_categories,id'],
+            'stock_movement_id' => ['required', 'exists:stock_movements,id'],
             'meter_type' => ['required', 'in:hours,km'],
             'current_reading' => ['required', 'numeric', 'min:0'],
             'previous_reading' => ['nullable', 'numeric', 'min:0'],
-            'quantity' => ['nullable', 'numeric', 'min:0.01'],
-            'usage_count' => ['nullable', 'integer', 'min:1'],
-            'used_at' => ['required', 'date'],
             'notes' => ['nullable', 'string'],
         ]);
-
-        $data['quantity'] = filled($data['quantity'] ?? null) ? (float) $data['quantity'] : 1.0;
-        $data['usage_count'] = filled($data['usage_count'] ?? null) ? (int) $data['usage_count'] : 1;
 
         $previousReading = isset($data['previous_reading']) && $data['previous_reading'] !== ''
             ? (float) $data['previous_reading']
@@ -128,39 +122,91 @@ class ProductLifeController extends Controller
             ]);
         }
 
-        // Same vehicle + item type (e.g. tyre) → last fitted item becomes "replaced"
-        $lastEntry = ProductUseEntry::query()
-            ->where('vehicle_id', $data['vehicle_id'])
-            ->where('sub_category_id', $data['sub_category_id'])
-            ->latest('used_at')
-            ->first();
+        try {
+            DB::transaction(function () use ($data, $previousReading, $currentReading) {
+                $movement = StockMovement::query()
+                    ->with('product')
+                    ->whereKey($data['stock_movement_id'])
+                    ->lockForUpdate()
+                    ->first();
 
-        // How much the previous item was used since it was fitted
-        $lifeHours = $previousReading !== null
-            ? max(0, $currentReading - $previousReading)
-            : 0;
+                if (! $movement || $movement->type !== StockMovementType::Out || ! $movement->vehicle_id) {
+                    throw ValidationException::withMessages([
+                        'stock_movement_id' => 'Select a vehicle stock out that has already been recorded.',
+                    ]);
+                }
 
-        DB::transaction(function () use ($data, $previousReading, $currentReading, $lastEntry, $lifeHours) {
-            $entry = ProductUseEntry::create([
-                'plant_id' => $data['plant_id'],
-                'vehicle_id' => $data['vehicle_id'],
-                'product_id' => $data['product_id'],
-                'replaced_product_id' => $lastEntry?->product_id,
-                'sub_category_id' => $data['sub_category_id'],
-                'meter_type' => $data['meter_type'],
-                'current_reading' => $currentReading,
-                'previous_reading' => $previousReading,
-                'quantity' => $data['quantity'],
-                'life_hours' => $lifeHours,
-                'usage_count' => $data['usage_count'],
-                'used_at' => $data['used_at'],
-                'recorded_by' => auth()->id(),
-                'notes' => $data['notes'] ?? null,
-            ]);
+                if ($movement->reference_type === StockReferenceType::ProductUse && $movement->reference_id) {
+                    throw ValidationException::withMessages([
+                        'stock_movement_id' => 'Product life is already recorded for this stock out.',
+                    ]);
+                }
 
-            $this->stockService->recordProductUse($entry);
-        });
+                $subCategoryId = $movement->sub_category_id ?: $movement->product?->sub_category_id;
+                $usageCount = max(1, (int) round((float) $movement->quantity));
 
-        return redirect()->route('ho.product-life.index')->with('success', 'Product life entry recorded.');
+                $lastEntry = $subCategoryId
+                    ? ProductUseEntry::query()
+                        ->where('vehicle_id', $movement->vehicle_id)
+                        ->where('sub_category_id', $subCategoryId)
+                        ->latest('used_at')
+                        ->latest('id')
+                        ->first()
+                    : null;
+
+                $lifeHours = $previousReading !== null
+                    ? max(0, $currentReading - $previousReading)
+                    : 0;
+
+                $entry = ProductUseEntry::create([
+                    'plant_id' => $movement->plant_id,
+                    'vehicle_id' => $movement->vehicle_id,
+                    'product_id' => $movement->product_id,
+                    'replaced_product_id' => $lastEntry?->product_id,
+                    'sub_category_id' => $subCategoryId,
+                    'meter_type' => $data['meter_type'],
+                    'current_reading' => $currentReading,
+                    'previous_reading' => $previousReading,
+                    'quantity' => $movement->quantity,
+                    'life_hours' => $lifeHours,
+                    'usage_count' => $usageCount,
+                    'used_at' => $movement->moved_at,
+                    'recorded_by' => auth()->id(),
+                    'notes' => $data['notes'] ?? null,
+                ]);
+
+                $movement->update([
+                    'reference_type' => StockReferenceType::ProductUse,
+                    'reference_id' => $entry->id,
+                    'sub_category_id' => $movement->sub_category_id ?: $subCategoryId,
+                ]);
+            });
+        } catch (ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
+        }
+
+        return redirect()->route('ho.product-life.index')->with('success', 'Product life recorded against the selected stock out.');
+    }
+
+    private function availableStockOuts()
+    {
+        return StockMovement::query()
+            ->with([
+                'plant:id,name',
+                'vehicle:id,name,registration_no',
+                'product:id,name,sku,category_id,sub_category_id',
+                'product.category:id,name',
+                'product.subCategory:id,name,category_id',
+                'subCategory:id,name',
+            ])
+            ->where('type', StockMovementType::Out)
+            ->whereNotNull('vehicle_id')
+            ->where(function ($query) {
+                $query->where('reference_type', '!=', StockReferenceType::ProductUse->value)
+                    ->orWhereNull('reference_id');
+            })
+            ->latest('moved_at')
+            ->latest('id')
+            ->get();
     }
 }

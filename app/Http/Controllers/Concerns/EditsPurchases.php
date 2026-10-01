@@ -229,9 +229,18 @@ trait EditsPurchases
                     'gst_rate' => $itemCreate['gst_rate'],
                 ], $itemCreate['calc']));
             }
+
+            if ($itemsToCreate !== []) {
+                $purchase->syncStatusFromItems();
+            }
         });
 
+        $success = ($purchase->isQuotation() ? 'Quotation' : 'Purchase').' details updated successfully.';
+        if ($itemsToCreate !== [] && ! $purchase->isQuotation()) {
+            $success .= ' New items stay pending until they are dispatched and received. Items already in stock are unchanged.';
+        }
+
         return redirect()->route($this->purchasePortal().'.purchases.index')
-            ->with('success', ($purchase->isQuotation() ? 'Quotation' : 'Purchase').' details updated successfully.');
+            ->with('success', $success);
     }
 }

@@ -50,10 +50,14 @@ class DispatchController extends Controller
         $purchase->load(['items.product', 'items.alternativeProduct', 'items.originalProduct', 'supplier', 'plant', 'dispatcher']);
 
         $products = Product::where('is_active', true)->orderBy('name')->get();
-        $locked = $purchase->isDispatched() || $purchase->status === PurchaseStatus::Delivered
-            || $purchase->items->contains(fn (PurchaseItem $item) => (float) $item->received_quantity > 0);
+        $hasOpenLines = $purchase->items->contains(fn (PurchaseItem $item) => ! $item->isDispatchResolved());
+        $locked = ! $hasOpenLines && (
+            $purchase->isDispatched()
+            || $purchase->status === PurchaseStatus::Delivered
+            || $purchase->items->contains(fn (PurchaseItem $item) => (float) $item->received_quantity > 0)
+        );
 
-        return view('plant.request-po.dispatch.show', compact('purchase', 'products', 'locked'));
+        return view('plant.request-po.dispatch.show', compact('purchase', 'products', 'locked', 'hasOpenLines'));
     }
 
     public function dispatch(Request $request, Purchase $purchase): RedirectResponse
@@ -65,15 +69,19 @@ class DispatchController extends Controller
             return back()->with('error', 'Quotations cannot be dispatched. Create a PO first.');
         }
 
-        if ($purchase->status === PurchaseStatus::Delivered) {
-            return back()->with('error', 'Purchase already fully received.');
-        }
-
-        if ($purchase->items()->where('received_quantity', '>', 0)->exists()) {
-            return back()->with('error', 'Cannot change dispatch after stock in has started.');
-        }
-
         $purchase->load('items');
+        $openItems = $purchase->items->filter(fn (PurchaseItem $item) => ! $item->isDispatchResolved());
+
+        if ($openItems->isEmpty() && (
+            $purchase->status === PurchaseStatus::Delivered
+            || $purchase->isDispatched()
+            || $purchase->items->contains(fn (PurchaseItem $item) => (float) $item->received_quantity > 0)
+        )) {
+            return back()->with('error', 'Dispatch is already complete for this purchase.');
+        }
+
+        $supplement = $openItems->isNotEmpty()
+            && $purchase->items->contains(fn (PurchaseItem $item) => $item->isDispatchResolved());
 
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],
@@ -86,17 +94,25 @@ class DispatchController extends Controller
         ]);
 
         $submittedIds = collect($data['items'])->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $purchaseItemIds = $purchase->items->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $requiredIds = ($supplement ? $openItems : $purchase->items)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
-        if (count($submittedIds) !== count($purchaseItemIds)
-            || array_diff($purchaseItemIds, $submittedIds) !== []) {
-            return back()->with('error', 'Mark every product line before submitting.')->withInput();
+        if (array_diff($requiredIds, $submittedIds) !== []) {
+            return back()->with('error', $supplement
+                ? 'Mark every new product line before submitting.'
+                : 'Mark every product line before submitting.')->withInput();
         }
 
         foreach ($data['items'] as $row) {
             $item = $purchase->items->firstWhere('id', (int) $row['id']);
             if (! $item) {
                 return back()->with('error', 'Invalid purchase line.')->withInput();
+            }
+
+            if ($item->isDispatchResolved()) {
+                continue;
             }
 
             $status = PurchaseItemDispatchStatus::from($row['dispatch_status']);
@@ -132,6 +148,10 @@ class DispatchController extends Controller
             foreach ($data['items'] as $row) {
                 /** @var PurchaseItem $item */
                 $item = $purchase->items->firstWhere('id', (int) $row['id']);
+                if (! $item || $item->isDispatchResolved()) {
+                    continue;
+                }
+
                 $status = PurchaseItemDispatchStatus::from($row['dispatch_status']);
 
                 $payload = [
@@ -168,9 +188,11 @@ class DispatchController extends Controller
             }
 
             $purchase->update([
-                'dispatched_at' => $headerDispatchDate ? $headerDispatchDate.' 12:00:00' : now(),
-                'dispatched_by' => auth()->id(),
+                'dispatched_at' => $purchase->dispatched_at ?? ($headerDispatchDate ? $headerDispatchDate.' 12:00:00' : now()),
+                'dispatched_by' => $purchase->dispatched_by ?? auth()->id(),
             ]);
+
+            $purchase->syncStatusFromItems();
         });
 
         return redirect()

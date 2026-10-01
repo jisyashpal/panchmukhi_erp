@@ -6,7 +6,7 @@
             Showing {{ $paginator->firstItem() }}–{{ $paginator->lastItem() }} of {{ $paginator->total() }} {{ $label }}
         </p>
         @if($paginator->hasPages())
-            <div>{{ $paginator->withQueryString()->links() }}</div>
+            <div>{{ $paginator->withQueryString()->links('pagination.links-only') }}</div>
         @endif
     </div>
 @endif

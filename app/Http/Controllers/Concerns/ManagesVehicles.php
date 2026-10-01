@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Vehicle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 trait ManagesVehicles
@@ -42,6 +43,7 @@ trait ManagesVehicles
             'registration_no' => ['nullable', 'string', 'max:100'],
             'is_active' => ['boolean'],
         ]);
+        $this->assertUniqueVehicle($data);
 
         Vehicle::create($data);
 
@@ -65,6 +67,7 @@ trait ManagesVehicles
             'registration_no' => ['nullable', 'string', 'max:100'],
             'is_active' => ['boolean'],
         ]);
+        $this->assertUniqueVehicle($data, $vehicle->id);
 
         $vehicle->update($data);
 
@@ -88,5 +91,39 @@ trait ManagesVehicles
 
         return redirect()->route($this->catalogPortal().'.vehicles.index')
             ->with('success', 'Vehicle deleted.');
+    }
+
+    private function assertUniqueVehicle(array $data, ?int $ignoreId = null): void
+    {
+        $query = Vehicle::query()->when($ignoreId, fn ($vehicle) => $vehicle->whereKeyNot($ignoreId));
+        $registration = mb_strtolower(trim((string) ($data['registration_no'] ?? '')));
+
+        if ($registration !== '') {
+            $registrationTaken = (clone $query)
+                ->whereRaw('LOWER(TRIM(registration_no)) = ?', [$registration])
+                ->exists();
+
+            if ($registrationTaken) {
+                throw ValidationException::withMessages([
+                    'registration_no' => 'This registration number already exists.',
+                ]);
+            }
+
+            return;
+        }
+
+        $nameTaken = (clone $query)
+            ->where('category_id', $data['category_id'])
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($data['name']))])
+            ->where(function ($vehicle) {
+                $vehicle->whereNull('registration_no')->orWhereRaw("TRIM(registration_no) = ''");
+            })
+            ->exists();
+
+        if ($nameTaken) {
+            throw ValidationException::withMessages([
+                'name' => 'This vehicle already exists in the selected category.',
+            ]);
+        }
     }
 }
