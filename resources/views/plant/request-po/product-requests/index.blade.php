@@ -152,9 +152,10 @@
                                 <th>Size</th>
                                 <th class="text-end">Qty</th>
                                 <th>Unit</th>
-                                <th>Requested By</th>
+                                {{-- <th>Requested By</th> --}}
                                 <th>Priority</th>
                                 <th>Status</th>
+                                <th>Vech No / Mac No</th>
                                 <th>Date</th>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -388,9 +389,10 @@
                                         <td>{{ $item->size ?? '—' }}</td>
                                         <td class="text-end">{{ number_format((float) $item->quantity, 2) }}</td>
                                         <td>{{ $item->displayUnit() }}</td>
-                                        <td>{{ $pr->displayRequesterName() }}</td>
+                                        {{-- <td>{{ $pr->displayRequesterName() }}</td> --}}
                                         <td><x-status-badge :status="$item->priority" /></td>
                                         <td><x-status-badge :status="$workflow" /></td>
+                                        <td>{{ $item->remarks ?: '—' }}</td>
                                         <td>{{ $pr->created_at->format('d M Y') }}</td>
                                     @endif
                                     <td class="text-end">
