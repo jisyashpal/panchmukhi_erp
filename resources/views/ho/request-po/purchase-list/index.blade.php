@@ -45,6 +45,7 @@
                 <tr>
                     <th>Supplier</th>
                     <th class="text-end">Orders</th>
+                    <th class="text-end">B/F</th>
                     <th class="text-end">Total Amount</th>
                     <th class="text-end">Paid</th>
                     <th class="text-end">Balance</th>
@@ -56,6 +57,7 @@
                 <tr>
                     <td>{{ $row->supplier?->name ?? 'Unknown' }}</td>
                     <td class="text-end">{{ $row->order_count }}</td>
+                    <td class="text-end">₹{{ number_format($row->brought_forward, 2) }}</td>
                     <td class="text-end fw-semibold">₹{{ number_format($row->total_amount, 2) }}</td>
                     <td class="text-end">₹{{ number_format($row->paid_amount, 2) }}</td>
                     <td class="text-end fw-semibold">₹{{ number_format($row->balance, 2) }}</td>
@@ -71,7 +73,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6"><div class="admin-empty">No purchases for the selected financial year.</div></td></tr>
+                <tr><td colspan="7"><div class="admin-empty">No purchases for the selected financial year.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

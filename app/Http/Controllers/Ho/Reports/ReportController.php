@@ -151,11 +151,58 @@ class ReportController extends Controller
             return $this->exportUsageByCategory($filters);
         }
 
+        if ($request->query('export') === 'vehicle-expense') {
+            return $this->exportVehicleStockOutExpense($filters);
+        }
+
+        if ($request->query('export') === 'vehicle-products') {
+            return $this->exportVehicleStockOutProducts($filters);
+        }
+
         return view('ho.reports.usage-by-category', [
             ...$this->filterOptions(),
             'filters' => $filters,
             'rows' => $this->reports->productUsageByCategory($filters),
             'vehicleRows' => $this->reports->vehicleStockOutExpense($filters),
+        ]);
+    }
+
+    public function vehicleStockOutProducts(Request $request, string $vehicle): View|StreamedResponse
+    {
+        $filters = ReportFilters::fromRequest($request);
+        $unassigned = $vehicle === 'unassigned';
+
+        if (! $unassigned && ! ctype_digit($vehicle)) {
+            abort(404);
+        }
+
+        $vehicleModel = $unassigned ? null : Vehicle::query()->findOrFail((int) $vehicle);
+        $scoped = new ReportFilters(
+            plantId: $filters->plantId,
+            dateFrom: $filters->dateFrom,
+            dateTo: $filters->dateTo,
+            categoryId: $filters->categoryId,
+            productId: $filters->productId,
+            vehicleId: $vehicleModel?->id,
+            search: $filters->search,
+            financialYear: $filters->financialYear,
+        );
+        $rows = $this->reports->vehicleStockOutProducts($scoped, unassignedOnly: $unassigned);
+
+        if ($request->query('export') === 'excel') {
+            return $this->exportVehicleStockOutProducts($scoped, $unassigned);
+        }
+
+        $label = $vehicleModel
+            ? trim($vehicleModel->name.($vehicleModel->registration_no ? ' ('.$vehicleModel->registration_no.')' : ''))
+            : 'Other / Plant use';
+
+        return view('ho.reports.vehicle-stock-out-products', [
+            ...$this->filterOptions(),
+            'filters' => $filters,
+            'vehicleKey' => $unassigned ? 'unassigned' : $vehicleModel->id,
+            'vehicleLabel' => $label,
+            'rows' => $rows,
         ]);
     }
 
@@ -359,6 +406,59 @@ class ReportController extends Controller
         ]);
     }
 
+    private function exportVehicleStockOutExpense(ReportFilters $filters): StreamedResponse
+    {
+        $rows = $this->reports->vehicleStockOutExpense($filters);
+
+        return SpreadsheetDownload::csv('vehicle-stock-out-expense.csv', [
+            'Vehicle',
+            'Categories',
+            'Products',
+            'Usage Entries',
+            'Total Qty',
+            'Amount',
+        ], $rows->map(fn ($r) => [
+            $this->vehicleExpenseLabel($r),
+            $r->category_names,
+            $r->product_count,
+            $r->usage_count,
+            $r->total_qty,
+            $r->total_amount,
+        ]));
+    }
+
+    private function exportVehicleStockOutProducts(ReportFilters $filters, bool $unassignedOnly = false): StreamedResponse
+    {
+        $rows = $this->reports->vehicleStockOutProducts($filters, $unassignedOnly);
+
+        return SpreadsheetDownload::csv('vehicle-stock-out-products.csv', [
+            'Vehicle',
+            'Registration No',
+            'Product',
+            'Category',
+            'Usage Entries',
+            'Total Qty',
+            'Amount',
+        ], $rows->map(fn ($r) => [
+            $r->vehicle_id ? $r->vehicle_name : 'Other / Plant use',
+            $r->registration_no,
+            $r->product_name,
+            $r->category_name,
+            $r->usage_count,
+            $r->total_qty,
+            $r->total_amount,
+        ]));
+    }
+
+    private function vehicleExpenseLabel(object $row): string
+    {
+        if (! $row->vehicle_id) {
+            return 'Other / Plant use';
+        }
+
+        return trim($row->vehicle_name.($row->registration_no ? ' ('.$row->registration_no.')' : ''));
+    }
+
     private function exportPurchaseItems(ReportFilters $filters, bool $allTime = false): StreamedResponse
     {
         $items = $this->reports->purchaseItemRegister($filters, forExport: true, oldestFirst: $allTime);
@@ -428,12 +528,14 @@ class ReportController extends Controller
         return SpreadsheetDownload::csv('party-purchase-report.csv', [
             'Party (Supplier)',
             'Orders',
+            'B/F',
             'Amount',
             'Paid',
             'Balance',
         ], $rows->map(fn($r) => [
                         $r->supplier?->name ?? 'Unknown',
                         $r->order_count,
+                        $r->brought_forward,
                         $r->total_amount,
                         $r->paid_amount,
                         $r->balance,
@@ -448,15 +550,20 @@ class ReportController extends Controller
             'Date',
             'Type',
             'Reference',
-            'Particulars',
+            // 'Particulars',
             'Debit',
             'Credit',
             'Balance',
         ], $rows->map(fn ($row) => [
             $row->date?->format('d M Y') ?? '',
-            $row->type === 'payment' ? 'Payment' : 'Purchase',
+            match ($row->type) {
+                'payment' => 'Payment',
+                'opening' => 'Opening',
+                'balance_bf' => 'Balance B/F',
+                default => 'Purchase',
+            },
             $row->reference.($row->plant ? ' / '.$row->plant : ''),
-            $row->particulars,
+            // $row->particulars,
             $row->debit,
             $row->credit,
             $row->balance,

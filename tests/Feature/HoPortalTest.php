@@ -100,6 +100,64 @@ class HoPortalTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_ho_operator_can_edit_purchase(): void
+    {
+        $ho = $this->hoOperator();
+        $plant = Plant::factory()->create();
+        $supplier = Supplier::factory()->create();
+        $product = Product::factory()->create();
+
+        $purchase = Purchase::create([
+            'plant_id' => $plant->id,
+            'supplier_id' => $supplier->id,
+            'reference_no' => 'PO-HO-EDIT',
+            'ordered_at' => now(),
+            'subtotal' => 200,
+            'grand_total' => 200,
+            'status' => \App\Enums\PurchaseStatus::Ordered,
+            'created_by' => $ho->id,
+        ]);
+
+        $item = PurchaseItem::create([
+            'purchase_id' => $purchase->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 100,
+            'gst_rate' => 0,
+            'discount_percent' => 0,
+            'taxable_amount' => 200,
+            'line_total' => 200,
+        ]);
+
+        $this->actingAs($ho)
+            ->get(route('ho.purchases.index'))
+            ->assertOk()
+            ->assertSee(route('ho.purchases.edit', $purchase));
+
+        $this->actingAs($ho)
+            ->get(route('ho.purchases.edit', $purchase))
+            ->assertOk()
+            ->assertSee('name="items[0][quantity]"', false);
+
+        $this->actingAs($ho)
+            ->put(route('ho.purchases.update', $purchase), [
+                'supplier_id' => $supplier->id,
+                'items' => [
+                    [
+                        'id' => $item->id,
+                        'quantity' => 4,
+                        'unit_price' => 100,
+                        'discount_percent' => 0,
+                        'gst_rate' => 0,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('ho.purchases.index'));
+
+        $this->assertEquals(4, (float) $item->fresh()->quantity);
+        $this->assertEquals(400, (float) $purchase->fresh()->grand_total);
+    }
+
     public function test_ho_operator_can_view_purchases_list(): void
     {
         $ho = $this->hoOperator();

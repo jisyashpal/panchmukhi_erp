@@ -8,9 +8,11 @@ use App\Models\ProductUseEntry;
 use App\Models\Purchase;
 use App\Models\StockMovement;
 use App\Models\PurchaseItem;
+use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Support\ReportFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -478,6 +480,37 @@ class ReportService
             ->get();
     }
 
+    public function vehicleStockOutProducts(?ReportFilters $filters = null, bool $unassignedOnly = false): \Illuminate\Support\Collection
+    {
+        $filters ??= new ReportFilters;
+
+        return $this->stockOutUsageQuery($filters)
+            ->when($unassignedOnly, fn ($q) => $q->whereNull('stock_movements.vehicle_id'))
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'stock_movements.vehicle_id')
+            ->groupBy(
+                'stock_movements.vehicle_id',
+                'vehicles.name',
+                'vehicles.registration_no',
+                'stock_movements.product_id',
+                'products.name',
+                'categories.id',
+                'categories.name'
+            )
+            ->selectRaw(
+                'stock_movements.vehicle_id as vehicle_id,
+                 vehicles.name as vehicle_name,
+                 vehicles.registration_no as registration_no,
+                 stock_movements.product_id as product_id,
+                 products.name as product_name,
+                 categories.name as category_name,
+                 SUM(stock_movements.quantity) as total_qty,
+                 '.$this->stockOutAmountExpression().' as total_amount,
+                 COUNT(stock_movements.id) as usage_count'
+            )
+            ->orderByDesc('total_amount')
+            ->get();
+    }
+
     private function stockOutUsageQuery(ReportFilters $filters)
     {
         return StockMovement::query()
@@ -526,41 +559,113 @@ class ReportService
     {
         $filters ??= new ReportFilters;
 
-        $rows = Purchase::query()
+        $purchaseBase = Purchase::query()
             ->purchaseOrders()
-            ->with('supplier')
             ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
-            ->when($filters->dateFrom, fn ($q) => $q->whereDate('ordered_at', '>=', $filters->dateFrom))
-            ->when($filters->dateTo, fn ($q) => $q->whereDate('ordered_at', '<=', $filters->dateTo))
             ->when($filters->search, function ($q) use ($filters) {
                 $term = '%'.$filters->search.'%';
                 $q->whereHas('supplier', fn ($sq) => $sq->where('name', 'like', $term));
-            })
+            });
+
+        $periodPurchases = (clone $purchaseBase)
+            ->when($filters->dateFrom, fn ($q) => $q->whereDate('ordered_at', '>=', $filters->dateFrom))
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('ordered_at', '<=', $filters->dateTo))
             ->selectRaw('supplier_id, SUM(grand_total) as total_amount, COUNT(*) as order_count')
             ->groupBy('supplier_id')
-            ->orderByDesc('total_amount')
-            ->get();
+            ->get()
+            ->keyBy(fn ($row) => (int) $row->supplier_id);
 
-        if ($rows->isEmpty()) {
-            return $rows;
+        $priorPurchases = collect();
+        if ($filters->dateFrom) {
+            $priorPurchases = (clone $purchaseBase)
+                ->whereDate('ordered_at', '<', $filters->dateFrom)
+                ->selectRaw('supplier_id, SUM(grand_total) as total_amount')
+                ->groupBy('supplier_id')
+                ->pluck('total_amount', 'supplier_id')
+                ->mapWithKeys(fn ($amount, $id) => [(int) $id => (float) $amount]);
         }
 
-        $paidBySupplier = SupplierPayment::query()
-            ->whereIn('supplier_id', $rows->pluck('supplier_id'))
+        $paymentBase = SupplierPayment::query()
+            ->when($filters->search, function ($q) use ($filters) {
+                $term = '%'.$filters->search.'%';
+                $q->whereHas('supplier', fn ($sq) => $sq->where('name', 'like', $term));
+            });
+
+        $periodPayments = (clone $paymentBase)
             ->when($filters->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $filters->dateFrom))
             ->when($filters->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $filters->dateTo))
             ->selectRaw('supplier_id, SUM(amount) as paid_amount')
             ->groupBy('supplier_id')
-            ->pluck('paid_amount', 'supplier_id');
+            ->pluck('paid_amount', 'supplier_id')
+            ->mapWithKeys(fn ($amount, $id) => [(int) $id => (float) $amount]);
 
-        return $rows->map(function ($row) use ($paidBySupplier) {
-            $paid = (float) ($paidBySupplier[$row->supplier_id] ?? 0);
-            $total = (float) $row->total_amount;
-            $row->paid_amount = $paid;
-            $row->balance = $total - $paid;
+        $priorPayments = collect();
+        if ($filters->dateFrom) {
+            $priorPayments = (clone $paymentBase)
+                ->whereDate('payment_date', '<', $filters->dateFrom)
+                ->selectRaw('supplier_id, SUM(amount) as paid_amount')
+                ->groupBy('supplier_id')
+                ->pluck('paid_amount', 'supplier_id')
+                ->mapWithKeys(fn ($amount, $id) => [(int) $id => (float) $amount]);
+        }
 
-            return $row;
-        });
+        $openingSuppliers = Supplier::query()
+            ->whereNotNull('opening_balance_date')
+            ->where('opening_balance', '>', 0)
+            ->when($filters->dateTo, fn ($q) => $q->whereDate('opening_balance_date', '<=', $filters->dateTo))
+            ->when($filters->search, fn ($q) => $q->where('name', 'like', '%'.$filters->search.'%'))
+            ->get()
+            ->keyBy('id');
+
+        $ids = $periodPurchases->keys()->merge($priorPurchases->keys());
+
+        // Opening and payments are party-level. A plant filter limits the list to
+        // parties that have purchases at that plant, matching the previous report.
+        if (! $filters->plantId) {
+            $ids = $ids
+                ->merge($periodPayments->keys())
+                ->merge($priorPayments->keys())
+                ->merge($openingSuppliers->keys());
+        }
+
+        $ids = $ids->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $suppliers = Supplier::query()->whereIn('id', $ids)->get()->keyBy('id');
+
+        return $ids->map(function (int $id) use ($filters, $suppliers, $periodPurchases, $priorPurchases, $periodPayments, $priorPayments) {
+            $supplier = $suppliers->get($id);
+            $openingBf = 0.0;
+            $openingInPeriod = 0.0;
+
+            if ($supplier?->hasOpeningBalance()) {
+                $openingDate = $supplier->opening_balance_date->toDateString();
+                $onOrBeforeEnd = ! $filters->dateTo || $openingDate <= $filters->dateTo;
+
+                if ($onOrBeforeEnd && $filters->dateFrom && $openingDate < $filters->dateFrom) {
+                    $openingBf = $supplier->signedOpeningBalance();
+                } elseif ($onOrBeforeEnd && (! $filters->dateFrom || $openingDate >= $filters->dateFrom)) {
+                    $openingInPeriod = $supplier->signedOpeningBalance();
+                }
+            }
+
+            $broughtForward = round($openingBf + (float) ($priorPurchases[$id] ?? 0) - (float) ($priorPayments[$id] ?? 0), 2);
+            $total = round((float) ($periodPurchases[$id]->total_amount ?? 0), 2);
+            $paid = round((float) ($periodPayments[$id] ?? 0), 2);
+
+            return (object) [
+                'supplier_id' => $id,
+                'supplier' => $supplier,
+                'order_count' => (int) ($periodPurchases[$id]->order_count ?? 0),
+                'total_amount' => $total,
+                'paid_amount' => $paid,
+                'brought_forward' => $broughtForward,
+                'balance' => round($broughtForward + $total + $openingInPeriod - $paid, 2),
+            ];
+        })->sortByDesc('balance')->values();
     }
 
     public function supplierLedger(int $supplierId, ?ReportFilters $filters = null): \Illuminate\Support\Collection
@@ -630,18 +735,132 @@ class ReportService
             'notes' => $payment->notes,
         ]);
 
-        $entries = $purchases->concat($payments)
-            ->sortBy(fn ($row) => [$row->date?->timestamp ?? 0, $row->type === 'purchase' ? 0 : 1])
+        $supplier = Supplier::query()->find($supplierId);
+        $entries = $purchases->concat($payments);
+
+        if ($supplier && $this->openingFallsInPeriod($supplier, $filters)) {
+            $entries->push($this->openingLedgerRow($supplier));
+        }
+
+        $entries = $entries
+            ->sortBy(fn ($row) => [
+                $row->date?->timestamp ?? 0,
+                match ($row->type) {
+                    'opening' => 0,
+                    'purchase' => 1,
+                    default => 2,
+                },
+            ])
             ->values();
+
+        if ($supplier && $filters->dateFrom && ! $filters->search) {
+            $broughtForward = $this->supplierBroughtForward($supplier, $filters);
+            $priorOpening = $supplier->hasOpeningBalance()
+                && $supplier->opening_balance_date->toDateString() < $filters->dateFrom;
+
+            if (abs($broughtForward) >= 0.01 || $priorOpening) {
+                $entries->prepend($this->broughtForwardLedgerRow($filters->dateFrom, $broughtForward));
+            }
+        }
 
         $running = 0.0;
 
         return $entries->map(function ($row) use (&$running) {
-            $running += $row->debit - $row->credit;
+            $running = round($running + $row->debit - $row->credit, 2);
             $row->balance = $running;
 
             return $row;
         });
+    }
+
+    private function supplierBroughtForward(Supplier $supplier, ReportFilters $filters): float
+    {
+        $broughtForward = 0.0;
+
+        if ($supplier->hasOpeningBalance() && $supplier->opening_balance_date->toDateString() < $filters->dateFrom) {
+            $broughtForward += $supplier->signedOpeningBalance();
+        }
+
+        $priorPurchases = Purchase::query()
+            ->purchaseOrders()
+            ->where('supplier_id', $supplier->id)
+            ->whereDate('ordered_at', '<', $filters->dateFrom)
+            ->when($filters->plantId, fn ($q) => $q->where('plant_id', $filters->plantId))
+            ->sum('grand_total');
+
+        $priorPayments = SupplierPayment::query()
+            ->where('supplier_id', $supplier->id)
+            ->whereDate('payment_date', '<', $filters->dateFrom)
+            ->sum('amount');
+
+        return round($broughtForward + (float) $priorPurchases - (float) $priorPayments, 2);
+    }
+
+    private function openingFallsInPeriod(Supplier $supplier, ReportFilters $filters): bool
+    {
+        if (! $supplier->hasOpeningBalance()) {
+            return false;
+        }
+
+        $openingDate = $supplier->opening_balance_date->toDateString();
+
+        if ($filters->dateFrom && $openingDate < $filters->dateFrom) {
+            return false;
+        }
+
+        if ($filters->dateTo && $openingDate > $filters->dateTo) {
+            return false;
+        }
+
+        if ($filters->search) {
+            $term = mb_strtolower($filters->search);
+
+            return str_contains('opening balance', $term);
+        }
+
+        return true;
+    }
+
+    private function openingLedgerRow(Supplier $supplier): object
+    {
+        $signed = $supplier->signedOpeningBalance();
+
+        return (object) [
+            'type' => 'opening',
+            'date' => $supplier->opening_balance_date->copy()->startOfDay(),
+            'reference' => 'Opening',
+            'plant' => null,
+            'particulars' => 'Opening balance',
+            'items' => collect(),
+            'debit' => $signed > 0 ? $signed : 0.0,
+            'credit' => $signed < 0 ? abs($signed) : 0.0,
+            'subtotal' => 0.0,
+            'total_gst' => 0.0,
+            'status' => null,
+            'purchase' => null,
+            'payment' => null,
+            'notes' => null,
+        ];
+    }
+
+    private function broughtForwardLedgerRow(string $dateFrom, float $broughtForward): object
+    {
+        return (object) [
+            'type' => 'balance_bf',
+            'date' => Carbon::parse($dateFrom)->startOfDay(),
+            'reference' => 'B/F',
+            'plant' => null,
+            'particulars' => 'Balance B/F',
+            'items' => collect(),
+            'debit' => $broughtForward > 0 ? $broughtForward : 0.0,
+            'credit' => $broughtForward < 0 ? abs($broughtForward) : 0.0,
+            'subtotal' => 0.0,
+            'total_gst' => 0.0,
+            'status' => null,
+            'purchase' => null,
+            'payment' => null,
+            'notes' => null,
+        ];
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
+use App\Support\SupplierOpeningBalance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -36,9 +37,10 @@ class SupplierController extends Controller
             'gstin' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string'],
             'is_active' => ['boolean'],
-        ]);
+            ...SupplierOpeningBalance::rules(),
+        ], [], SupplierOpeningBalance::attributeNames());
 
-        Supplier::create($data);
+        Supplier::create(array_merge($data, SupplierOpeningBalance::attributes($data)));
 
         return redirect()->route('admin.suppliers.index')->with('success', 'Supplier created.');
     }
@@ -50,7 +52,7 @@ class SupplierController extends Controller
 
     public function update(Request $request, Supplier $supplier): RedirectResponse
     {
-        $data = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
@@ -58,7 +60,17 @@ class SupplierController extends Controller
             'gstin' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string'],
             'is_active' => ['boolean'],
-        ]);
+        ];
+
+        if ($supplier->opening_balance_date === null) {
+            $rules = [...$rules, ...SupplierOpeningBalance::rules()];
+        }
+
+        $data = $request->validate($rules, [], SupplierOpeningBalance::attributeNames());
+
+        if ($supplier->opening_balance_date === null) {
+            $data = array_merge($data, SupplierOpeningBalance::attributes($data));
+        }
 
         $supplier->update($data);
 

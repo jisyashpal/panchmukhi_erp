@@ -1806,4 +1806,99 @@ class PlantPortalTest extends TestCase
         $this->assertEquals(1000, (float) $purchase->subtotal);
         $this->assertEquals(1180, (float) $purchase->grand_total);
     }
+
+    public function test_purchaser_can_delete_a_pending_product_request_item(): void
+    {
+        $plant = Plant::factory()->create();
+        $inCharge = $this->plantInCharge($plant);
+        $purchaser = $this->purchaser();
+        $product = Product::factory()->create();
+
+        $productRequest = ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
+            'status' => RequestStatus::Submitted,
+        ]);
+
+        $imageName = 'pr-item-delete-'.uniqid().'.txt';
+        $imagePath = public_path('uploads/'.$imageName);
+        if (! is_dir(dirname($imagePath))) {
+            mkdir(dirname($imagePath), 0777, true);
+        }
+        file_put_contents($imagePath, 'item image');
+
+        $pending = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'image_path' => 'uploads/'.$imageName,
+        ]);
+        $kept = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+        $exported = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $productRequest->id,
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'exported_at' => now(),
+        ]);
+
+        $this->actingAs($purchaser)
+            ->get(route('plant.product-requests.index', ['status' => 'pending']))
+            ->assertOk()
+            ->assertSee(route('plant.product-requests.items.destroy', $pending), false);
+
+        $this->actingAs($inCharge)
+            ->get(route('plant.product-requests.index', ['status' => 'pending']))
+            ->assertOk()
+            ->assertDontSee(route('plant.product-requests.items.destroy', $pending), false);
+
+        $this->actingAs($inCharge)
+            ->delete(route('plant.product-requests.items.destroy', $pending))
+            ->assertForbidden();
+
+        $this->actingAs($purchaser)
+            ->from(route('plant.product-requests.index', ['status' => 'pending']))
+            ->delete(route('plant.product-requests.items.destroy', $exported))
+            ->assertRedirect(route('plant.product-requests.index', ['status' => 'pending']))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('product_request_items', ['id' => $exported->id]);
+
+        $this->actingAs($purchaser)
+            ->from(route('plant.product-requests.index', ['status' => 'pending']))
+            ->delete(route('plant.product-requests.items.destroy', $pending))
+            ->assertRedirect(route('plant.product-requests.index', ['status' => 'pending']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('product_request_items', ['id' => $pending->id]);
+        $this->assertDatabaseHas('product_requests', ['id' => $productRequest->id]);
+        $this->assertDatabaseHas('product_request_items', ['id' => $kept->id]);
+        $this->assertFileDoesNotExist($imagePath);
+
+        $onlyItemRequest = ProductRequest::create([
+            'plant_id' => $plant->id,
+            'requested_by' => $inCharge->id,
+            'requester_name' => $inCharge->name,
+            'status' => RequestStatus::Submitted,
+        ]);
+        $onlyItem = \App\Models\ProductRequestItem::create([
+            'product_request_id' => $onlyItemRequest->id,
+            'product_id' => $product->id,
+            'quantity' => 4,
+        ]);
+
+        $this->actingAs($purchaser)
+            ->from(route('plant.product-requests.index', ['status' => 'pending']))
+            ->delete(route('plant.product-requests.items.destroy', $onlyItem))
+            ->assertRedirect(route('plant.product-requests.index', ['status' => 'pending']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('product_request_items', ['id' => $onlyItem->id]);
+        $this->assertDatabaseMissing('product_requests', ['id' => $onlyItemRequest->id]);
+        $this->assertDatabaseHas('product_request_items', ['id' => $exported->id]);
+    }
 }

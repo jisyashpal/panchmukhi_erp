@@ -87,6 +87,7 @@ Route::middleware(['auth', 'plant_portal'])
         });
 
         Route::middleware('permission:'.PermissionSlug::PLANT_MANAGE_PURCHASE_REQUESTS)->group(function () {
+            Route::delete('product-requests/items/{product_request_item}', [ProductRequestController::class, 'destroyItem'])->name('product-requests.items.destroy');
             Route::get('product-requests/{product_request}/edit', [ProductRequestController::class, 'edit'])->name('product-requests.edit');
             Route::put('product-requests/{product_request}', [ProductRequestController::class, 'update'])->name('product-requests.update');
         });

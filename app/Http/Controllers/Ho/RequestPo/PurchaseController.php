@@ -65,21 +65,21 @@ class PurchaseController extends Controller
 
     public function edit(Purchase $purchase): View|RedirectResponse
     {
-        $this->authorizeSuperAdminPurchaseEdit();
+        $this->authorizePurchaseEdit();
 
         return $this->showPurchaseEditForm($purchase);
     }
 
     public function update(Request $request, Purchase $purchase): RedirectResponse
     {
-        $this->authorizeSuperAdminPurchaseEdit();
+        $this->authorizePurchaseEdit();
 
         return $this->savePurchaseEdit($request, $purchase);
     }
 
-    protected function authorizeSuperAdminPurchaseEdit(): void
+    protected function authorizePurchaseEdit(): void
     {
-        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+        abort_unless(auth()->user()?->canViewHoPurchases(), 403);
     }
 
     public function show(Purchase $purchase): View

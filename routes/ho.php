@@ -117,6 +117,7 @@ Route::middleware(['auth', 'permission:'.PermissionSlug::HO_ACCESS, 'share_porta
                 Route::get('reports/purchase-items', [ReportController::class, 'purchaseItems'])->name('reports.purchase-items');
                 Route::get('reports/multiple-usage', [ReportController::class, 'multipleUsage'])->name('reports.multiple-usage');
                 Route::get('reports/usage-by-category', [ReportController::class, 'usageByCategory'])->name('reports.usage-by-category');
+                Route::get('reports/usage-by-category/vehicles/{vehicle}', [ReportController::class, 'vehicleStockOutProducts'])->name('reports.usage-by-category.vehicle');
                 Route::get('reports/party-purchase', [ReportController::class, 'partyPurchase'])->name('reports.party-purchase');
                 Route::get('reports/party-ledger/{supplier}', [ReportController::class, 'partyLedger'])->name('reports.party-ledger');
                 Route::get('reports/category-stock-in-out', [ReportController::class, 'categoryStockInOut'])->name('reports.category-stock-in-out');

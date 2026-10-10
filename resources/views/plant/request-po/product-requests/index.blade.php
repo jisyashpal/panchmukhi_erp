@@ -460,6 +460,12 @@
                                                     <i class="bi bi-pencil me-1"></i>Edit
                                                 </a>
                                             @endif
+                                            @if($isPurchaser && $workflow === \App\Enums\ProductRequestItemWorkflowStatus::Pending)
+                                                <button type="submit" form="delete-pr-item-{{ $item->id }}"
+                                                    class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete">
+                                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -473,6 +479,19 @@
         </div>
         @if($isPurchaser)
             </form>
+        @endif
+
+        @if($isPurchaser && ! $isQuotationPoView)
+            @foreach($items as $deleteItem)
+                @if($deleteItem->workflowStatus() === \App\Enums\ProductRequestItemWorkflowStatus::Pending)
+                    <form id="delete-pr-item-{{ $deleteItem->id }}" method="POST"
+                        action="{{ route('plant.product-requests.items.destroy', $deleteItem) }}"
+                        class="d-none" onsubmit="return confirm(@js('Delete this product request item?'))">
+                        @csrf
+                        @method('DELETE')
+                    </form>
+                @endif
+            @endforeach
         @endif
 
         @if(in_array($activeStatus, ['add_quotation', 'create_po', 'dispatch']) && isset($groupedItems) && $isPurchaser)

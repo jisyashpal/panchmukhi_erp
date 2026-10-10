@@ -116,7 +116,7 @@
                             data-reference="{{ $p->reference_no }}">
                             <i class="bi bi-chat-left-text me-1"></i>Comment
                         </button>
-                        @if(auth()->user()?->isSuperAdmin())
+                        @if(auth()->user()?->canViewHoPurchases())
                             <a href="{{ route('ho.purchases.edit', $p) }}" class="btn btn-sm btn-outline-primary me-1">
                                 <i class="bi bi-pencil me-1"></i>Edit
                             </a>

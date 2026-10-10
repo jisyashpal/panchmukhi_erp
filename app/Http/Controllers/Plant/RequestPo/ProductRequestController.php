@@ -21,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -316,6 +317,28 @@ class ProductRequestController extends Controller
 
         return redirect()->route('plant.product-requests.show', $productRequest)
             ->with('success', 'Product request updated successfully.');
+    }
+
+    public function destroyItem(ProductRequestItem $productRequestItem): RedirectResponse
+    {
+        $productRequestItem->loadMissing('productRequest');
+        $productRequest = $productRequestItem->productRequest;
+        $this->authorizePlantAccess($productRequest);
+
+        if ($productRequestItem->workflowStatus() !== ProductRequestItemWorkflowStatus::Pending) {
+            return back()->with('error', 'Only pending product request items can be deleted.');
+        }
+
+        $this->deleteProductRequestItemImage($productRequestItem->image_path);
+
+        $productRequestId = $productRequest->id;
+        $productRequestItem->delete();
+
+        if (! ProductRequestItem::query()->where('product_request_id', $productRequestId)->exists()) {
+            $productRequest->delete();
+        }
+
+        return back()->with('success', 'Product request item deleted.');
     }
 
     public function exportForSupplier(Request $request, ProductRequest $productRequest): StreamedResponse|RedirectResponse
@@ -720,5 +743,17 @@ class ProductRequestController extends Controller
                 ->whereHas('purchaseRequestItem.purchaseRequest.purchases', $hasPurchaseOrder),
             default => null,
         };
+    }
+
+    private function deleteProductRequestItemImage(?string $path): void
+    {
+        if ($path === null || $path === '' || str_contains($path, '..') || ! str_starts_with($path, 'uploads/')) {
+            return;
+        }
+
+        $fullPath = public_path($path);
+        if (File::isFile($fullPath)) {
+            File::delete($fullPath);
+        }
     }
 }

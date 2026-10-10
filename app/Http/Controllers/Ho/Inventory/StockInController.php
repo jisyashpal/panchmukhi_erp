@@ -221,7 +221,7 @@ class StockInController extends Controller
                         'quantity' => $itemUpdate['quantity'],
                         'unit_price' => $itemUpdate['unit_price'],
                         'gst_rate' => $itemUpdate['gst_rate'],
-                    ], $itemUpdate['calc']));
+                    ], $itemUpdate['calc'], $purchase->dispatchedQuantityForEditedLine($itemUpdate['model'], (float) $itemUpdate['quantity'])));
                 } else {
                     PurchaseItem::create(array_merge([
                         'purchase_id' => $purchase->id,
@@ -230,7 +230,7 @@ class StockInController extends Controller
                         'unit_price' => $itemUpdate['unit_price'],
                         'gst_rate' => $itemUpdate['gst_rate'],
                         'received_quantity' => 0,
-                    ], $itemUpdate['calc']));
+                    ], $itemUpdate['calc'], $purchase->dispatchAttributesForAddedItem((float) $itemUpdate['quantity'])));
                 }
             }
 

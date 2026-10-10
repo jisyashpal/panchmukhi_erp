@@ -9,6 +9,11 @@
         @else
             <span class="badge bg-secondary">Intra-state · CGST+SGST</span>
         @endif
+        @if(auth()->user()?->canViewHoPurchases())
+            <a href="{{ route('ho.purchases.edit', $purchase) }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+        @endif
         <a href="{{ route('ho.purchases.index') }}" class="btn btn-admin-outline btn-sm">
             <i class="bi bi-arrow-left me-1"></i>All purchases
         </a>

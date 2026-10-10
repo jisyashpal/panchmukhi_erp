@@ -19,6 +19,7 @@
                 <tr>
                     <th>Supplier / Party</th>
                     <th class="text-end">Orders</th>
+                    <th class="text-end">B/F</th>
                     <th class="text-end">Amount</th>
                     <th class="text-end">Paid</th>
                     <th class="text-end">Balance</th>
@@ -39,6 +40,7 @@
                             @endif
                         </td>
                         <td class="text-end">{{ $r->order_count }}</td>
+                        <td class="text-end">₹{{ number_format($r->brought_forward, 2) }}</td>
                         <td class="text-end fw-semibold">₹{{ number_format($r->total_amount, 2) }}</td>
                         <td class="text-end">₹{{ number_format($r->paid_amount, 2) }}</td>
                         <td class="text-end fw-semibold">₹{{ number_format($r->balance, 2) }}</td>
@@ -49,7 +51,7 @@
                         </td>
                     </tr>
                 @empty
-                    @include('partials.table-empty', ['colspan' => 6, 'icon' => 'bi-building', 'message' => 'No purchase data found for the selected filters.'])
+                    @include('partials.table-empty', ['colspan' => 7, 'icon' => 'bi-building', 'message' => 'No purchase data found for the selected filters.'])
                 @endforelse
             </tbody>
         </table>

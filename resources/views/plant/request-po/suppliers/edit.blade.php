@@ -19,6 +19,7 @@
                 <x-admin-form-group label="Address" name="address" col="col-md-12">
                     <textarea name="address" id="address" class="form-control" rows="2">{{ old('address', $supplier->address) }}</textarea>
                 </x-admin-form-group>
+                <x-supplier-opening-balance-fields :supplier="$supplier" :editable="false" />
                 <div class="col-12">
                     <div class="form-check">
                         <input type="hidden" name="is_active" value="0">

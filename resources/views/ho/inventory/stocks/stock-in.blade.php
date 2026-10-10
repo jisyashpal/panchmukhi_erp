@@ -684,19 +684,6 @@
     ])
 </template>
 
-<x-report-filters
-    :plants="$plants"
-    :show-dates="true"
-    search-placeholder="Product, SKU, plant, supplier..."
-    :clear-route="route('ho.stocks.stock-in')"
-/>
-
-@include('partials.stock-movement-list', [
-    'type' => 'in',
-    'movements' => $movements,
-    'purchaseReferences' => $purchaseReferences,
-])
-
 <div class="admin-card admin-table-card mb-4">
     <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <h2 class="h6 mb-0">Receive from purchase order</h2>
@@ -751,6 +738,19 @@
         </table>
     </div>
 </div>
+
+<x-report-filters
+    :plants="$plants"
+    :show-dates="true"
+    search-placeholder="Product, SKU, plant, supplier..."
+    :clear-route="route('ho.stocks.stock-in')"
+/>
+
+@include('partials.stock-movement-list', [
+    'type' => 'in',
+    'movements' => $movements,
+    'purchaseReferences' => $purchaseReferences,
+])
 
 @push('scripts')
 <script>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Plant\RequestPo;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
+use App\Support\SupplierOpeningBalance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -31,9 +32,10 @@ class SupplierController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'gstin' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string'],
-        ]);
+            ...SupplierOpeningBalance::rules(),
+        ], [], SupplierOpeningBalance::attributeNames());
 
-        Supplier::create(array_merge($data, ['is_active' => true]));
+        Supplier::create(array_merge($data, SupplierOpeningBalance::attributes($data), ['is_active' => true]));
 
         return redirect()->route('plant.suppliers.index')->with('success', 'Supplier added.');
     }

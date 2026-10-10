@@ -8,7 +8,6 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseRequestItem;
 use App\Models\Supplier;
-use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -136,9 +135,36 @@ trait EditsPurchases
 
         $totals = $this->pricing->sumLines($lineCalcs);
 
-        DB::transaction(function () use ($purchase, $data, $isInterstate, $totals, $submittedIds, $itemsToUpdate, $itemsToCreate) {
-            $deletedItems = $purchase->items()->whereNotIn('id', $submittedIds)->get();
+        $deletedItems = $purchase->items()->with('product')->whereNotIn('id', $submittedIds)->get();
+        foreach ($deletedItems as $deletedItem) {
+            if ((float) $deletedItem->received_quantity > 0.0001) {
+                $name = $deletedItem->product?->name ?? 'this item';
 
+                return back()->with('error', $name.' is already in stock, so it cannot be removed. Stock and its movement stay as they are.')->withInput();
+            }
+        }
+
+        foreach ($itemsToUpdate as $itemUpdate) {
+            $line = $itemUpdate['model'];
+            $received = (float) $line->received_quantity;
+            if ($received <= 0.0001) {
+                continue;
+            }
+
+            $line->loadMissing('product');
+            $name = $line->product?->name ?? 'this item';
+            $newProductId = (int) ($itemUpdate['product_id'] ?: $line->product_id);
+
+            if ($newProductId !== (int) $line->product_id) {
+                return back()->with('error', $name.' is already in stock, so its product cannot be changed.')->withInput();
+            }
+
+            if ((float) $itemUpdate['quantity'] + 0.0001 < $received) {
+                return back()->with('error', 'Quantity for '.$name.' cannot be less than the '.$received.' already in stock.')->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($purchase, $data, $isInterstate, $totals, $deletedItems, $itemsToUpdate, $itemsToCreate) {
             foreach ($deletedItems as $deletedItem) {
                 if ($purchase->purchase_request_id) {
                     $purchaseRequestId = $purchase->purchase_request_id;
@@ -200,26 +226,26 @@ trait EditsPurchases
                 ], $itemUpdate['calc']);
 
                 $line = $itemUpdate['model'];
-                $oldProductId = (int) $line->product_id;
-                $newProductId = (int) ($itemUpdate['product_id'] ?: $oldProductId);
 
-                if ($newProductId !== $oldProductId && (float) $line->received_quantity > 0) {
-                    app(StockService::class)->reassignPurchaseLineProduct(
-                        $purchase,
-                        $oldProductId,
-                        $newProductId,
-                        (float) $line->received_quantity
-                    );
+                if (! empty($itemUpdate['product_id']) && (float) $line->received_quantity <= 0.0001) {
+                    $updateFields['product_id'] = $itemUpdate['product_id'];
                 }
 
-                if (! empty($itemUpdate['product_id'])) {
-                    $updateFields['product_id'] = $itemUpdate['product_id'];
+                if (! $purchase->isQuotation()) {
+                    $updateFields = array_merge(
+                        $updateFields,
+                        $purchase->dispatchedQuantityForEditedLine($line, (float) $itemUpdate['quantity'])
+                    );
                 }
 
                 $line->update($updateFields);
             }
 
             foreach ($itemsToCreate as $itemCreate) {
+                $inherited = $purchase->isQuotation()
+                    ? []
+                    : $purchase->dispatchAttributesForAddedItem((float) $itemCreate['quantity']);
+
                 PurchaseItem::create(array_merge([
                     'purchase_id' => $purchase->id,
                     'product_id' => $itemCreate['product_id'],
@@ -227,7 +253,7 @@ trait EditsPurchases
                     'unit_price' => $itemCreate['unit_price'],
                     'discount_percent' => $itemCreate['discount_percent'],
                     'gst_rate' => $itemCreate['gst_rate'],
-                ], $itemCreate['calc']));
+                ], $itemCreate['calc'], $inherited));
             }
 
             if ($itemsToCreate !== []) {
@@ -237,7 +263,9 @@ trait EditsPurchases
 
         $success = ($purchase->isQuotation() ? 'Quotation' : 'Purchase').' details updated successfully.';
         if ($itemsToCreate !== [] && ! $purchase->isQuotation()) {
-            $success .= ' New items stay pending until they are dispatched and received. Items already in stock are unchanged.';
+            $success .= $purchase->isDispatched()
+                ? ' The new item is added on this same PO with its existing dispatch date. Stock already received stays as it is.'
+                : ' The new item is added on this same PO.';
         }
 
         return redirect()->route($this->purchasePortal().'.purchases.index')

@@ -170,6 +170,59 @@ class Purchase extends Model
         return $this->dispatched_at !== null;
     }
 
+    /**
+     * Date already stored on this PO, so a newly added line stays on the same dispatch.
+     */
+    public function existingDispatchDate(): ?string
+    {
+        if ($this->dispatched_at) {
+            return $this->dispatched_at->toDateString();
+        }
+
+        $this->loadMissing('items');
+        $itemDate = $this->items->first(fn (PurchaseItem $item) => $item->dispatched_at)?->dispatched_at;
+
+        return $itemDate?->toDateString();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function dispatchAttributesForAddedItem(float $quantity): array
+    {
+        $date = $this->existingDispatchDate();
+        if ($date === null) {
+            return [];
+        }
+
+        return [
+            'dispatch_status' => PurchaseItemDispatchStatus::Dispatched,
+            'dispatched_at' => $date,
+            'dispatched_quantity' => $quantity,
+            'received_quantity' => 0,
+        ];
+    }
+
+    /**
+     * Keep an already dispatched line on the same dispatch when its ordered quantity changes.
+     *
+     * @return array<string, float>
+     */
+    public function dispatchedQuantityForEditedLine(PurchaseItem $line, float $quantity): array
+    {
+        if (! $line->dispatch_status?->isReceivable()) {
+            return [];
+        }
+
+        if ($quantity + 0.0001 < (float) $line->received_quantity) {
+            return [];
+        }
+
+        return [
+            'dispatched_quantity' => $quantity,
+        ];
+    }
+
     public function hasPendingReceipt(): bool
     {
         $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();

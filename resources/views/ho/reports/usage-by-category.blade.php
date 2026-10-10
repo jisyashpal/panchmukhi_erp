@@ -99,10 +99,18 @@
     </div>
 
     <div class="admin-card admin-table-card mt-4">
-        <div class="admin-card-header">
+        <div class="admin-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
                 <h2>Vehicle-wise stock out expense</h2>
-                <p class="small text-muted mb-0 mt-1">Amount uses the rate saved on stock out. If no rate was saved, the latest purchase rate is used.</p>
+                <p class="small text-muted mb-0 mt-1">View opens that vehicle's products on a separate page, with its own export. Amount uses the rate saved on stock out. If no rate was saved, the latest purchase rate is used.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'vehicle-expense']) }}" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Export vehicles
+                </a>
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'vehicle-products']) }}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Export products
+                </a>
             </div>
         </div>
         <div class="table-responsive">
@@ -116,31 +124,36 @@
                         <th class="text-end">Usage Entries</th>
                         <th class="text-end">Total Qty</th>
                         <th class="text-end">Amount (₹)</th>
+                        <th class="text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($vehicleRows as $i => $r)
+                        @php
+                            $vehicleLabel = $r->vehicle_id
+                                ? trim($r->vehicle_name.($r->registration_no ? ' ('.$r->registration_no.')' : ''))
+                                : 'Other / Plant use';
+                            $viewQuery = $filters->toQueryArray();
+                            unset($viewQuery['vehicle_id']);
+                        @endphp
                         <tr>
                             <td class="text-muted">{{ $i + 1 }}</td>
-                            <td class="fw-semibold">
-                                @if ($r->vehicle_id)
-                                    {{ $r->vehicle_name }}
-                                    @if ($r->registration_no)
-                                        <span class="text-muted fw-normal">({{ $r->registration_no }})</span>
-                                    @endif
-                                @else
-                                    Other / Plant use
-                                @endif
-                            </td>
+                            <td class="fw-semibold">{{ $vehicleLabel }}</td>
                             <td class="text-muted">{{ $r->category_names ?: '—' }}</td>
                             <td class="text-end">{{ number_format($r->product_count, 0) }}</td>
                             <td class="text-end">{{ number_format($r->usage_count, 0) }}</td>
                             <td class="text-end">{{ number_format($r->total_qty, 0) }}</td>
                             <td class="text-end fw-semibold text-success">₹{{ number_format($r->total_amount, 2) }}</td>
+                            <td class="text-end">
+                                <a href="{{ route('ho.reports.usage-by-category.vehicle', array_merge($viewQuery, ['vehicle' => $r->vehicle_id ?? 'unassigned'])) }}"
+                                    class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i>View
+                                </a>
+                            </td>
                         </tr>
                     @empty
                         @include('partials.table-empty', [
-                            'colspan' => 7,
+                            'colspan' => 8,
                             'icon' => 'bi-truck',
                             'message' => 'No vehicle stock-out expense found for the selected filters.',
                         ])
@@ -154,6 +167,7 @@
                             <td class="text-end">{{ number_format($vehicleRows->sum('usage_count'), 0) }}</td>
                             <td class="text-end">{{ number_format($vehicleRows->sum('total_qty'), 0) }}</td>
                             <td class="text-end text-success">₹{{ number_format($vehicleRows->sum('total_amount'), 2) }}</td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 @endif
